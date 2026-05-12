@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: vRoute TMS API
+  version: 1.0.0
+  description: API cho hệ thống quản lý vận tải đường bộ MERN Stack.
+servers:
+  - url: http://localhost:5000/api
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: API is healthy
+  /auth/login:
+    post:
+      summary: Login bằng email/password
+      responses:
+        "200":
+          description: JWT token và thông tin người dùng
+  /orders:
+    get:
+      summary: Danh sách Master Orders
+      security:
+        - bearerAuth: []
+    post:
+      summary: Tạo Master Order
+      security:
+        - bearerAuth: []
+  /orders/{id}/split:
+    post:
+      summary: Tách Master Order thành các Trips theo tải trọng xe
+      security:
+        - bearerAuth: []
+  /dispatch/trips/{id}/assign:
+    patch:
+      summary: Gán xe và tài xế cho chuyến
+      security:
+        - bearerAuth: []
+  /execution/trips/{id}/milestones:
+    patch:
+      summary: Cập nhật milestone thực thi chuyến
+      security:
+        - bearerAuth: []
+  /execution/trips/{id}/epod:
+    post:
+      summary: Upload ePOD gồm ảnh/chữ ký/ghi chú ngoại lệ
+      security:
+        - bearerAuth: []
+  /finance/invoices:
+    post:
+      summary: Tạo hóa đơn từ chuyến hoàn tất
+      security:
+        - bearerAuth: []
+  /finance/three-way-match/{invoiceId}:
+    post:
+      summary: Đối soát 3 bên giữa hợp đồng, thực tế chạy và hóa đơn
+      security:
+        - bearerAuth: []
+  /ai/chat:
+    post:
+      summary: Chatbot RAG hỗ trợ SOP và troubleshooting
+      security:
+        - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

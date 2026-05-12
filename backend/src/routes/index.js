@@ -1,0 +1,32 @@
+import { Router } from "express";
+import { authRouter } from "./authRoutes.js";
+import { demoRouter } from "./demoRoutes.js";
+import { masterDataRouter } from "./masterDataRoutes.js";
+import { organizationRouter } from "./organizationRoutes.js";
+import { orderRouter } from "./orderRoutes.js";
+import { reportRouter } from "./reportRoutes.js";
+import { roleGroupRouter } from "./roleGroupRoutes.js";
+import { routePlanRouter } from "./routePlanRoutes.js";
+import { userRouter } from "./userRoutes.js";
+import { driverRouter } from "./driverRoutes.js";
+
+export const apiRouter = Router();
+
+apiRouter.use("/auth", authRouter);
+apiRouter.use("/demo", demoRouter);
+apiRouter.use("/organizations", organizationRouter);
+apiRouter.use("/orders", orderRouter);
+apiRouter.use("/role-groups", roleGroupRouter);
+apiRouter.use("/users", userRouter);
+apiRouter.use("/master-data", masterDataRouter);
+apiRouter.use("/route-plans", routePlanRouter);
+apiRouter.use("/reports", reportRouter);
+apiRouter.use("/driver", driverRouter);
+
+apiRouter.get("/", (_req, res) => {
+  res.json({
+    name: "Road Freight TMS API",
+    version: "0.2.0",
+    sprint: "1 - Master Data + Order Lifecycle"
+  });
+});

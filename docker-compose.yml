@@ -1,0 +1,70 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: road-freight-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: road_freight
+
+  backend:
+    build:
+      context: ./backend
+    container_name: road-freight-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - optimizer
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGODB_URI: mongodb://mongo:27017/road_freight
+      JWT_SECRET: change-me-in-production
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:8080
+      UPLOAD_DIR: uploads
+      OPTIMIZER_SERVICE_URL: http://optimizer:8000
+      OPTIMIZER_TIMEOUT_MS: 60000
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  optimizer:
+    build:
+      context: ./optimizer-service
+    container_name: road-freight-optimizer
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  frontend-web:
+    build:
+      context: ./frontend-web
+    container_name: road-freight-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+  mongo-express:
+    image: mongo-express:1
+    container_name: road-freight-db-ui
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH: "false"
+    profiles:
+      - tools
+
+volumes:
+  mongo-data:

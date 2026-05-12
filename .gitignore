@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+dist/
+build/
+coverage/
+backend/uploads/*
+!backend/uploads/.gitkeep
+data/
+_legacy/
+.claude/
+.claude/

@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Road Freight Driver",
+    "slug": "road-freight-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Chụp ảnh bằng chứng giao hàng (ePOD).",
+        "NSLocationWhenInUseUsageDescription": "Hiển thị vị trí tài xế trên bản đồ lộ trình.",
+        "NSPhotoLibraryUsageDescription": "Lưu ảnh ePOD vào thư viện."
+      }
+    },
+    "android": {
+      "package": "com.roadfreight.driver",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    }
+  }
+}
