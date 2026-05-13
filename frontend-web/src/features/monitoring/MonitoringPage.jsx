@@ -1,237 +1,393 @@
-import { useEffect, useRef, useState } from "react";
-import { Badge, Button, Card, Col, Row, Space, Tag, Typography } from "antd";
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { CarOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
+import { Badge, Card, Col, Empty, Row, Space, Tag, Timeline, Typography } from "antd";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { tripApi } from "../../api/trip";
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
-/* ── Dữ liệu mẫu: 3 xe chạy tuyến thật ở Hà Nội ── */
-const MOCK_VEHICLES = [
-  {
-    id: "VH-001",
-    name: "29A-12345",
-    driver: "Nguyễn Văn An",
-    phone: "0912 345 678",
-    route: "RP-20250508-001",
-    color: "#1677ff",
-    // Tuyến: Mỹ Đình → Cầu Giấy → Hồ Tây → Hoàn Kiếm
-    waypoints: [
-      [21.0227, 105.7828], [21.0280, 105.7921], [21.0345, 105.8012],
-      [21.0389, 105.8089], [21.0412, 105.8156], [21.0445, 105.8198],
-      [21.0467, 105.8245], [21.0478, 105.8312], [21.0456, 105.8378],
-      [21.0423, 105.8423], [21.0389, 105.8467], [21.0367, 105.8512],
-    ],
-  },
-  {
-    id: "VH-002",
-    name: "30B-67890",
-    driver: "Trần Thị Bình",
-    phone: "0987 654 321",
-    route: "RP-20250508-001",
-    color: "#52c41a",
-    // Tuyến: Hà Đông → Thanh Xuân → Đống Đa → Hai Bà Trưng
-    waypoints: [
-      [20.9712, 105.7823], [20.9789, 105.7934], [20.9856, 105.8023],
-      [20.9923, 105.8112], [20.9978, 105.8198], [21.0034, 105.8267],
-      [21.0089, 105.8323], [21.0134, 105.8378], [21.0178, 105.8423],
-      [21.0212, 105.8456], [21.0245, 105.8489], [21.0278, 105.8512],
-    ],
-  },
-  {
-    id: "VH-003",
-    name: "51C-11223",
-    driver: "Lê Minh Cường",
-    phone: "0903 111 222",
-    route: "RP-20250508-002",
-    color: "#fa8c16",
-    // Tuyến: Long Biên → Hoàng Mai → Giáp Bát → Linh Đàm
-    waypoints: [
-      [21.0512, 105.8756], [21.0467, 105.8712], [21.0423, 105.8656],
-      [21.0378, 105.8601], [21.0334, 105.8556], [21.0289, 105.8512],
-      [21.0245, 105.8467], [21.0201, 105.8423], [21.0156, 105.8389],
-      [21.0112, 105.8356], [21.0067, 105.8323], [21.0023, 105.8289],
-    ],
-  },
-];
+const palette = ["#ef4444", "#1677ff", "#22c55e", "#f59e0b", "#8b5cf6", "#06b6d4"];
+const taskColor = {
+  DEPOT: "#111827",
+  PENDING: "#94a3b8",
+  EN_ROUTE: "#1677ff",
+  ARRIVED: "#f59e0b",
+  COMPLETED: "#16a34a",
+  FAILED: "#dc2626"
+};
 
-/* ── Icon xe theo màu ── */
-function makeIcon(color) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="36" height="36">
-    <circle cx="20" cy="20" r="18" fill="${color}" stroke="white" stroke-width="3"/>
-    <text x="20" y="26" text-anchor="middle" font-size="18" fill="white">🚛</text>
-  </svg>`;
+async function fetchRoadRoute(points) {
+  if (points.length < 2) return [];
+  const coords = points.map(([lat, lng]) => `${lng},${lat}`).join(";");
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.routes?.[0]?.geometry?.coordinates ?? []).map(([lng, lat]) => [lat, lng]);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRoadSegments(points) {
+  if (points.length < 2) return [];
+  const segments = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const fallback = [points[i], points[i + 1]];
+    const roadLine = await fetchRoadRoute(fallback);
+    segments.push(roadLine.length ? roadLine : fallback);
+  }
+  return segments;
+}
+
+function makeMarker(color, label, truck = false) {
+  const html = truck
+    ? `<div style="position:relative;width:38px;height:38px;border-radius:20px;background:${color};color:white;border:3px solid white;box-shadow:0 2px 10px rgba(15,23,42,.42);display:grid;place-items:center;font-size:18px">🚚<span style="position:absolute;right:-6px;top:-7px;background:#0f172a;color:#fff;border:2px solid #fff;border-radius:10px;min-width:18px;height:18px;display:grid;place-items:center;font-size:10px;font-weight:800">${label}</span></div>`
+    : `<div style="width:34px;height:34px;border-radius:18px;background:${color};color:white;border:3px solid white;box-shadow:0 2px 8px rgba(15,23,42,.35);display:grid;place-items:center;font-weight:800;font-size:13px">${label}</div>`;
   return L.divIcon({
-    html: svg,
     className: "",
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -20],
+    iconSize: truck ? [38, 38] : [34, 34],
+    iconAnchor: truck ? [19, 19] : [17, 17],
+    html
   });
 }
 
-const ICONS = Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, makeIcon(v.color)]));
+function positionsOf(trip) {
+  const stops = (trip.Tasks ?? [])
+    .filter((task) => Number.isFinite(Number(task.Latitude)) && Number.isFinite(Number(task.Longitude)))
+    .map((task) => [Number(task.Latitude), Number(task.Longitude)]);
+  if (Number.isFinite(Number(trip.DepotLatitude)) && Number.isFinite(Number(trip.DepotLongitude))) {
+    const depot = [Number(trip.DepotLatitude), Number(trip.DepotLongitude)];
+    return [depot, ...stops, depot];
+  }
+  return stops;
+}
 
-/* ── Tự fit bản đồ khi có dữ liệu ── */
-function FitBounds({ positions }) {
+function stopPositionsOf(trip) {
+  return (trip.Tasks ?? [])
+    .filter((task) => Number.isFinite(Number(task.Latitude)) && Number.isFinite(Number(task.Longitude)))
+    .map((task) => [Number(task.Latitude), Number(task.Longitude)]);
+}
+
+function FitBounds({ trips }) {
   const map = useMap();
   useEffect(() => {
-    if (positions.length > 0) map.fitBounds(positions, { padding: [40, 40] });
-  }, []);
+    const positions = trips.flatMap(positionsOf);
+    if (positions.length) map.fitBounds(positions, { padding: [35, 35], maxZoom: 12 });
+  }, [map, trips]);
   return null;
 }
 
-/* ── Component chính ── */
-export default function MonitoringPage() {
-  const [simulating, setSimulating] = useState(false);
-  // stepIdx[vehicleId] = index hiện tại trên waypoints
-  const [stepIdx, setStepIdx] = useState(
-    Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, 0]))
-  );
-  const [status, setStatus] = useState(
-    Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, "Chờ giao"]))
-  );
-  const [speed] = useState(
-    Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, Math.floor(30 + Math.random() * 30)]))
-  );
-  const intervalRef = useRef(null);
+function pct(trip) {
+  const tasks = trip.Tasks ?? [];
+  if (!tasks.length) return 0;
+  return Math.round((tasks.filter((task) => ["COMPLETED", "FAILED"].includes(task.Status)).length / tasks.length) * 100);
+}
 
-  useEffect(() => {
-    if (simulating) {
-      setStatus(Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, "Đang giao"])));
-      intervalRef.current = setInterval(() => {
-        setStepIdx((prev) => {
-          const next = { ...prev };
-          MOCK_VEHICLES.forEach((v) => {
-            const maxStep = v.waypoints.length - 1;
-            if (next[v.id] < maxStep) next[v.id] = next[v.id] + 1;
-          });
-          return next;
-        });
-      }, 1200);
-    } else {
-      clearInterval(intervalRef.current);
-    }
-    return () => clearInterval(intervalRef.current);
-  }, [simulating]);
+function statusTag(status) {
+  const label = {
+    ASSIGNED: "Đã phân công",
+    DRIVER_CONFIRMED: "Tài xế đã nhận",
+    LOADING: "Đang soạn hàng ở kho",
+    IN_PROGRESS: "Đang giao hàng",
+    RETURNING: "Đang về kho",
+    COMPLETED: "Đã về kho",
+    CANCELLED: "Đã hủy"
+  }[status] ?? status;
+  const color = status === "COMPLETED" ? "green" : status === "IN_PROGRESS" ? "blue" : status === "RETURNING" ? "purple" : status === "LOADING" ? "gold" : status === "CANCELLED" ? "red" : "default";
+  return <Tag color={color}>{label}</Tag>;
+}
 
-  // Khi tất cả xe đến cuối → tự dừng
-  useEffect(() => {
-    const allDone = MOCK_VEHICLES.every(
-      (v) => stepIdx[v.id] >= v.waypoints.length - 1
-    );
-    if (allDone && simulating) {
-      setSimulating(false);
-      setStatus(Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, "Đã giao xong"])));
-    }
-  }, [stepIdx, simulating]);
+function samePoint(a, b) {
+  return a && b && Math.abs(a[0] - b[0]) < 0.00001 && Math.abs(a[1] - b[1]) < 0.00001;
+}
 
-  function reset() {
-    setSimulating(false);
-    setStepIdx(Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, 0])));
-    setStatus(Object.fromEntries(MOCK_VEHICLES.map((v) => [v.id, "Chờ giao"])));
+function offsetPoint(point, index) {
+  if (!point) return point;
+  const angle = (index * 72) * Math.PI / 180;
+  const delta = 0.00028;
+  return [point[0] + Math.sin(angle) * delta, point[1] + Math.cos(angle) * delta];
+}
+
+function interpolatePoint(from, to, ratio) {
+  if (!from || !to) return from || to || null;
+  return [
+    from[0] + (to[0] - from[0]) * ratio,
+    from[1] + (to[1] - from[1]) * ratio
+  ];
+}
+
+function routePointAt(points, stopIndex, ratio) {
+  if (!points.length) return null;
+  const targetIndex = Math.min(Math.max(Number(stopIndex) || 1, 1), points.length - 1);
+  const from = points[targetIndex - 1] ?? points[0];
+  const to = points[targetIndex] ?? points[points.length - 1];
+  return interpolatePoint(from, to, ratio);
+}
+
+function inferredVehiclePosition(trip, points) {
+  if (trip.LastLatitude && trip.LastLongitude) {
+    return { position: [Number(trip.LastLatitude), Number(trip.LastLongitude)], source: "GPS thật" };
+  }
+  if (!points.length) return { position: null, source: "Chưa có tọa độ" };
+
+  const tasks = trip.Tasks ?? [];
+  if (["ASSIGNED", "DRIVER_CONFIRMED", "LOADING"].includes(trip.Status)) {
+    return { position: points[0], source: "Đang ở kho" };
+  }
+  if (trip.Status === "RETURNING") {
+    return { position: routePointAt(points, Math.max(tasks.length + 1, 1), 0.65), source: "Đang về kho" };
+  }
+  if (trip.Status === "COMPLETED") {
+    return { position: points[points.length - 1], source: "Đã về kho" };
   }
 
-  const allPositions = MOCK_VEHICLES.flatMap((v) => v.waypoints);
-  const center = [21.0245, 105.8412];
+  const active = tasks.find((task) => ["EN_ROUTE", "ARRIVED"].includes(task.Status));
+  if (active) {
+    return {
+      position: routePointAt(points, active.StopIndex, active.Status === "ARRIVED" ? 1 : 0.62),
+      source: active.Status === "ARRIVED" ? `Đã đến điểm ${active.StopIndex}` : `Đang tới điểm ${active.StopIndex}`
+    };
+  }
+
+  const closedCount = tasks.filter((task) => ["COMPLETED", "FAILED"].includes(task.Status)).length;
+  if (closedCount > 0) {
+    const nextStop = Math.min(closedCount + 1, tasks.length);
+    return { position: routePointAt(points, nextStop, 0.35), source: `Sau điểm ${closedCount}` };
+  }
+  return { position: routePointAt(points, 1, 0.18), source: "Đã xuất kho" };
+}
+
+export default function MonitoringPage() {
+  const tripsQ = useQuery({ queryKey: ["live-trips"], queryFn: () => tripApi.list(), refetchInterval: 5000 });
+  const trips = tripsQ.data?.data ?? [];
+  const [roadLines, setRoadLines] = useState({});
+  const [tripOrder, setTripOrder] = useState([]);
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [swapSourceId, setSwapSourceId] = useState(null);
+  const routeSignature = useMemo(() => trips.map((trip) => {
+    const points = positionsOf(trip).map((p) => p.join(",")).join("|");
+    return `${trip._id}:${points}`;
+  }).join(";"), [trips]);
+  const center = [21.0285, 105.8542];
+
+  useEffect(() => {
+    setTripOrder((prev) => {
+      const ids = trips.map((trip) => trip._id);
+      return [...prev.filter((id) => ids.includes(id)), ...ids.filter((id) => !prev.includes(id))];
+    });
+    if (!selectedTripId && trips[0]?._id) setSelectedTripId(trips[0]._id);
+    if (selectedTripId && trips.length && !trips.some((trip) => trip._id === selectedTripId)) setSelectedTripId(trips[0]._id);
+  }, [trips, selectedTripId]);
+
+  const orderedTrips = useMemo(() => {
+    const byId = new Map(trips.map((trip) => [trip._id, trip]));
+    return [
+      ...tripOrder.map((id) => byId.get(id)).filter(Boolean),
+      ...trips.filter((trip) => !tripOrder.includes(trip._id))
+    ];
+  }, [trips, tripOrder]);
+  const selectedTrip = orderedTrips.find((trip) => trip._id === selectedTripId) ?? orderedTrips[0];
+  const liveEntries = useMemo(() => orderedTrips.map((trip, idx) => {
+    const points = positionsOf(trip);
+    return {
+      idx,
+      tripId: trip._id,
+      ...inferredVehiclePosition(trip, points)
+    };
+  }), [orderedTrips]);
+
+  function handleTripCardClick(tripId) {
+    if (swapSourceId && swapSourceId !== tripId) {
+      setTripOrder((prev) => {
+        const next = [...prev];
+        const a = next.indexOf(swapSourceId);
+        const b = next.indexOf(tripId);
+        if (a !== -1 && b !== -1) [next[a], next[b]] = [next[b], next[a]];
+        return next;
+      });
+      setSwapSourceId(null);
+      setSelectedTripId(tripId);
+      return;
+    }
+    setSelectedTripId(tripId);
+    setSwapSourceId((current) => current === tripId ? null : tripId);
+  }
+
+  useEffect(() => {
+    if (!trips.length) {
+      setRoadLines({});
+      return undefined;
+    }
+    let alive = true;
+    (async () => {
+      const result = {};
+      await Promise.all(trips.map(async (trip) => {
+        const points = positionsOf(trip);
+        const segments = await fetchRoadSegments(points);
+        result[trip._id] = segments.length ? segments : (points.length ? [points] : []);
+      }));
+      if (alive) setRoadLines(result);
+    })();
+    return () => { alive = false; };
+  }, [routeSignature]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* ── Header ── */}
       <div className="page-header" style={{ marginBottom: 0 }}>
         <div>
-          <h2 className="title">Giám sát xe thời gian thực</h2>
-          <p className="subtitle">Mô phỏng 3 xe giao hàng trên bản đồ Hà Nội</p>
+          <h2 className="title">Live Dispatch</h2>
+          <p className="subtitle">Theo dõi tài xế, trạng thái điểm giao và vị trí GPS theo lộ trình đã chốt</p>
         </div>
-        <Space>
-          <Button onClick={reset} disabled={simulating}>Reset</Button>
-          <Button
-            type="primary"
-            danger={simulating}
-            onClick={() => setSimulating((s) => !s)}
-          >
-            {simulating ? "⏸ Dừng giả lập" : "▶ Bắt đầu giả lập"}
-          </Button>
-          <Badge
-            status={simulating ? "processing" : "default"}
-            text={simulating ? "Đang chạy..." : "Chờ"}
-          />
-        </Space>
+        <Badge status="processing" text="Tự cập nhật 5 giây" />
       </div>
 
-      {/* ── KPI strip ── */}
       <Row gutter={12}>
-        {MOCK_VEHICLES.map((v) => (
-          <Col key={v.id} xs={24} sm={8}>
-            <Card size="small" style={{ borderLeft: `4px solid ${v.color}` }}>
-              <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                <div>
-                  <Text strong>{v.name}</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>{v.driver}</Text>
+        <Col xs={24} lg={10}>
+          <Card title="Timeline tài xế" loading={tripsQ.isLoading} style={{ minHeight: "calc(100vh - 220px)" }}>
+            {!orderedTrips.length ? <Empty description="Chưa có chuyến đã khóa/chốt" /> : (
+              <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+                  {orderedTrips.map((trip, idx) => {
+                    const color = palette[idx % palette.length];
+                    const active = selectedTrip?._id === trip._id;
+                    const swapping = swapSourceId === trip._id;
+                    return (
+                      <button
+                        key={trip._id}
+                        type="button"
+                        onClick={() => handleTripCardClick(trip._id)}
+                        style={{
+                          textAlign: "left",
+                          border: `1px solid ${active ? color : "#dbe3ef"}`,
+                          borderLeft: `4px solid ${color}`,
+                          background: swapping ? "#fff7ed" : active ? "#f8fbff" : "#fff",
+                          borderRadius: 8,
+                          padding: 10,
+                          cursor: "pointer",
+                          boxShadow: active ? "0 4px 12px rgba(15,23,42,.12)" : "none"
+                        }}
+                        title="Bấm 1 xe, rồi bấm xe khác để đổi vị trí hiển thị"
+                      >
+                        <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                          <Text strong>{trip.VehicleCode}</Text>
+                          <Text type="secondary">{pct(trip)}%</Text>
+                        </Space>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{trip.DriverName || trip.ServiceName || "Chưa gán"}</Text>
+                        <br />
+                        {statusTag(trip.Status)}
+                      </button>
+                    );
+                  })}
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <Tag color={status[v.id] === "Đang giao" ? "blue" : status[v.id] === "Đã giao xong" ? "green" : "default"}>
-                    {status[v.id]}
-                  </Tag>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    {Math.round((stepIdx[v.id] / (v.waypoints.length - 1)) * 100)}% lộ trình
-                    · {speed[v.id]} km/h
-                  </Text>
-                </div>
+
+                {selectedTrip && (
+                  <Card size="small" style={{ borderLeft: `4px solid ${palette[Math.max(orderedTrips.findIndex((trip) => trip._id === selectedTrip._id), 0) % palette.length]}` }}>
+                    <Space style={{ width: "100%", justifyContent: "space-between" }} align="start">
+                      <div>
+                        <Text strong>{selectedTrip.VehicleCode}</Text>
+                        <br />
+                        <Text type="secondary">{selectedTrip.IsOutsourced ? selectedTrip.ServiceName || selectedTrip.ServiceCode : selectedTrip.DriverName || "Chưa gán tài xế"}</Text>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        {statusTag(selectedTrip.Status)}
+                        <br />
+                        <Text type="secondary">{pct(selectedTrip)}%</Text>
+                      </div>
+                    </Space>
+                    <Timeline style={{ marginTop: 14 }} items={[
+                      {
+                        color: selectedTrip.Status === "LOADING" ? "orange" : "gray",
+                        dot: <CarOutlined />,
+                        children: <Text strong>{selectedTrip.PlannedStartTime || "--:--"} · Xuất kho {selectedTrip.DepotName || selectedTrip.DepotCode || ""}</Text>
+                      },
+                      ...(selectedTrip.Tasks ?? []).map((task) => ({
+                        color: task.Status === "FAILED" ? "red" : task.Status === "COMPLETED" ? "green" : task.Status === "ARRIVED" ? "orange" : task.Status === "EN_ROUTE" ? "blue" : "gray",
+                        dot: task.Status === "COMPLETED" ? <CheckCircleOutlined /> : task.Status === "FAILED" ? <ExclamationCircleOutlined /> : <ClockCircleOutlined />,
+                        children: (
+                          <Space direction="vertical" size={0}>
+                            <Text strong>{task.PlannedArrivalTime || "--:--"} · {task.CustomerName}</Text>
+                            <Text type="secondary">{task.OrderCodes?.join(", ")}</Text>
+                          </Space>
+                        )
+                      })),
+                      {
+                        color: selectedTrip.Status === "RETURNING" || selectedTrip.Status === "COMPLETED" ? "purple" : "gray",
+                        dot: <CarOutlined />,
+                        children: <Text strong>{selectedTrip.PlannedReturnTime || "--:--"} · Về kho {selectedTrip.DepotName || selectedTrip.DepotCode || ""}</Text>
+                      }
+                    ]} />
+                  </Card>
+                )}
               </Space>
-            </Card>
-          </Col>
-        ))}
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} lg={14}>
+          <Card size="small" title="Live Map" styles={{ body: { padding: 0, height: "calc(100vh - 220px)", minHeight: 520 } }}>
+            <MapContainer center={center} zoom={11} style={{ height: "100%", width: "100%" }}>
+              <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <FitBounds trips={trips} />
+              {orderedTrips.map((trip, idx) => {
+                const color = palette[idx % palette.length];
+                const points = positionsOf(trip);
+                const stopPoints = stopPositionsOf(trip);
+                const lineSegments = roadLines[trip._id] ?? (points.length ? [points] : []);
+                const liveEntry = liveEntries.find((entry) => entry.tripId === trip._id);
+                const rawLivePos = liveEntry?.position;
+                const sameLiveEntries = liveEntries.filter((entry) => samePoint(entry.position, rawLivePos));
+                const overlapIndex = sameLiveEntries.findIndex((entry) => entry.tripId === trip._id);
+                const overlapsDepot = samePoint(rawLivePos, points[0]);
+                const livePos = sameLiveEntries.length > 1 || overlapsDepot ? offsetPoint(rawLivePos, overlapIndex + 1) : rawLivePos;
+                return (
+                  <Fragment key={trip._id}>
+                    {lineSegments.map((linePts, segmentIdx) => linePts.length > 1 && (
+                      <Fragment key={`${trip._id}-line-${segmentIdx}`}>
+                        <Polyline positions={linePts} color="#111827" weight={10} opacity={0.28} />
+                        <Polyline positions={linePts} color={color} weight={6} opacity={0.95} />
+                      </Fragment>
+                    ))}
+                    {points[0] && (
+                      <Marker position={points[0]} icon={makeMarker(taskColor.DEPOT, "Kho")}>
+                        <Popup>
+                          <Text strong>{trip.DepotName || trip.DepotCode || "Kho"}</Text><br />
+                          <Text>{trip.DepotAddress}</Text>
+                        </Popup>
+                      </Marker>
+                    )}
+                    {stopPoints.map((pos, pointIdx) => {
+                      const task = trip.Tasks[pointIdx];
+                      return (
+                        <Marker key={`${trip._id}-${task.StopIndex}`} position={pos} icon={makeMarker(taskColor[task.Status] ?? color, task.StopIndex)}>
+                          <Popup>
+                            <Text strong>{task.CustomerName}</Text><br />
+                            <Text>{task.Address}</Text><br />
+                            <Text type="secondary">{task.OrderCodes?.join(", ")}</Text><br />
+                            <Tag color={task.Status === "COMPLETED" ? "green" : task.Status === "FAILED" ? "red" : "blue"}>{task.Status}</Tag>
+                          </Popup>
+                        </Marker>
+                      );
+                    })}
+                    {livePos && (
+                      <Marker position={livePos} icon={makeMarker(color, `${idx + 1}`, true)} zIndexOffset={1000 + idx}>
+                        <Popup>
+                          <Text strong>{trip.VehicleCode}</Text><br />
+                          <Text>{trip.IsOutsourced ? trip.ServiceName || trip.ServiceCode : trip.DriverName}</Text><br />
+                          <Text type="secondary">{trip.LastGpsAt ? `GPS ${new Date(trip.LastGpsAt).toLocaleTimeString("vi-VN")}` : liveEntry?.source}</Text>
+                        </Popup>
+                      </Marker>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </MapContainer>
+          </Card>
+        </Col>
       </Row>
-
-      {/* ── Bản đồ ── */}
-      <Card size="small" styles={{ body: { padding: 0, height: "calc(100vh - 280px)", minHeight: 420 } }}>
-        <MapContainer center={center} zoom={12} style={{ height: "100%", width: "100%" }}>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <FitBounds positions={allPositions} />
-
-          {MOCK_VEHICLES.map((v) => {
-            const pos = v.waypoints[stepIdx[v.id]];
-            const traveled = v.waypoints.slice(0, stepIdx[v.id] + 1);
-            const remaining = v.waypoints.slice(stepIdx[v.id]);
-            return (
-              <span key={v.id}>
-                {/* Đường đã đi — đậm */}
-                {traveled.length > 1 && (
-                  <Polyline positions={traveled} color={v.color} weight={4} opacity={0.9} />
-                )}
-                {/* Đường còn lại — nhạt, nét đứt */}
-                {remaining.length > 1 && (
-                  <Polyline positions={remaining} color={v.color} weight={2} opacity={0.4} dashArray="6 6" />
-                )}
-                {/* Marker xe */}
-                <Marker position={pos} icon={ICONS[v.id]}>
-                  <Popup minWidth={180}>
-                    <strong style={{ color: v.color }}>{v.name}</strong><br />
-                    <Text>Tài xế: {v.driver}</Text><br />
-                    <Text type="secondary">{v.phone}</Text><br />
-                    <Text type="secondary">Chuyến: {v.route}</Text><br />
-                    <Tag color={status[v.id] === "Đang giao" ? "blue" : status[v.id] === "Đã giao xong" ? "green" : "default"} style={{ marginTop: 4 }}>
-                      {status[v.id]}
-                    </Tag>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      Vận tốc: {speed[v.id]} km/h<br />
-                      Tiến độ: {Math.round((stepIdx[v.id] / (v.waypoints.length - 1)) * 100)}%<br />
-                      Tọa độ: {pos[0].toFixed(4)}, {pos[1].toFixed(4)}
-                    </Text>
-                  </Popup>
-                </Marker>
-              </span>
-            );
-          })}
-        </MapContainer>
-      </Card>
     </div>
   );
 }

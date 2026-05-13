@@ -18,28 +18,28 @@ try {
 }
 
 const STATUS_COLOR = {
-  PENDING: "#faad14", IN_PROGRESS: "#1677ff",
+  PENDING: "#faad14", EN_ROUTE: "#1677ff", ARRIVED: "#faad14",
   COMPLETED: "#52c41a", FAILED: "#ff4d4f",
 };
 
-// ── Fallback UI khi không có react-native-maps ───────────────────────────
+// ── Fallback UI khi không có native map module ───────────────────────────
 function StopListFallback({ stops }) {
   return (
     <ScrollView style={styles.fallbackRoot} contentContainerStyle={{ padding: 16 }}>
       <View style={styles.warnBox}>
-        <Text style={styles.warnTitle}>⚠️ Bản đồ không khả dụng trong Expo Go</Text>
+        <Text style={styles.warnTitle}>Bản đồ nhúng chưa khả dụng</Text>
         <Text style={styles.warnText}>
-          Để xem bản đồ với react-native-maps, cần build custom dev client.
-          Hiện hiển thị danh sách điểm dừng dạng list.
+          Môi trường Expo hiện tại chưa nạp được native map module. Danh sách điểm dừng vẫn hiển thị trong app;
+          để xem bản đồ nhúng đầy đủ cần chạy Android emulator/dev build có react-native-maps.
         </Text>
       </View>
 
       {stops.map((s, i) => (
         <View key={i} style={styles.stopBox}>
-          <View style={[styles.dot, { backgroundColor: STATUS_COLOR[s.StopStatus ?? "PENDING"] }]} />
+          <View style={[styles.dot, { backgroundColor: STATUS_COLOR[s.Status ?? s.StopStatus ?? "PENDING"] }]} />
           <View style={{ flex: 1 }}>
             <Text style={styles.stopName}>
-              {i + 1}. {s.LocationName ?? s.Address ?? `Điểm ${i + 1}`}
+              {i + 1}. {s.CustomerName ?? s.Address ?? `Điểm ${i + 1}`}
             </Text>
             {s.Address && <Text style={styles.stopAddr}>{s.Address}</Text>}
             {s.Latitude && s.Longitude && (
@@ -60,7 +60,7 @@ export default function MapScreen({ route }) {
   const mapRef = useRef(null);
   const [locLoading, setLocLoading] = useState(true);
 
-  const stops = (trip.Stops ?? [])
+  const stops = (trip.Tasks ?? trip.Stops ?? [])
     .filter((s) => s.Latitude && s.Longitude)
     .sort((a, b) => a.StopIndex - b.StopIndex);
 
@@ -72,7 +72,11 @@ export default function MapScreen({ route }) {
     })();
   }, []);
 
-  // Không có react-native-maps → show fallback list
+  const depot = Number.isFinite(Number(trip.DepotLatitude)) && Number.isFinite(Number(trip.DepotLongitude))
+    ? { Latitude: Number(trip.DepotLatitude), Longitude: Number(trip.DepotLongitude), CustomerName: trip.DepotName || "Kho", Status: "DEPOT" }
+    : null;
+  const routePoints = depot ? [depot, ...stops, depot] : stops;
+
   if (!mapsAvailable) return <StopListFallback stops={stops} />;
 
   if (locLoading) {
@@ -92,8 +96,8 @@ export default function MapScreen({ route }) {
   }
 
   const getRegion = () => {
-    const lats = stops.map((s) => s.Latitude);
-    const lngs = stops.map((s) => s.Longitude);
+    const lats = routePoints.map((s) => s.Latitude);
+    const lngs = routePoints.map((s) => s.Longitude);
     const minLat = Math.min(...lats), maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
     return {
@@ -105,22 +109,22 @@ export default function MapScreen({ route }) {
   };
 
   const fitAll = () => mapRef.current?.animateToRegion(getRegion(), 600);
-  const polyline = stops.map((s) => ({ latitude: s.Latitude, longitude: s.Longitude }));
+  const polyline = routePoints.map((s) => ({ latitude: s.Latitude, longitude: s.Longitude }));
 
   return (
     <View style={{ flex: 1 }}>
       <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={getRegion()} showsUserLocation>
         <Polyline coordinates={polyline} strokeColor="#1677ff" strokeWidth={3} lineDashPattern={[6, 3]} />
-        {stops.map((stop, i) => (
+        {routePoints.map((stop, i) => (
           <Marker
             key={i}
             coordinate={{ latitude: stop.Latitude, longitude: stop.Longitude }}
-            pinColor={STATUS_COLOR[stop.StopStatus ?? "PENDING"]}
+            pinColor={stop.Status === "DEPOT" ? "#111827" : STATUS_COLOR[stop.Status ?? stop.StopStatus ?? "PENDING"]}
           >
             <Callout>
               <View style={styles.callout}>
                 <Text style={styles.calloutTitle}>
-                  {i + 1}. {stop.LocationName ?? stop.Address ?? `Điểm ${i + 1}`}
+                  {stop.Status === "DEPOT" ? "Kho" : `${stop.StopIndex ?? i}. ${stop.CustomerName ?? stop.Address ?? `Điểm ${i}`}`}
                 </Text>
                 <Text style={styles.calloutSub}>{stop.Address ?? ""}</Text>
               </View>

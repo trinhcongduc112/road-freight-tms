@@ -6,8 +6,13 @@ export const authApi = {
 };
 
 export const driverApi = {
-  getRoutes:    ()          => apiClient.get("/driver/routes"),
-  getRoute:     (id)        => apiClient.get(`/driver/routes/${id}`),
+  getRoutes:    ()          => apiClient.get("/driver/trips"),
+  getRoute:     (id)        => apiClient.get(`/driver/trips/${id}`),
+  confirmTrip:  (id)        => apiClient.post(`/driver/trips/${id}/confirm`),
+  startLoading: (id)        => apiClient.post(`/driver/trips/${id}/loading`),
+  startTrip:    (id)        => apiClient.post(`/driver/trips/${id}/start`),
+  returnTrip:   (id)        => apiClient.post(`/driver/trips/${id}/return`),
+  finishTrip:   (id)        => apiClient.post(`/driver/trips/${id}/finish`),
   updateStop:   (id, stopIndex, payload) =>
-    apiClient.post(`/driver/routes/${id}/stops/${stopIndex}/status`, payload),
+    apiClient.post(`/driver/trips/${id}/tasks/${stopIndex}/${payload.action ?? "complete"}`, payload),
 };

@@ -32,7 +32,8 @@ export const env = {
   smtpSecure: bool("SMTP_SECURE", false),
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
-  smtpFrom: process.env.SMTP_FROM ?? "Road Freight TMS <no-reply@road-freight.io>"
+  smtpFrom: process.env.SMTP_FROM ?? "Road Freight TMS <no-reply@road-freight.io>",
+  supportEmail: process.env.SUPPORT_EMAIL ?? process.env.SMTP_USER ?? "support@road-freight.io"
 };
 
 export const isProduction = env.nodeEnv === "production";

@@ -7,8 +7,10 @@ import { orderRouter } from "./orderRoutes.js";
 import { reportRouter } from "./reportRoutes.js";
 import { roleGroupRouter } from "./roleGroupRoutes.js";
 import { routePlanRouter } from "./routePlanRoutes.js";
+import { supportRouter } from "./supportRoutes.js";
 import { userRouter } from "./userRoutes.js";
 import { driverRouter } from "./driverRoutes.js";
+import { tripRouter } from "./tripRoutes.js";
 
 export const apiRouter = Router();
 
@@ -21,7 +23,9 @@ apiRouter.use("/users", userRouter);
 apiRouter.use("/master-data", masterDataRouter);
 apiRouter.use("/route-plans", routePlanRouter);
 apiRouter.use("/reports", reportRouter);
+apiRouter.use("/support", supportRouter);
 apiRouter.use("/driver", driverRouter);
+apiRouter.use("/trips", tripRouter);
 
 apiRouter.get("/", (_req, res) => {
   res.json({

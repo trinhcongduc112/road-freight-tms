@@ -8,14 +8,16 @@ import {
   FileTextOutlined,
   GlobalOutlined,
   LogoutOutlined,
+  QuestionCircleOutlined,
   RadarChartOutlined,
   TruckFilled,
   UserOutlined
 } from "@ant-design/icons";
 import { Avatar, Badge, Dropdown, Layout, Menu } from "antd";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { languages, useLanguage } from "../i18n.jsx";
+import SupportChatWidget from "../components/SupportChatWidget.jsx";
 import { useAuthStore } from "../store/authStore";
 import { Permissions, usePermissions } from "../utils/permissions";
 
@@ -27,6 +29,7 @@ export default function AppLayout() {
   const user      = useAuthStore((s) => s.user);
   const role      = useAuthStore((s) => s.role);
   const logout    = useAuthStore((s) => s.logout);
+  const [supportOpen, setSupportOpen] = useState(false);
   const { can, canAny, isSuper } = usePermissions();
   const { language, setLanguage, t } = useLanguage();
 
@@ -55,6 +58,7 @@ export default function AppLayout() {
     if (isSuper || canAny(Permissions.REPORT_VIEW, Permissions.REPORT_EXPORT)) {
       items.push({ key: "/reports", icon: <BarChartOutlined />, label: t("layout.nav.reports") });
     }
+    items.push({ key: "__support__", icon: <QuestionCircleOutlined />, label: "Hỏi đáp" });
 
     return items;
   }, [can, canAny, isSuper, t]);
@@ -144,7 +148,10 @@ export default function AppLayout() {
           mode="inline"
           selectedKeys={[selectedKey]}
           items={menuItems}
-          onClick={({ key }) => { if (key.startsWith("/")) navigate(key); }}
+          onClick={({ key }) => {
+            if (key === "__support__") setSupportOpen(true);
+            else if (key.startsWith("/")) navigate(key);
+          }}
         />
         <div className="sider-footer">
           <Dropdown menu={{ items: languageMenuItems, selectedKeys: [language] }} placement="top" trigger={["click"]}>
@@ -196,6 +203,7 @@ export default function AppLayout() {
           <Outlet />
         </Content>
       </Layout>
+      <SupportChatWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
     </Layout>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, KeyboardAvoidingView, Platform, Image,
@@ -10,8 +10,17 @@ export default function LoginScreen() {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd]   = useState(false);
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading]   = useState(false);
   const setSession = useAuthStore((s) => s.setSession);
+  const savedLogin = useAuthStore((s) => s.savedLogin);
+
+  useEffect(() => {
+    if (!savedLogin) return;
+    setEmail(savedLogin.email ?? "");
+    setPassword(savedLogin.password ?? "");
+    setRemember(true);
+  }, [savedLogin]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -22,7 +31,7 @@ export default function LoginScreen() {
     try {
       const res  = await authApi.login({ Email: email.trim(), Password: password });
       const data = res.data.data ?? res.data;
-      await setSession({ token: data.token, user: data.user });
+      await setSession({ token: data.token, user: data.user, remember, email: email.trim(), password });
     } catch (err) {
       const msg = err.response?.data?.message ?? err.message ?? "Lỗi không xác định";
       Alert.alert("Đăng nhập thất bại", msg);
@@ -71,6 +80,13 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
+        <TouchableOpacity style={styles.rememberRow} onPress={() => setRemember((v) => !v)} activeOpacity={0.8}>
+          <View style={[styles.checkbox, remember && styles.checkboxOn]}>
+            {remember && <Text style={styles.checkText}>✓</Text>}
+          </View>
+          <Text style={styles.rememberText}>Ghi nhớ đăng nhập</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={handleLogin}
@@ -97,6 +113,11 @@ const styles = StyleSheet.create({
   pwdInput:    { flex: 1, padding: 14, fontSize: 15, color: "#222" },
   eyeBtn:      { paddingHorizontal: 14, paddingVertical: 10 },
   eyeIcon:     { fontSize: 20 },
+  rememberRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  checkbox:    { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: "#b9c2d0", alignItems: "center", justifyContent: "center", marginRight: 8, backgroundColor: "#fff" },
+  checkboxOn:  { backgroundColor: "#1677ff", borderColor: "#1677ff" },
+  checkText:   { color: "#fff", fontSize: 15, fontWeight: "bold" },
+  rememberText:{ color: "#334155", fontSize: 14, fontWeight: "600" },
   btn:         { backgroundColor: "#1677ff", borderRadius: 10, padding: 16, alignItems: "center", marginTop: 6 },
   btnDisabled: { opacity: 0.6 },
   btnText:     { color: "#fff", fontSize: 16, fontWeight: "bold", letterSpacing: 1 },

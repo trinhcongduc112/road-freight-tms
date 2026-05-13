@@ -14,6 +14,7 @@ import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
 import { hasPermission, Modules, RoutePlanActions, p } from "../config/permissions.js";
 import { optimizeRoutes } from "../utils/routeOptimizer.js";
 import { callOptimizer, callBenchmark } from "../utils/optimizerClient.js";
+import { cancelTripForRouteId, ensureTripForRouteId } from "../services/tripService.js";
 
 function checkRoutePlanPermission(req, action) {
   if (req.user?.IsSuperAdmin) return;
@@ -608,6 +609,7 @@ export async function deleteRoutePlan(req, res) {
     const ids = collectOrderIDs(route);
     const fromStatus = route.Status === RouteStatus.LOCKED ? PlanningStatus.LOCKED : PlanningStatus.PLANNED;
     await bulkUpdateOrderPlanningStatus(ids, fromStatus, PlanningStatus.PENDING, req.user._id);
+    await cancelTripForRouteId(route._id);
   }
   await DeliveryRoute.deleteMany({ RoutePlanID: plan._id });
   await plan.deleteOne();
@@ -703,6 +705,7 @@ export async function removeRoute(req, res) {
   const ids = collectOrderIDs(route);
   const fromStatus = route.Status === RouteStatus.LOCKED ? PlanningStatus.LOCKED : PlanningStatus.PLANNED;
   await bulkUpdateOrderPlanningStatus(ids, fromStatus, PlanningStatus.PENDING, req.user._id);
+  await cancelTripForRouteId(route._id);
   await route.deleteOne();
   const remainingRoutes = await DeliveryRoute.find({ RoutePlanID: plan._id }).lean();
   if (!remainingRoutes.some((r) => r.Status === RouteStatus.LOCKED || r.Status === RouteStatus.FINALIZED)) {
@@ -844,6 +847,7 @@ export async function lockRoute(req, res) {
 
   const ids = collectOrderIDs(route);
   await bulkUpdateOrderPlanningStatus(ids, PlanningStatus.PLANNED, PlanningStatus.LOCKED, req.user._id);
+  await ensureTripForRouteId(route._id);
 
   if (plan.Status === RoutePlanStatus.DRAFT) {
     plan.Status = RoutePlanStatus.LOCKED;
@@ -868,6 +872,7 @@ export async function unlockRoute(req, res) {
 
   const ids = collectOrderIDs(route);
   await bulkUpdateOrderPlanningStatus(ids, PlanningStatus.LOCKED, PlanningStatus.PLANNED, req.user._id);
+  await cancelTripForRouteId(route._id);
   res.json({ success: true, data: route });
 }
 
@@ -887,6 +892,7 @@ export async function finalizeRoute(req, res) {
 
   const ids = collectOrderIDs(route);
   await bulkUpdateOrderPlanningStatus(ids, PlanningStatus.LOCKED, PlanningStatus.FINALIZED, req.user._id);
+  await ensureTripForRouteId(route._id);
 
   const allRoutes = await DeliveryRoute.find({ RoutePlanID: plan._id });
   const allFinalized = allRoutes.every((r) => r.Status === RouteStatus.FINALIZED);

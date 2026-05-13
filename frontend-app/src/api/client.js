@@ -4,7 +4,8 @@ import { useAuthStore } from "../store/authStore";
 
 // Thiết bị thật (Android/iOS) dùng IP LAN của máy tính
 // Android emulator dùng 10.0.2.2
-const BASE = "http://192.168.1.68:5000/api";
+const LAN_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.1.68:5000/api";
+const BASE = process.env.EXPO_PUBLIC_API_URL || (Platform.OS === "android" ? "http://10.0.2.2:5000/api" : LAN_BASE);
 
 export const apiClient = axios.create({ baseURL: BASE, timeout: 15000 });
 

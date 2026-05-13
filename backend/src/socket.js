@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { env } from "./config/env.js";
 import { User, UserStatus } from "./models/User.js";
+import { Driver } from "./models/Driver.js";
 import { GpsLog } from "./models/GpsLog.js";
 import { logger } from "./utils/logger.js";
 
@@ -51,9 +52,11 @@ export function initSocket(server, corsOptions) {
       const orgIds = socket.user.OrganizationIDs || [];
       
       try {
+        const driver = await Driver.findOne({ LinkedUserID: socket.user._id, Status: "Active" }).lean();
+        if (!driver) return;
         // Lưu lịch sử toạ độ vào Database (giống Abivin LocationHistories)
         await GpsLog.create({
-          DriverID: socket.user._id,
+          DriverID: driver._id,
           RouteID: data.routeId || null,
           OrganizationID: orgIds[0] || null,
           Latitude: data.lat,
@@ -68,7 +71,7 @@ export function initSocket(server, corsOptions) {
       // Broadcast to all admins/dispatchers in the same organization(s)
       orgIds.forEach(orgId => {
         io.to(`org_${orgId.toString()}`).emit("location_changed", {
-          driverId: socket.user._id,
+          driverId: driver._id,
           ...data,
           updatedAt: new Date()
         });

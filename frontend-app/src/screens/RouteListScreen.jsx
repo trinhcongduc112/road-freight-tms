@@ -9,11 +9,11 @@ import { useAuthStore } from "../store/authStore";
 import StatusBadge from "../components/StatusBadge";
 
 function RouteCard({ item, onPress }) {
-  const date = item.RoutePlanID?.Date
-    ? new Date(item.RoutePlanID.Date).toLocaleDateString("vi-VN")
+  const date = item.PlanDate
+    ? new Date(item.PlanDate).toLocaleDateString("vi-VN")
     : "—";
-  const stops     = item.Stops?.length ?? 0;
-  const completed = item.Stops?.filter((s) => s.StopStatus === "COMPLETED").length ?? 0;
+  const stops     = item.Tasks?.length ?? 0;
+  const completed = item.Tasks?.filter((s) => ["COMPLETED", "FAILED"].includes(s.Status)).length ?? 0;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
@@ -22,9 +22,10 @@ function RouteCard({ item, onPress }) {
         <StatusBadge status={item.Status} />
       </View>
       <Text style={styles.planCode}>
-        Kế hoạch: {item.RoutePlanID?.PlanCode ?? "—"}
+        Chuyến: {item.TripCode ?? "—"}
       </Text>
       <Text style={styles.meta}>📅 Ngày: {date}</Text>
+      <Text style={styles.meta}>👤 Tài xế: {item.DriverName || "—"}</Text>
       <Text style={styles.meta}>📍 Điểm dừng: {completed}/{stops} hoàn thành</Text>
       {item.TotalDistance > 0 && (
         <Text style={styles.meta}>🛣 Tổng quãng đường: {item.TotalDistance} km</Text>

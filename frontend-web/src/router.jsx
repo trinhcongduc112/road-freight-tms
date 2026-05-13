@@ -12,6 +12,7 @@ import MonitoringPage from "./features/monitoring/MonitoringPage";
 import OrdersPage from "./features/orders/OrdersPage";
 import PlanningPage from "./features/planning/PlanningPage";
 import ReportingPage from "./features/reporting/ReportingPage";
+import DriverAppPage from "./features/driver/DriverAppPage";
 import AppLayout from "./layouts/AppLayout";
 import RequireAuth from "./utils/RequireAuth";
 
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
   { path: "/reset-password", element: <ResetPasswordPage /> },
   { path: "/accept-invitation", element: <AcceptInvitationPage /> },
+  { path: "/driver", element: <RequireAuth><DriverAppPage /></RequireAuth> },
   {
     path: "/",
     element: (
