@@ -5,7 +5,10 @@ LOG_BE     := /tmp/tms-backend.log
 LOG_FE     := /tmp/tms-frontend.log
 LOG_MOBILE := /tmp/tms-mobile.log
 
-.PHONY: help start stop mongo backend web dev seed logs install clean db-ui db \
+LOG_SERVICES := backend frontend-web optimizer mongo
+
+.PHONY: help start stop mongo backend web dev seed logs logs-local logs-docker \
+        logs-backend logs-web logs-optimizer install clean db-ui db \
         mobile mobile-android mobile-ios mobile-stop mobile-bg logs-mobile
 
 help:
@@ -14,7 +17,12 @@ help:
 	@echo "  make start            — khởi động tất cả (MongoDB + backend + frontend)"
 	@echo "  make dev              — chạy ngầm, không tail log"
 	@echo "  make stop             — dừng backend + frontend"
-	@echo "  make logs             — xem log realtime"
+	@echo "  make logs             — xem log realtime của dự án"
+	@echo "  make logs-local       — xem log khi chạy bằng make dev/start"
+	@echo "  make logs-docker      — xem log khi chạy bằng docker compose"
+	@echo "  make logs-backend     — xem log backend"
+	@echo "  make logs-web         — xem log frontend web"
+	@echo "  make logs-optimizer   — xem log optimizer service"
 	@echo "  ── Mobile App (Tài xế) ─────────────────────────────────────────"
 	@echo "  make mobile           — Expo QR (Expo Go, mọi nền tảng)"
 	@echo "  make mobile-bg        — Expo chạy ngầm + ghi log ra file"
@@ -68,10 +76,62 @@ dev: mongo
 	echo ""
 
 logs:
-	@if [ ! -f $(LOG_BE) ] && [ ! -f $(LOG_FE) ]; then \
-		echo "Chưa có log — chạy 'make dev' trước"; \
+	@files=""; \
+	[ -f "$(LOG_BE)" ] && files="$$files $(LOG_BE)"; \
+	[ -f "$(LOG_FE)" ] && files="$$files $(LOG_FE)"; \
+	if [ -n "$$files" ] && lsof -ti:5000,5173 >/dev/null 2>&1; then \
+		echo "Đang xem log local:$$files"; \
+		tail -n 200 -f $$files; \
+	elif docker compose ps -q backend >/dev/null 2>&1; then \
+		echo "Đang xem log Docker Compose: $(LOG_SERVICES)"; \
+		docker compose logs -f --tail=200 $(LOG_SERVICES); \
+	elif [ -n "$$files" ]; then \
+		echo "Không thấy process local đang chạy, hiển thị log file gần nhất:$$files"; \
+		tail -n 200 -f $$files; \
 	else \
-		tail -f $(LOG_BE) $(LOG_FE); \
+		echo "Chưa có log. Dùng 'make dev' hoặc 'docker compose up -d' trước."; \
+	fi
+
+logs-local:
+	@files=""; \
+	[ -f "$(LOG_BE)" ] && files="$$files $(LOG_BE)"; \
+	[ -f "$(LOG_FE)" ] && files="$$files $(LOG_FE)"; \
+	if [ -z "$$files" ]; then \
+		echo "Chưa có log local — chạy 'make dev' trước"; \
+	else \
+		tail -n 200 -f $$files; \
+	fi
+
+logs-docker:
+	docker compose logs -f --tail=200 $(LOG_SERVICES)
+
+logs-backend:
+	@if [ -f "$(LOG_BE)" ] && lsof -ti:5000 >/dev/null 2>&1; then \
+		tail -n 200 -f "$(LOG_BE)"; \
+	elif docker compose ps -q backend >/dev/null 2>&1; then \
+		docker compose logs -f --tail=200 backend; \
+	elif [ -f "$(LOG_BE)" ]; then \
+		tail -n 200 -f "$(LOG_BE)"; \
+	else \
+		echo "Chưa có log backend — chạy 'make dev' hoặc 'docker compose up -d' trước"; \
+	fi
+
+logs-web:
+	@if [ -f "$(LOG_FE)" ] && lsof -ti:5173 >/dev/null 2>&1; then \
+		tail -n 200 -f "$(LOG_FE)"; \
+	elif docker compose ps -q frontend-web >/dev/null 2>&1; then \
+		docker compose logs -f --tail=200 frontend-web; \
+	elif [ -f "$(LOG_FE)" ]; then \
+		tail -n 200 -f "$(LOG_FE)"; \
+	else \
+		echo "Chưa có log frontend-web — chạy 'make dev' hoặc 'docker compose up -d' trước"; \
+	fi
+
+logs-optimizer:
+	@if docker compose ps -q optimizer >/dev/null 2>&1; then \
+		docker compose logs -f --tail=200 optimizer; \
+	else \
+		echo "Optimizer chỉ có log khi chạy docker compose. Dùng 'docker compose up -d optimizer' trước."; \
 	fi
 
 seed: mongo

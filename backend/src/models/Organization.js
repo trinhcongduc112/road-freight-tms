@@ -12,11 +12,8 @@ import mongoose from "mongoose";
  */
 export const OrgType = Object.freeze({
   MANUFACTURER: "MANUFACTURER",
-  DISTRIBUTOR: "DISTRIBUTOR",
   BRANCH: "BRANCH",
   DEPOT: "DEPOT",
-  SUN: "SUN",
-  CROSSDOCK: "CROSSDOCK",
   SHIPPER: "SHIPPER"
 });
 

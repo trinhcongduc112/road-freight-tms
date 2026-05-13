@@ -161,7 +161,8 @@ export async function getVehicle(req, res) {
 
 export async function createVehicle(req, res) {
   const { VehicleCode, XName, OrganizationID, LicensePlate, VehicleType: vtype,
-    MaxWeight, MaxVolume, MaxCases, FixedCost, CostPerKm, Status } = req.body ?? {};
+    MaxWeight, MaxVolume, MaxCases, FixedCost, CostPerKm, AvgSpeedKmh,
+    LoadingTime, UnloadingTimePerStop, Status } = req.body ?? {};
   if (!VehicleCode || !XName || !OrganizationID) throw new ApiError(400, "VehicleCode, XName, OrganizationID required");
   await resolveOrg(OrganizationID, req.orgScope);
   const code = VehicleCode.toUpperCase();
@@ -170,6 +171,9 @@ export async function createVehicle(req, res) {
     VehicleCode: code, XName, OrganizationID, LicensePlate: LicensePlate ?? "",
     VehicleType: vtype ?? "TRUCK", MaxWeight: MaxWeight ?? 0, MaxVolume: MaxVolume ?? 0,
     MaxCases: MaxCases ?? 0, FixedCost: FixedCost ?? 0, CostPerKm: CostPerKm ?? 0,
+    AvgSpeedKmh: AvgSpeedKmh ?? 40,
+    LoadingTime: LoadingTime ?? 30,
+    UnloadingTimePerStop: UnloadingTimePerStop ?? 15,
     Status: Status ?? "Active", CreatedBy: req.user._id
   });
   res.status(201).json({ success: true, data: doc });
@@ -179,7 +183,7 @@ export async function updateVehicle(req, res) {
   const doc = await Vehicle.findById(req.params.id);
   if (!doc) throw new ApiError(404, "Vehicle not found");
   assertOrgInScope(req.orgScope, doc.OrganizationID);
-  const fields = ["XName", "LicensePlate", "VehicleType", "MaxWeight", "MaxVolume", "MaxCases", "FixedCost", "CostPerKm", "Status"];
+  const fields = ["XName", "LicensePlate", "VehicleType", "MaxWeight", "MaxVolume", "MaxCases", "FixedCost", "CostPerKm", "AvgSpeedKmh", "LoadingTime", "UnloadingTimePerStop", "Status"];
   for (const f of fields) if (req.body?.[f] !== undefined) doc[f] = req.body[f];
   await doc.save();
   res.json({ success: true, data: doc });
@@ -430,6 +434,9 @@ export async function importVehicles(req, res) {
       MaxCases:  r.MaxCases  ? parseInt(r.MaxCases)    : 0,
       FixedCost: r.FixedCost ? parseFloat(r.FixedCost) : 0,
       CostPerKm: r.CostPerKm ? parseFloat(r.CostPerKm) : 0,
+      AvgSpeedKmh: r.AvgSpeedKmh ? parseFloat(r.AvgSpeedKmh) : 40,
+      LoadingTime: r.LoadingTime ? parseFloat(r.LoadingTime) : 30,
+      UnloadingTimePerStop: r.UnloadingTimePerStop ? parseFloat(r.UnloadingTimePerStop) : 15,
       Status: "Active"
     })
   });

@@ -39,15 +39,17 @@ import { useState } from "react";
 import { orderApi } from "../../api/order";
 import { organizationApi } from "../../api/organization";
 import { customerApi, productApi, productCategoryApi } from "../../api/masterData";
+import { useLanguage } from "../../i18n.jsx";
 import { Permissions, usePermissions } from "../../utils/permissions";
 
 const { Text } = Typography;
 
 function downloadExcelTemplate() {
   const wsData = [
-    ["OrderCode", "CustomerCode", "OrganizationID", "OrderDate", "ProductCode", "NumberOfCases"],
-    ["ORD-TEST-001", "CUST-01", "org-id-here", "2024-05-01", "SKU-01", 10],
-    ["ORD-TEST-002", "CUST-02", "org-id-here", "2024-05-02", "SKU-02", 5]
+    ["OrganizationCode", "OrderCode", "CustomerCode", "OrderDate", "TypeWay", "ProductCode", "NumberOfCases"],
+    ["DEMO-KHO-DN", "ORD-TEST-001", "DEMO-KH-01", "2026-05-13", "FIRST_WAY", "DEMO-P-BEV-001", 10],
+    ["DEMO-KHO-DN", "ORD-TEST-001", "DEMO-KH-01", "2026-05-13", "FIRST_WAY", "DEMO-P-BEV-002", 5],
+    ["DEMO-KHO-DN", "ORD-TEST-002", "DEMO-KH-02", "2026-05-13", "FIRST_WAY", "DEMO-P-FOD-001", 8]
   ];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   const wb = XLSX.utils.book_new();
@@ -75,9 +77,6 @@ const PLANNING_STATUS_COLOR = {
 const APPROVAL_STATUS_COLOR = {
   PENDING: "default", APPROVED: "green", REJECTED: "red"
 };
-const APPROVAL_STATUS_LABEL = {
-  PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Từ chối"
-};
 const ORDER_STATUS_OPTIONS = [
   { value: "OPEN", label: "OPEN" }, { value: "PICKED_PACKED", label: "PICKED_PACKED" },
   { value: "SHIPPED", label: "SHIPPED" }, { value: "DELIVERED", label: "DELIVERED" },
@@ -88,10 +87,24 @@ export default function OrdersPage() {
   const qc = useQueryClient();
   const { message } = App.useApp();
   const { can, isSuper } = usePermissions();
+  const { language, t } = useLanguage();
   const canManage = isSuper || can(Permissions.ORDER_MANAGE);
+  const locale = language === "vi" ? "vi-VN" : "en-US";
+  const approvalStatusLabel = {
+    PENDING: t("orders.status.pending"),
+    APPROVED: t("orders.status.approved"),
+    REJECTED: t("orders.status.rejected")
+  };
+  const approvalStatusOptions = [
+    { value: "PENDING", label: t("orders.status.pending") },
+    { value: "APPROVED", label: t("orders.status.approved") },
+    { value: "REJECTED", label: t("orders.status.rejected") }
+  ];
 
   const [statusFilter, setStatusFilter] = useState(undefined);
   const [approvalFilter, setApprovalFilter] = useState(undefined);
+  const [productFilter, setProductFilter] = useState("");
+  const [dateRange, setDateRange] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [createOpen, setCreateOpen] = useState(false);
@@ -104,11 +117,14 @@ export default function OrdersPage() {
   const [statusForm] = Form.useForm();
 
   const ordersQ = useQuery({
-    queryKey: ["orders", statusFilter, approvalFilter, page, pageSize],
+    queryKey: ["orders", statusFilter, approvalFilter, productFilter, dateRange?.[0]?.format("YYYY-MM-DD"), dateRange?.[1]?.format("YYYY-MM-DD"), page, pageSize],
     queryFn: () => {
       const params = { page, limit: pageSize };
       if (statusFilter) params.status = statusFilter;
       if (approvalFilter) params.approvalStatus = approvalFilter;
+      if (productFilter.trim()) params.product = productFilter.trim();
+      if (dateRange?.[0]) params.dateFrom = dateRange[0].format("YYYY-MM-DD");
+      if (dateRange?.[1]) params.dateTo = dateRange[1].format("YYYY-MM-DD");
       return orderApi.list(params);
     }
   });
@@ -125,6 +141,32 @@ export default function OrdersPage() {
   const categories = categoriesQ.data?.data ?? [];
   const productByCode = Object.fromEntries(products.map((p) => [p.ProductCode, p]));
   const categoryById = Object.fromEntries(categories.map((c) => [c._id, c]));
+
+  function setFilterValue(setter) {
+    return (value) => {
+      setter(value);
+      setPage(1);
+    };
+  }
+
+  function orderProductSummary(order) {
+    const items = order?.Items ?? [];
+    if (!items.length) return <Text type="secondary" style={{ fontSize: 12 }}>—</Text>;
+    return (
+      <Space direction="vertical" size={2} style={{ maxWidth: 360 }}>
+        {items.slice(0, 3).map((it) => {
+          const product = productByCode[it.ProductCode];
+          return (
+            <div key={`${order._id}-${it.ProductCode}`} style={{ lineHeight: 1.25 }}>
+              <Text style={{ fontSize: 12 }}>{product?.XName ?? it.ProductCode}</Text>
+              <Text type="secondary" style={{ fontSize: 11 }}> · {it.NumberOfCases ?? 0} {t("orders.unit.case")}</Text>
+            </div>
+          );
+        })}
+        {items.length > 3 && <Text type="secondary" style={{ fontSize: 11 }}>{t("orders.moreProducts", { count: items.length - 3 })}</Text>}
+      </Space>
+    );
+  }
 
   /* Compute total weight (kg) and volume (m³) of an order from its items */
   function orderWeight(order) {
@@ -144,26 +186,45 @@ export default function OrdersPage() {
 
   const createM = useMutation({
     mutationFn: orderApi.create,
-    onSuccess: () => { message.success("Đã tạo đơn hàng"); invalidate(); setCreateOpen(false); createForm.resetFields(); },
+    onSuccess: () => { message.success(t("orders.message.created")); invalidate(); setCreateOpen(false); createForm.resetFields(); },
     onError: (e) => message.error(e.message)
   });
 
   const changeStatusM = useMutation({
     mutationFn: orderApi.changeStatus,
-    onSuccess: () => { message.success("Đã cập nhật trạng thái"); invalidate(); setStatusModalOpen(false); },
+    onSuccess: () => { message.success(t("orders.message.statusUpdated")); invalidate(); setStatusModalOpen(false); },
     onError: (e) => message.error(e.message)
   });
 
   const approveM = useMutation({
     mutationFn: orderApi.approve,
-    onSuccess: () => { message.success("Đã cập nhật phê duyệt"); invalidate(); },
+    onSuccess: () => { message.success(t("orders.message.approvalUpdated")); invalidate(); },
     onError: (e) => message.error(e.message)
   });
 
   const uploadM = useMutation({
     mutationFn: (formData) => orderApi.upload(formData),
     onSuccess: (res) => {
-      message.success(`Import thành công ${res.data?.created ?? 0} đơn hàng`);
+      const result = res.data ?? {};
+      const createdCount = result.createdCount ?? 0;
+      const errorCount = result.errorCount ?? 0;
+      if (errorCount > 0) {
+        Modal.warning({
+          title: t("orders.modal.importTitle"),
+          content: (
+            <Space direction="vertical" size={4}>
+              <Text>Đã tạo {createdCount} đơn, lỗi {errorCount} dòng/đơn.</Text>
+              {(result.errors ?? []).slice(0, 8).map((err) => (
+                <Text key={`${err.row ?? err.orderCode}-${err.message}`} type="danger" style={{ fontSize: 12 }}>
+                  {err.orderCode ? `${err.orderCode}: ` : err.row ? `Dòng ${err.row}: ` : ""}{err.message}
+                </Text>
+              ))}
+            </Space>
+          )
+        });
+      } else {
+        message.success(t("orders.message.importSuccess", { count: createdCount }));
+      }
       invalidate();
       setUploadOpen(false);
       setFileList([]);
@@ -184,17 +245,25 @@ export default function OrdersPage() {
 
   function openStatusChange(order) {
     setTargetOrder(order);
-    statusForm.setFieldsValue({ OrderCode: order.OrderCode, Note: "" });
+    statusForm.setFieldsValue({
+      OrderCode: order.OrderCode,
+      ToStatus: order.OrderStatus,
+      Note: ""
+    });
     setStatusModalOpen(true);
   }
 
   async function onStatusOk() {
     const values = await statusForm.validateFields();
-    changeStatusM.mutate({ OrderCode: targetOrder.OrderCode, ToStatus: values.ToStatus, Note: values.Note });
+    changeStatusM.mutate({
+      OrderID: targetOrder._id,
+      ToStatus: values.ToStatus,
+      Note: values.Note
+    });
   }
 
   async function onUpload() {
-    if (!fileList.length) return message.warning("Chọn file trước");
+    if (!fileList.length) return message.warning(t("orders.message.chooseFile"));
     const formData = new FormData();
     formData.append("file", fileList[0].originFileObj);
     uploadM.mutate(formData);
@@ -202,41 +271,41 @@ export default function OrdersPage() {
 
   const columns = [
     {
-      title: "Mã đơn", dataIndex: "OrderCode", width: 150,
+      title: t("orders.col.orderCode"), dataIndex: "OrderCode", width: 150,
       render: (v) => <Tag color="blue">{v}</Tag>
     },
     {
-      title: "Khách hàng", dataIndex: "CustomerCode", width: 130,
+      title: t("orders.col.customer"), dataIndex: "CustomerCode", width: 130,
       render: (v) => <Text code>{v}</Text>
     },
     {
-      title: "Ngày đặt", dataIndex: "OrderDate", width: 105,
+      title: t("orders.col.products"), key: "products", width: 360,
+      render: (_, rec) => orderProductSummary(rec)
+    },
+    {
+      title: t("orders.col.orderDate"), dataIndex: "OrderDate", width: 105,
       render: (v) => dayjs(v).format("DD/MM/YYYY")
     },
     {
-      title: "Trạng thái", dataIndex: "OrderStatus", width: 130,
+      title: t("orders.col.status"), dataIndex: "OrderStatus", width: 130,
       render: (v) => <Badge color={ORDER_STATUS_COLOR[v] ?? "default"} text={v} />
     },
     {
-      title: "Kế hoạch", dataIndex: "PlanningStatus", width: 105,
+      title: t("orders.col.planning"), dataIndex: "PlanningStatus", width: 105,
       render: (v) => <Tag color={PLANNING_STATUS_COLOR[v] ?? "default"} style={{ fontSize: 11 }}>{v}</Tag>
     },
     {
-      title: "Phê duyệt", dataIndex: "ApprovalStatus", width: 120,
+      title: t("orders.col.approval"), dataIndex: "ApprovalStatus", width: 120,
       render: (v) => (
         <Tag color={APPROVAL_STATUS_COLOR[v] ?? "default"} style={{ fontSize: 11 }}>
-          {APPROVAL_STATUS_LABEL[v] ?? v}
+          {approvalStatusLabel[v] ?? v}
         </Tag>
       ),
-      filters: [
-        { text: "Chờ duyệt", value: "PENDING" },
-        { text: "Đã duyệt", value: "APPROVED" },
-        { text: "Từ chối", value: "REJECTED" }
-      ],
+      filters: approvalStatusOptions.map((item) => ({ text: item.label, value: item.value })),
       onFilter: (val, rec) => rec.ApprovalStatus === val
     },
     {
-      title: "Hạng mục", key: "categories", width: 150,
+      title: t("orders.col.category"), key: "categories", width: 150,
       render: (_, rec) => {
         const cats = new Set();
         (rec.Items ?? []).forEach((it) => {
@@ -251,46 +320,42 @@ export default function OrdersPage() {
       }
     },
     {
-      title: "Khối lượng", key: "weight", width: 110, align: "right",
+      title: t("orders.col.weight"), key: "weight", width: 110, align: "right",
       render: (_, rec) => {
         const kg = orderWeight(rec);
         const m3 = orderVolume(rec);
         return (
           <div style={{ lineHeight: 1.3 }}>
-            <Text strong style={{ fontSize: 12 }}>{kg.toLocaleString("vi-VN")} kg</Text>
+            <Text strong style={{ fontSize: 12 }}>{kg.toLocaleString(locale)} kg</Text>
             <div style={{ fontSize: 10, color: "#888" }}>{m3.toFixed(3)} m³</div>
           </div>
         );
       }
     },
     {
-      title: "Tổng tiền", dataIndex: "TotalPrice", width: 120, align: "right",
-      render: (v) => <Text strong>{(v ?? 0).toLocaleString("vi-VN")} ₫</Text>
+      title: t("orders.col.total"), dataIndex: "TotalPrice", width: 120, align: "right",
+      render: (v) => <Text strong>{(v ?? 0).toLocaleString(locale)} ₫</Text>
     },
     {
-      title: "Nguồn", dataIndex: "Source", width: 80,
-      render: (v) => <Tag style={{ fontSize: 11 }}>{v}</Tag>
-    },
-    {
-      title: "Thao tác", width: 160, align: "right",
+      title: t("orders.col.actions"), width: 160, align: "right",
       render: (_, record) => (
         <Space size={4}>
-          <Tooltip title="Chi tiết">
+          <Tooltip title={t("orders.action.detail")}>
             <Button size="small" icon={<InfoCircleOutlined />} onClick={() => setDetailOrder(record)} />
           </Tooltip>
           {canManage && record.ApprovalStatus === "PENDING" && (
             <>
-              <Tooltip title="Phê duyệt">
+              <Tooltip title={t("orders.action.approve")}>
                 <Popconfirm
-                  title="Phê duyệt đơn hàng này?"
+                  title={t("orders.confirm.approveOrder")}
                   onConfirm={() => approveM.mutate({ OrderID: record._id, ToApprovalStatus: "APPROVED" })}
                 >
                   <Button size="small" icon={<CheckCircleOutlined />} style={{ color: "#52c41a", borderColor: "#52c41a" }} />
                 </Popconfirm>
               </Tooltip>
-              <Tooltip title="Từ chối">
+              <Tooltip title={t("orders.action.reject")}>
                 <Popconfirm
-                  title="Từ chối đơn hàng này?"
+                  title={t("orders.confirm.rejectOrder")}
                   onConfirm={() => approveM.mutate({ OrderID: record._id, ToApprovalStatus: "REJECTED" })}
                 >
                   <Button size="small" danger icon={<CloseCircleOutlined />} />
@@ -299,7 +364,7 @@ export default function OrdersPage() {
             </>
           )}
           {canManage && (
-            <Tooltip title="Đổi trạng thái">
+            <Tooltip title={t("orders.action.changeStatus")}>
               <Button size="small" icon={<SwapOutlined />} onClick={() => openStatusChange(record)} />
             </Tooltip>
           )}
@@ -312,33 +377,32 @@ export default function OrdersPage() {
     <>
       <div className="page-header">
         <div>
-          <h2 className="title">Đơn hàng</h2>
-          <p className="subtitle">Quản lý Sales Order — tạo, phê duyệt, theo dõi trạng thái</p>
+          <h2 className="title">{t("orders.title")}</h2>
+          <p className="subtitle">{t("orders.subtitle")}</p>
         </div>
         <Space>
           <Button
             icon={<DownloadOutlined />}
             onClick={() => exportXlsx(orders, [
-              { key: "OrderCode", label: "Mã đơn" },
-              { key: "CustomerCode", label: "Khách hàng" },
-              { key: "OrderDate", label: "Ngày đặt" },
-              { key: "OrderStatus", label: "Trạng thái" },
-              { key: "ApprovalStatus", label: "Phê duyệt" },
-              { key: "PlanningStatus", label: "Kế hoạch" },
-              { key: "TotalPrice", label: "Tổng tiền" },
-              { key: "Source", label: "Nguồn" }
+              { key: "OrderCode", label: t("orders.col.orderCode") },
+              { key: "CustomerCode", label: t("orders.col.customer") },
+              { key: "OrderDate", label: t("orders.col.orderDate") },
+              { key: "OrderStatus", label: t("orders.col.status") },
+              { key: "ApprovalStatus", label: t("orders.col.approval") },
+              { key: "PlanningStatus", label: t("orders.col.planning") },
+              { key: "TotalPrice", label: t("orders.col.total") }
             ], `orders_${new Date().toISOString().slice(0, 10)}.xlsx`)}
             disabled={orders.length === 0}
           >
-            Xuất Excel
+            {t("orders.export")}
           </Button>
           {canManage && (
             <>
               <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)}>
-                Import
+                {t("orders.import")}
               </Button>
               <Button type="primary" icon={<PlusOutlined />} onClick={() => { setCreateOpen(true); createForm.resetFields(); }}>
-                Tạo đơn
+                {t("orders.create")}
               </Button>
             </>
           )}
@@ -347,24 +411,41 @@ export default function OrdersPage() {
 
       <Card size="small" style={{ marginBottom: 12 }}>
         <Space wrap>
-          <Text type="secondary">Trạng thái đơn:</Text>
-          <Select
-            allowClear placeholder="Tất cả" style={{ width: 160 }}
-            value={statusFilter} onChange={setStatusFilter}
-            options={ORDER_STATUS_OPTIONS}
-          />
-          <Text type="secondary">Phê duyệt:</Text>
-          <Select
-            allowClear placeholder="Tất cả" style={{ width: 140 }}
-            value={approvalFilter} onChange={setApprovalFilter}
-            options={[
-              { value: "PENDING", label: "Chờ duyệt" },
-              { value: "APPROVED", label: "Đã duyệt" },
-              { value: "REJECTED", label: "Từ chối" }
-            ]}
-          />
-        </Space>
-      </Card>
+          <Text type="secondary">{t("orders.filter.status")}</Text>
+	          <Select
+	            allowClear placeholder={t("orders.filter.all")} style={{ width: 160 }}
+	            value={statusFilter} onChange={setFilterValue(setStatusFilter)}
+	            options={ORDER_STATUS_OPTIONS}
+	          />
+	          <Text type="secondary">{t("orders.filter.approval")}</Text>
+	          <Select
+	            allowClear placeholder={t("orders.filter.all")} style={{ width: 140 }}
+	            value={approvalFilter} onChange={setFilterValue(setApprovalFilter)}
+	            options={approvalStatusOptions}
+	          />
+	          <Text type="secondary">{t("orders.filter.date")}</Text>
+	          <DatePicker.RangePicker
+	            allowClear
+	            format="DD/MM/YYYY"
+	            value={dateRange}
+	            onChange={setFilterValue(setDateRange)}
+	          />
+	          <Input.Search
+	            allowClear
+	            placeholder={t("orders.filter.searchProduct")}
+	            style={{ width: 260 }}
+	            value={productFilter}
+	            onChange={(e) => {
+	              setProductFilter(e.target.value);
+	              setPage(1);
+	            }}
+	            onSearch={(value) => {
+	              setProductFilter(value);
+	              setPage(1);
+	            }}
+	          />
+	        </Space>
+	      </Card>
 
       <Card size="small">
         <Table
@@ -386,7 +467,7 @@ export default function OrdersPage() {
       {/* ── Tạo đơn ── */}
       <Modal
         open={createOpen}
-        title={<Space><FileAddOutlined /> Tạo đơn hàng mới</Space>}
+        title={<Space><FileAddOutlined /> {t("orders.modal.createTitle")}</Space>}
         onCancel={() => setCreateOpen(false)}
         onOk={onCreateOk}
         confirmLoading={createM.isPending}
@@ -396,7 +477,7 @@ export default function OrdersPage() {
         <Form form={createForm} layout="vertical" preserve={false}>
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="OrganizationID" label="Tổ chức" rules={[{ required: true }]}>
+              <Form.Item name="OrganizationID" label={t("orders.form.organization")} rules={[{ required: true }]}>
                 <Select
                   showSearch optionFilterProp="label"
                   options={orgs.map((o) => ({ value: o._id, label: `[${o.XCode}] ${o.XName}` }))}
@@ -404,63 +485,57 @@ export default function OrdersPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="OrderCode" label="Mã đơn hàng" rules={[{ required: true }]}>
+              <Form.Item name="OrderCode" label={t("orders.form.orderCode")} rules={[{ required: true }]}>
                 <Input placeholder="VD: ORD-2025-001" />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="CustomerCode" label="Mã khách hàng" rules={[{ required: true }]}>
+              <Form.Item name="CustomerCode" label={t("orders.form.customerCode")} rules={[{ required: true }]}>
                 <Select
                   showSearch optionFilterProp="label"
                   options={customers.map((c) => ({ value: c.CustomerCode, label: `[${c.CustomerCode}] ${c.XName}` }))}
-                  placeholder="Chọn hoặc nhập mã"
+                  placeholder={t("orders.form.chooseOrEnterCode")}
                   allowClear
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="OrderDate" label="Ngày đặt hàng" rules={[{ required: true }]}>
+              <Form.Item name="OrderDate" label={t("orders.form.orderDate")} rules={[{ required: true }]}>
                 <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
               </Form.Item>
             </Col>
           </Row>
-          <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item name="TypeWay" label="Chiều vận chuyển" initialValue="FIRST_WAY">
-                <Select options={[
-                  { value: "FIRST_WAY", label: "Chiều đi (FIRST_WAY)" },
-                  { value: "SECOND_WAY", label: "Chiều về (SECOND_WAY)" }
-                ]} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="TimeWindow" label="Khung giờ giao (HH:mm-HH:mm)">
-                <Input placeholder="VD: 08:00-17:00" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label="Hàng hóa" tooltip="Chọn sản phẩm và số lượng. Tổng tiền tự tính = Σ(Số lượng × Đơn giá sản phẩm)">
+          <Form.Item name="TypeWay" label={t("orders.form.typeWay")} initialValue="FIRST_WAY">
+            <Select options={[
+              { value: "FIRST_WAY", label: t("orders.form.firstWay") },
+              { value: "SECOND_WAY", label: t("orders.form.secondWay") }
+            ]} />
+          </Form.Item>
+          <Form.Item label={t("orders.form.goods")} tooltip={t("orders.form.goodsTooltip")}>
             <Form.List name="Items">
               {(fields, { add, remove }) => (
                 <>
                   {fields.map((field) => (
                     <Row gutter={6} key={field.key} style={{ marginBottom: 6 }}>
                       <Col span={13}>
-                        <Form.Item {...field} name={[field.name, "ProductCode"]} rules={[{ required: true, message: "Chọn SP" }]} noStyle>
-                          <Select
-                            showSearch optionFilterProp="label" placeholder="Sản phẩm"
-                            options={products.map((p) => ({
+                        <Form.Item {...field} name={[field.name, "ProductCode"]} rules={[{ required: true, message: t("orders.form.chooseProduct") }]} noStyle>
+	                          <Select
+	                            showSearch
+	                            optionFilterProp="label"
+	                            filterOption={(input, option) => String(option?.label ?? "").toLowerCase().includes(input.toLowerCase())}
+	                            placeholder={t("orders.form.searchProduct")}
+	                            options={products.map((p) => ({
                               value: p.ProductCode,
-                              label: `[${p.ProductCode}] ${p.XName} — ${(p.Price ?? 0).toLocaleString("vi-VN")}₫`
+                              label: `[${p.ProductCode}] ${p.XName} — ${(p.Price ?? 0).toLocaleString(locale)}₫`
                             }))}
                           />
                         </Form.Item>
                       </Col>
                       <Col span={8}>
-                        <Form.Item {...field} name={[field.name, "NumberOfCases"]} rules={[{ required: true, message: "SL" }]} noStyle>
-                          <InputNumber min={1} placeholder="Số lượng" style={{ width: "100%" }} />
+                        <Form.Item {...field} name={[field.name, "NumberOfCases"]} rules={[{ required: true, message: t("orders.form.quantityShort") }]} noStyle>
+                          <InputNumber min={1} placeholder={t("orders.form.quantity")} style={{ width: "100%" }} />
                         </Form.Item>
                       </Col>
                       <Col span={3}>
@@ -469,7 +544,7 @@ export default function OrdersPage() {
                     </Row>
                   ))}
                   <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({ ProductCode: undefined, NumberOfCases: 1 })}>
-                    Thêm sản phẩm
+                    {t("orders.form.addProduct")}
                   </Button>
                 </>
               )}
@@ -484,8 +559,8 @@ export default function OrdersPage() {
               }, 0);
               return (
                 <div style={{ textAlign: "right", padding: "8px 12px", background: "#fafafa", borderRadius: 4 }}>
-                  <Text type="secondary">Tổng tiền tạm tính: </Text>
-                  <Text strong style={{ fontSize: 16, color: "#1677ff" }}>{total.toLocaleString("vi-VN")} ₫</Text>
+                  <Text type="secondary">{t("orders.form.estimatedTotal")}</Text>
+                  <Text strong style={{ fontSize: 16, color: "#1677ff" }}>{total.toLocaleString(locale)} ₫</Text>
                 </div>
               );
             }}
@@ -496,20 +571,20 @@ export default function OrdersPage() {
       {/* ── Đổi trạng thái ── */}
       <Modal
         open={statusModalOpen}
-        title="Cập nhật trạng thái đơn hàng"
+        title={t("orders.modal.statusTitle")}
         onCancel={() => setStatusModalOpen(false)}
         onOk={onStatusOk}
         confirmLoading={changeStatusM.isPending}
         destroyOnHidden
       >
         <Form form={statusForm} layout="vertical" preserve={false}>
-          <Form.Item name="OrderCode" label="Mã đơn hàng">
+          <Form.Item name="OrderCode" label={t("orders.form.orderCode")}>
             <Input disabled />
           </Form.Item>
-          <Form.Item name="ToStatus" label="Trạng thái mới" rules={[{ required: true }]}>
+          <Form.Item name="ToStatus" label={t("orders.form.newStatus")} rules={[{ required: true }]}>
             <Select options={ORDER_STATUS_OPTIONS} />
           </Form.Item>
-          <Form.Item name="Note" label="Ghi chú">
+          <Form.Item name="Note" label={t("orders.form.note")}>
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
@@ -518,7 +593,7 @@ export default function OrdersPage() {
       {/* ── Import ── */}
       <Modal
         open={uploadOpen}
-        title="Import đơn hàng (Excel / JSON)"
+        title={t("orders.modal.importTitle")}
         onCancel={() => { setUploadOpen(false); setFileList([]); }}
         onOk={onUpload}
         confirmLoading={uploadM.isPending}
@@ -526,7 +601,7 @@ export default function OrdersPage() {
         destroyOnHidden
       >
         <div style={{ marginBottom: 16 }}>
-          <Button onClick={downloadExcelTemplate}>Tải file Excel mẫu (Template)</Button>
+          <Button onClick={downloadExcelTemplate}>{t("orders.modal.downloadTemplate")}</Button>
         </div>
         <Upload
           accept=".xlsx,.xls,.json"
@@ -535,10 +610,10 @@ export default function OrdersPage() {
           beforeUpload={() => false}
           onChange={({ fileList: fl }) => setFileList(fl)}
         >
-          <Button icon={<UploadOutlined />}>Chọn file Excel (.xlsx) hoặc JSON</Button>
+          <Button icon={<UploadOutlined />}>{t("orders.modal.chooseImportFile")}</Button>
         </Upload>
         <div style={{ marginTop: 12, color: "#888", fontSize: 12 }}>
-          Excel: cột tiêu đề dòng 1 — OrderCode, CustomerCode, OrganizationID, OrderDate, TotalPrice.
+          {t("orders.modal.importHint")}
         </div>
       </Modal>
 
@@ -546,16 +621,16 @@ export default function OrdersPage() {
       <Drawer
         open={!!detailOrder}
         onClose={() => setDetailOrder(null)}
-        title={`Chi tiết đơn: ${detailOrder?.OrderCode}`}
+        title={t("orders.drawer.title", { code: detailOrder?.OrderCode })}
         width={480}
         extra={
           canManage && detailOrder?.ApprovalStatus === "PENDING" && (
             <Space>
-              <Popconfirm title="Phê duyệt đơn?" onConfirm={() => { approveM.mutate({ OrderID: detailOrder._id, ToApprovalStatus: "APPROVED" }); setDetailOrder(null); }}>
-                <Button size="small" type="primary" icon={<CheckCircleOutlined />}>Duyệt</Button>
+              <Popconfirm title={t("orders.confirm.approveShort")} onConfirm={() => { approveM.mutate({ OrderID: detailOrder._id, ToApprovalStatus: "APPROVED" }); setDetailOrder(null); }}>
+                <Button size="small" type="primary" icon={<CheckCircleOutlined />}>{t("orders.drawer.approve")}</Button>
               </Popconfirm>
-              <Popconfirm title="Từ chối đơn?" onConfirm={() => { approveM.mutate({ OrderID: detailOrder._id, ToApprovalStatus: "REJECTED" }); setDetailOrder(null); }}>
-                <Button size="small" danger icon={<CloseCircleOutlined />}>Từ chối</Button>
+              <Popconfirm title={t("orders.confirm.rejectShort")} onConfirm={() => { approveM.mutate({ OrderID: detailOrder._id, ToApprovalStatus: "REJECTED" }); setDetailOrder(null); }}>
+                <Button size="small" danger icon={<CloseCircleOutlined />}>{t("orders.action.reject")}</Button>
               </Popconfirm>
             </Space>
           )
@@ -564,31 +639,47 @@ export default function OrdersPage() {
         {detailOrder && (
           <>
             <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label="Mã đơn">{detailOrder.OrderCode}</Descriptions.Item>
-              <Descriptions.Item label="Khách hàng">{detailOrder.CustomerCode}</Descriptions.Item>
-              <Descriptions.Item label="Ngày đặt">{dayjs(detailOrder.OrderDate).format("DD/MM/YYYY")}</Descriptions.Item>
-              <Descriptions.Item label="Trạng thái">
+              <Descriptions.Item label={t("orders.col.orderCode")}>{detailOrder.OrderCode}</Descriptions.Item>
+              <Descriptions.Item label={t("orders.col.customer")}>{detailOrder.CustomerCode}</Descriptions.Item>
+              <Descriptions.Item label={t("orders.col.orderDate")}>{dayjs(detailOrder.OrderDate).format("DD/MM/YYYY")}</Descriptions.Item>
+              <Descriptions.Item label="Chiều vận chuyển">{detailOrder.TypeWay}</Descriptions.Item>
+              <Descriptions.Item label="Khung giờ">{detailOrder.TimeWindow || "—"}</Descriptions.Item>
+              <Descriptions.Item label="Thời gian phục vụ">{detailOrder.ServiceTime ?? 0} phút</Descriptions.Item>
+              <Descriptions.Item label={t("orders.col.status")}>
                 <Badge color={ORDER_STATUS_COLOR[detailOrder.OrderStatus]} text={detailOrder.OrderStatus} />
               </Descriptions.Item>
-              <Descriptions.Item label="Kế hoạch">
+              <Descriptions.Item label="Fulfillment">
+                <Tag>{detailOrder.FulfillmentStatus}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t("orders.col.planning")}>
                 <Tag color={PLANNING_STATUS_COLOR[detailOrder.PlanningStatus]}>{detailOrder.PlanningStatus}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Phê duyệt">
+              <Descriptions.Item label={t("orders.col.approval")}>
                 <Tag color={APPROVAL_STATUS_COLOR[detailOrder.ApprovalStatus]}>
-                  {APPROVAL_STATUS_LABEL[detailOrder.ApprovalStatus] ?? detailOrder.ApprovalStatus}
+                  {approvalStatusLabel[detailOrder.ApprovalStatus] ?? detailOrder.ApprovalStatus}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Nguồn">{detailOrder.Source}</Descriptions.Item>
-              <Descriptions.Item label="Khối lượng / Thể tích">
-                <Text strong>{orderWeight(detailOrder).toLocaleString("vi-VN")} kg</Text>
+              <Descriptions.Item label={t("orders.desc.volumeWeight")}>
+                <Text strong>{orderWeight(detailOrder).toLocaleString(locale)} kg</Text>
                 <Text type="secondary"> · {orderVolume(detailOrder).toFixed(3)} m³</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Tổng tiền">{(detailOrder.TotalPrice ?? 0).toLocaleString("vi-VN")} ₫</Descriptions.Item>
+              <Descriptions.Item label="Dịch vụ / Thu hộ">
+                {(detailOrder.TotalServicePrice ?? 0).toLocaleString(locale)} ₫
+                <Text type="secondary"> · {(detailOrder.NumberCollected ?? 0).toLocaleString(locale)} ₫</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Cờ đơn">
+                <Space>
+                  {detailOrder.PickupOrder && <Tag color="blue">Pickup</Tag>}
+                  {detailOrder.SplittedOrder && <Tag color="purple">Splitted</Tag>}
+                  {!detailOrder.PickupOrder && !detailOrder.SplittedOrder && <Text type="secondary">—</Text>}
+                </Space>
+              </Descriptions.Item>
+              <Descriptions.Item label={t("orders.col.total")}>{(detailOrder.TotalPrice ?? 0).toLocaleString(locale)} ₫</Descriptions.Item>
             </Descriptions>
 
             {detailOrder.Items?.length > 0 && (
               <>
-                <div style={{ marginTop: 16, fontWeight: 500 }}>Chi tiết hàng hóa</div>
+                <div style={{ marginTop: 16, fontWeight: 500 }}>{t("orders.drawer.goodsDetail")}</div>
                 <Table
                   size="small"
                   rowKey={(_, i) => i}
@@ -597,7 +688,7 @@ export default function OrdersPage() {
                   style={{ marginTop: 8 }}
                   columns={[
                     {
-                      title: "Sản phẩm", dataIndex: "ProductCode", width: 200,
+                      title: t("orders.col.products"), dataIndex: "ProductCode", width: 200,
                       render: (code) => {
                         const p = productByCode[code];
                         return (
@@ -609,7 +700,7 @@ export default function OrdersPage() {
                       }
                     },
                     {
-                      title: "Hạng mục", key: "category", width: 110,
+                      title: t("orders.col.category"), key: "category", width: 110,
                       render: (_, it) => {
                         const p = productByCode[it.ProductCode];
                         const cat = p?.CategoryID ? categoryById[p.CategoryID] : null;
@@ -617,21 +708,38 @@ export default function OrdersPage() {
                         return <Tag style={{ fontSize: 11 }}>{label}</Tag>;
                       }
                     },
-                    { title: "Số lượng", dataIndex: "NumberOfCases", width: 70, align: "right" },
                     {
-                      title: "Khối lượng", key: "weight", width: 90, align: "right",
+                      title: t("orders.col.quantity"), key: "quantity", width: 90, align: "right",
+                      render: (_, it) => (
+                        <div>
+                          <Text>{it.NumberOfCases ?? 0} thùng</Text>
+                          {!!it.NumberOfItems && <div style={{ fontSize: 11, color: "#888" }}>{it.NumberOfItems} lẻ</div>}
+                        </div>
+                      )
+                    },
+                    {
+                      title: "Đã giao", key: "delivered", width: 90, align: "right",
+                      render: (_, it) => (
+                        <div>
+                          <Text>{it.NumberOfCasesDelivered ?? 0} thùng</Text>
+                          {!!it.NumberOfItemsDelivered && <div style={{ fontSize: 11, color: "#888" }}>{it.NumberOfItemsDelivered} lẻ</div>}
+                        </div>
+                      )
+                    },
+                    {
+                      title: t("orders.col.weight"), key: "weight", width: 90, align: "right",
                       render: (_, it) => {
                         const p = productByCode[it.ProductCode];
                         const kg = (Number(p?.WeightPerCase) || 0) * (Number(it.NumberOfCases) || 0);
-                        return <Text style={{ fontSize: 12 }}>{kg.toLocaleString("vi-VN")} kg</Text>;
+                        return <Text style={{ fontSize: 12 }}>{kg.toLocaleString(locale)} kg</Text>;
                       }
                     },
                     {
-                      title: "Thành tiền", key: "subtotal", width: 110, align: "right",
+                      title: t("orders.col.subtotal"), key: "subtotal", width: 110, align: "right",
                       render: (_, it) => {
                         const p = productByCode[it.ProductCode];
                         const sub = (Number(p?.Price) || 0) * (Number(it.NumberOfCases) || 0);
-                        return <Text>{sub.toLocaleString("vi-VN")} ₫</Text>;
+                        return <Text>{sub.toLocaleString(locale)} ₫</Text>;
                       }
                     }
                   ]}
@@ -641,16 +749,16 @@ export default function OrdersPage() {
 
             {detailOrder.StatusHistory?.length > 0 && (
               <>
-                <div style={{ marginTop: 16, fontWeight: 500 }}>Lịch sử trạng thái</div>
+                <div style={{ marginTop: 16, fontWeight: 500 }}>{t("orders.drawer.statusHistory")}</div>
                 <Table
                   size="small"
                   rowKey={(_, i) => i}
                   dataSource={[...detailOrder.StatusHistory].reverse()}
                   pagination={false}
                   columns={[
-                    { title: "Từ", dataIndex: "FromStatus", width: 120 },
-                    { title: "Sang", dataIndex: "ToStatus", width: 130 },
-                    { title: "Thời gian", dataIndex: "ChangedAt", render: (v) => dayjs(v).format("DD/MM HH:mm") }
+                    { title: t("orders.col.from"), dataIndex: "FromStatus", width: 120 },
+                    { title: t("orders.col.to"), dataIndex: "ToStatus", width: 130 },
+                    { title: t("orders.col.time"), dataIndex: "ChangedAt", render: (v) => dayjs(v).format("DD/MM HH:mm") }
                   ]}
                   style={{ marginTop: 8 }}
                 />

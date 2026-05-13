@@ -4,6 +4,7 @@ import {
   CarOutlined,
   CheckCircleOutlined,
   DeleteOutlined,
+  DragOutlined,
   EnvironmentOutlined,
   FullscreenOutlined,
   LockOutlined,
@@ -15,16 +16,17 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   App, Badge, Button, Card, Col, Collapse, DatePicker, Dropdown,
-  Empty, Form, Input, Modal, Popconfirm, Row, Select,
+  Empty, Form, Input, Modal, Popconfirm, Row, Select, Alert,
   Space, Table, Tag, Tooltip, Typography
 } from "antd";
 import { SwapOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { routePlanApi } from "../../api/routePlan";
 import { vehicleApi, driverApi, serviceApi } from "../../api/masterData";
 import { organizationApi } from "../../api/organization";
+import { useAuthStore } from "../../store/authStore";
 import { usePermissions } from "../../utils/permissions";
 
 // Fix leaflet default icon
@@ -38,7 +40,11 @@ L.Icon.Default.mergeOptions({
 const { Text } = Typography;
 
 const PLAN_STATUS_COLOR  = { DRAFT: "blue", LOCKED: "orange", FINALIZED: "green" };
-const ROUTE_STATUS_COLOR = { PLANNED: "blue", LOCKED: "orange", FINALIZED: "green" };
+const ROUTE_STATUS_META = {
+  PLANNED: { label: "Planned", color: "#1d4ed8", bg: "#eff6ff", border: "#93c5fd" },
+  LOCKED: { label: "Locked", color: "#b45309", bg: "#fffbeb", border: "#fbbf24" },
+  FINALIZED: { label: "Finalized", color: "#15803d", bg: "#f0fdf4", border: "#86efac" }
+};
 const ROUTE_COLORS = ["#e74c3c","#2980b9","#27ae60","#8e44ad","#f39c12","#16a085","#c0392b","#2c3e50"];
 
 // Hà Nội default center
@@ -56,16 +62,42 @@ async function geocodeAddress(address) {
   return null;
 }
 
+async function fetchRoadRoute(points) {
+  if (points.length < 2) return [];
+  const coords = points.map(([lat, lng]) => `${lng},${lat}`).join(";");
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.routes?.[0]?.geometry?.coordinates ?? []).map(([lng, lat]) => [lat, lng]);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRoadSegments(points) {
+  if (points.length < 2) return [];
+  const segments = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const fallback = [points[i], points[i + 1]];
+    const roadLine = await fetchRoadRoute(fallback);
+    segments.push(roadLine.length ? roadLine : fallback);
+  }
+  return segments;
+}
+
 // Auto-fit map to markers
-function FitBounds({ points }) {
+function FitBounds({ points, fitKey }) {
   const map = useMap();
   useEffect(() => {
+    map.invalidateSize();
     if (points.length >= 2) {
-      map.fitBounds(points, { padding: [40, 40] });
+      map.fitBounds(points, { padding: [18, 18], maxZoom: 12 });
     } else if (points.length === 1) {
       map.setView(points[0], 13);
     }
-  }, [points, map]);
+  }, [fitKey, map]);
   return null;
 }
 
@@ -87,15 +119,66 @@ const DEPOT_ICON = L.divIcon({
   iconAnchor: [17, 17]
 });
 
+function bearingDegrees(from, to) {
+  const lat1 = from[0] * Math.PI / 180;
+  const lat2 = to[0] * Math.PI / 180;
+  const dLng = (to[1] - from[1]) * Math.PI / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function routeArrow(linePts, color, opacity = 1) {
+  if (!Array.isArray(linePts) || linePts.length < 2) return null;
+  const mid = Math.max(1, Math.floor(linePts.length / 2));
+  const from = linePts[mid - 1];
+  const to = linePts[mid];
+  const angle = bearingDegrees(from, to);
+  return {
+    position: to,
+    icon: L.divIcon({
+      className: "",
+      html: `<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid ${color};transform:rotate(${angle}deg);opacity:${opacity};filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    })
+  };
+}
+
+function RouteStatusPill({ status }) {
+  const meta = ROUTE_STATUS_META[status] ?? { label: status, color: "#374151", bg: "#f9fafb", border: "#d1d5db" };
+  return (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      height: 22,
+      padding: "0 8px",
+      borderRadius: 999,
+      border: `1px solid ${meta.border}`,
+      background: meta.bg,
+      color: meta.color,
+      fontSize: 11,
+      fontWeight: 700,
+      lineHeight: "20px",
+      whiteSpace: "nowrap",
+      flexShrink: 0
+    }}>
+      {meta.label.toUpperCase()}
+    </span>
+  );
+}
+
 export default function PlanningPage() {
   const qc = useQueryClient();
   const { message, modal } = App.useApp();
   const { isSuper } = usePermissions();
+  const user = useAuthStore((s) => s.user);
 
   const [orgId, setOrgId]             = useState(null);
-  const [planDate, setPlanDate]       = useState(dayjs());
+  const [planDate, setPlanDate]       = useState(() => dayjs().hour() >= 18 ? dayjs().add(1, "day") : dayjs());
   const [activePlanId, setActivePlanId] = useState(null);
   const [mapPoints, setMapPoints]     = useState({});  // { routeId: [ [lat,lng], ... ] }
+  const [roadLines, setRoadLines]     = useState({});
   const [geocoding, setGeocoding]     = useState(false);
   const [createOpen, setCreateOpen]   = useState(false);
   const [addVehicleOpen, setAddVehicleOpen] = useState(false);
@@ -103,6 +186,8 @@ export default function PlanningPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [highlightRouteId, setHighlightRouteId] = useState(null);
+  const [dragState, setDragState] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
   const fullscreenMapRef = useRef(null);
   const [createForm] = Form.useForm();
   const [assignForm] = Form.useForm();
@@ -110,9 +195,10 @@ export default function PlanningPage() {
 
   const orgsQ    = useQuery({ queryKey: ["organizations"], queryFn: organizationApi.list });
   const orgs     = orgsQ.data?.data ?? [];
-  const activeOrg = orgs.find((o) => o._id === orgId);
+  const depotOptions = orgs.filter((o) => o.OrgType === "DEPOT" && o.Latitude != null && o.Longitude != null);
+  const activeOrg = depotOptions.find((o) => String(o._id) === String(orgId)) ?? null;
 
-  /* Resolve depot: prefer a DEPOT-type descendant of activeOrg with valid coords */
+  /* Resolve depot: route planning is anchored to a real DEPOT, never to a branch/org. */
   function findDepotOrg(rootOrg, allOrgs) {
     if (!rootOrg) return null;
     const isDepot = (o) => o.OrgType === "DEPOT" && o.Latitude != null && o.Longitude != null;
@@ -122,13 +208,17 @@ export default function PlanningPage() {
     while (frontier.length) {
       const children = allOrgs.filter((o) => frontier.includes(String(o.Parent ?? "")));
       if (!children.length) break;
+      const next = [];
       for (const c of children) {
         if (isDepot(c)) return c;
-        seen.add(String(c._id));
+        const key = String(c._id);
+        if (!seen.has(key)) {
+          seen.add(key);
+          next.push(key);
+        }
       }
-      frontier = children.map((c) => String(c._id)).filter((id) => !seen.has(id));
+      frontier = next;
     }
-    if (rootOrg.Latitude != null && rootOrg.Longitude != null) return rootOrg;
     return null;
   }
   const depotOrg = findDepotOrg(activeOrg, orgs);
@@ -153,6 +243,11 @@ export default function PlanningPage() {
   });
   const planDetail = planDetailQ.data?.data;
   const routes     = planDetail?.routes ?? [];
+  const routesSignature = routes.map((r) =>
+    `${r._id}:${r.VehicleCode}:${(r.Stops ?? []).map((s) => `${s.StopIndex}-${s.CustomerCode}-${s.Latitude ?? ""}-${s.Longitude ?? ""}-${(s.OrderCodes ?? []).join(",")}`).join(">")}`
+  ).join("|");
+  const shouldDrawDepot = !!activePlan && routes.length > 0 && !!depot;
+  const depotTimelineLabel = depotOrg?.XCode ?? "Kho";
 
   const unplannedQ = useQuery({
     queryKey: ["unplanned-orders", orgId, planDate?.format("YYYY-MM-DD")],
@@ -168,13 +263,85 @@ export default function PlanningPage() {
   const servicesQ = useQuery({ queryKey: ["services"], queryFn: () => serviceApi.list(), enabled: !!orgId });
   const services  = servicesQ.data?.data ?? [];
 
+  function updateRouteCache(routeId, updatedRoute) {
+    if (!activePlan?._id || !updatedRoute) return;
+    qc.setQueryData(["route-plan-detail", activePlan._id], (old) => {
+      if (!old?.data?.routes) return old;
+      return {
+        ...old,
+        data: {
+          ...old.data,
+          routes: old.data.routes.map((route) =>
+            route._id === routeId
+              ? { ...route, ...updatedRoute, Stops: route.Stops }
+              : route
+          )
+        }
+      };
+    });
+  }
+
   const assignRouteM = useMutation({
     mutationFn: ({ routeId, payload }) => routePlanApi.assignRoute(activePlan._id, routeId, payload),
-    onSuccess: () => { message.success("Đã cập nhật phân công"); invalidate(); },
+    onSuccess: (res, vars) => {
+      const updatedRoute = res.data;
+      if (!updatedRoute) {
+        invalidate();
+        return;
+      }
+      updateRouteCache(vars.routeId, updatedRoute);
+      message.success("Đã cập nhật phân công");
+      const geometryChanged = vars.payload?.vehicleId || vars.payload?.shift;
+      if (geometryChanged) {
+        invalidate();
+      } else {
+        qc.invalidateQueries({ queryKey: ["route-plans"] });
+        qc.invalidateQueries({ queryKey: ["unplanned-orders"] });
+      }
+    },
     onError: (e) => message.error(e.response?.data?.message || e.message)
   });
 
-  useEffect(() => { if (orgs.length && !orgId) setOrgId(orgs[0]._id); }, [orgs, orgId]);
+  const displayMapPoints = useMemo(() => {
+    const result = {};
+    for (const route of routes) {
+      const cachedByKey = new Map((mapPoints[route._id] ?? []).map((pt) => [pt.key, pt]));
+      result[route._id] = (route.Stops ?? []).map((stop) => {
+        const key = `${route._id}-${stop.StopIndex}-${stop.CustomerCode}-${(stop.OrderCodes ?? []).join(",")}`;
+        const cached = cachedByKey.get(key);
+        const hasCoord = stop.Latitude != null && stop.Longitude != null;
+        const coord = hasCoord ? [Number(stop.Latitude), Number(stop.Longitude)] : cached?.latlng;
+        if (!coord) return null;
+        return {
+          latlng: coord,
+          label: stop.StopIndex,
+          code: stop.CustomerCode,
+          customerName: stop.CustomerName,
+          customerGroup: stop.CustomerGroup,
+          phone: stop.Phone,
+          address: stop.Address,
+          arrival: stop.PlannedArrivalTime,
+          departure: stop.PlannedDepartureTime,
+          serviceTime: stop.PlannedServiceTime,
+          key,
+          orders: stop.Orders ?? cached?.orders ?? []
+        };
+      }).filter(Boolean);
+    }
+    return result;
+  }, [routes, mapPoints]);
+
+  useEffect(() => {
+    if (!orgs.length) return;
+    if (orgId && depotOptions.some((o) => String(o._id) === String(orgId))) return;
+    const userOrgIds = (user?.OrganizationIDs ?? []).map((id) => String(id?._id ?? id));
+    const userDepot = depotOptions.find((o) => {
+      const parentId = String(o.Parent?._id ?? o.Parent ?? "");
+      const pathIds = (o.Path ?? []).map((id) => String(id?._id ?? id));
+      return userOrgIds.includes(String(o._id)) || userOrgIds.includes(parentId) || pathIds.some((id) => userOrgIds.includes(id));
+    });
+    setOrgId((userDepot ?? depotOptions[0])?._id ?? null);
+  }, [depotOptions, orgs.length, orgId, user]);
   useEffect(() => { setActivePlanId(null); setMapPoints({}); }, [orgId, planDate]);
 
   /* Fix Leaflet rendering inside Modal — invalidate size after the modal mounts */
@@ -184,15 +351,16 @@ export default function PlanningPage() {
       const m = fullscreenMapRef.current;
       if (!m) return;
       m.invalidateSize();
-      const pts = Object.values(mapPoints).flatMap((arr) => arr.map((p) => p.latlng));
+      const pts = Object.values(displayMapPoints).flatMap((arr) => arr.map((p) => p.latlng));
       if (pts.length >= 2) m.fitBounds(pts, { padding: [40, 40] });
       else if (pts.length === 1) m.setView(pts[0], 13);
     }, 300);
     return () => clearTimeout(t);
-  }, [fullscreenOpen, mapPoints]);
+  }, [fullscreenOpen, displayMapPoints]);
 
   // Build map points — use stored lat/lng if available, fall back to Nominatim geocoding
   useEffect(() => {
+    setRoadLines({});
     if (!routes.length) { setMapPoints({}); return; }
     (async () => {
       setGeocoding(true);
@@ -206,16 +374,47 @@ export default function PlanningPage() {
           } else {
             coord = await geocodeAddress(stop.Address);
           }
-          if (coord) pts.push({ latlng: coord, label: stop.StopIndex, code: stop.CustomerCode, address: stop.Address, arrival: stop.PlannedArrivalTime });
+          if (coord) {
+            pts.push({
+              latlng: coord,
+              label: stop.StopIndex,
+              code: stop.CustomerCode,
+              customerName: stop.CustomerName,
+              customerGroup: stop.CustomerGroup,
+              phone: stop.Phone,
+              address: stop.Address,
+              arrival: stop.PlannedArrivalTime,
+              departure: stop.PlannedDepartureTime,
+              serviceTime: stop.PlannedServiceTime,
+              key: `${route._id}-${stop.StopIndex}-${stop.CustomerCode}-${(stop.OrderCodes ?? []).join(",")}`,
+              orders: stop.Orders ?? []
+            });
+          }
         }
         result[route._id] = pts;
       }
       setMapPoints(result);
       setGeocoding(false);
     })();
-  }, [routes]);
+  }, [routesSignature]);
+
+  useEffect(() => {
+    if (!shouldDrawDepot || !routes.length) { setRoadLines({}); return; }
+    (async () => {
+      const result = {};
+      await Promise.all(routes.map(async (route) => {
+        const pts = displayMapPoints[route._id] ?? [];
+        const fallback = pts.length ? [depot, ...pts.map((p) => p.latlng), depot] : [];
+        const roadSegments = await fetchRoadSegments(fallback);
+        result[route._id] = roadSegments.length ? roadSegments : (fallback.length ? [fallback] : []);
+      }));
+      setRoadLines(result);
+    })();
+  }, [depot?.[0], depot?.[1], displayMapPoints, routes, shouldDrawDepot]);
 
   function invalidate() {
+    setMapPoints({});
+    setRoadLines({});
     qc.invalidateQueries({ queryKey: ["route-plans"] });
     qc.invalidateQueries({ queryKey: ["route-plan-detail"] });
     qc.invalidateQueries({ queryKey: ["unplanned-orders"] });
@@ -223,7 +422,7 @@ export default function PlanningPage() {
 
   const createPlanM = useMutation({
     mutationFn: (vals) => routePlanApi.create({
-      OrganizationID: orgId, PlanDate: planDate.toISOString(),
+      OrganizationID: orgId, PlanDate: planDate.format("YYYY-MM-DD"),
       PlanName: vals.PlanName, Notes: vals.Notes, Shift: vals.Shift ?? "FULL_DAY"
     }),
     onSuccess: async (res) => {
@@ -258,7 +457,18 @@ export default function PlanningPage() {
 
   const removeRouteM = useMutation({
     mutationFn: (routeId) => routePlanApi.removeRoute(activePlan._id, routeId),
-    onSuccess: () => { message.success("Đã xóa xe"); invalidate(); },
+    onSuccess: () => { message.success("Đã xóa lộ trình"); invalidate(); },
+    onError: (e) => message.error(e.message)
+  });
+
+  const removePlanM = useMutation({
+    mutationFn: (planId) => routePlanApi.remove(planId),
+    onSuccess: () => {
+      message.success("Đã xóa kế hoạch");
+      setActivePlanId(null);
+      setMapPoints({});
+      invalidate();
+    },
     onError: (e) => message.error(e.message)
   });
 
@@ -275,15 +485,49 @@ export default function PlanningPage() {
     onError: (e) => message.error(e.response?.data?.message || e.message)
   });
 
+  const reorderOrderM = useMutation({
+    mutationFn: ({ orderId, toRouteId, toIndex }) =>
+      routePlanApi.reorderOrder(activePlan._id, { orderId, toRouteId, toIndex }),
+    onSuccess: () => { message.success("Đã cập nhật lộ trình"); invalidate(); },
+    onError: (e) => message.error(e.response?.data?.message || e.message)
+  });
+
   const removeOrderM = useMutation({
     mutationFn: ({ routeId, orderId }) => routePlanApi.removeOrder(activePlan._id, routeId, orderId),
     onSuccess: () => { message.success("Đã gỡ đơn"); invalidate(); },
     onError: (e) => message.error(e.message)
   });
 
-  const lockM     = useMutation({ mutationFn: (rId) => routePlanApi.lock(activePlan._id, rId),     onSuccess: () => { message.success("Đã khóa route");    invalidate(); }, onError: (e) => message.error(e.message) });
-  const unlockM   = useMutation({ mutationFn: (rId) => routePlanApi.unlock(activePlan._id, rId),   onSuccess: () => { message.success("Đã mở khóa route"); invalidate(); }, onError: (e) => message.error(e.message) });
-  const finalizeM = useMutation({ mutationFn: (rId) => routePlanApi.finalize(activePlan._id, rId), onSuccess: () => { message.success("Route finalized");   invalidate(); }, onError: (e) => message.error(e.message) });
+  const lockM = useMutation({
+    mutationFn: (rId) => routePlanApi.lock(activePlan._id, rId),
+    onSuccess: (res, rId) => {
+      updateRouteCache(rId, res.data);
+      message.success("Đã khóa route");
+      qc.invalidateQueries({ queryKey: ["route-plans"] });
+      qc.invalidateQueries({ queryKey: ["unplanned-orders"] });
+    },
+    onError: (e) => message.error(e.message)
+  });
+  const unlockM = useMutation({
+    mutationFn: (rId) => routePlanApi.unlock(activePlan._id, rId),
+    onSuccess: (res, rId) => {
+      updateRouteCache(rId, res.data);
+      message.success("Đã mở khóa route");
+      qc.invalidateQueries({ queryKey: ["route-plans"] });
+      qc.invalidateQueries({ queryKey: ["unplanned-orders"] });
+    },
+    onError: (e) => message.error(e.message)
+  });
+  const finalizeM = useMutation({
+    mutationFn: (rId) => routePlanApi.finalize(activePlan._id, rId),
+    onSuccess: (res, rId) => {
+      updateRouteCache(rId, res.data);
+      message.success("Route finalized");
+      qc.invalidateQueries({ queryKey: ["route-plans"] });
+      qc.invalidateQueries({ queryKey: ["unplanned-orders"] });
+    },
+    onError: (e) => message.error(e.message)
+  });
 
   const optimizeM = useMutation({
     mutationFn: () => routePlanApi.optimize(activePlan._id),
@@ -319,6 +563,88 @@ export default function PlanningPage() {
     onError: (e) => message.error(e.response?.data?.message || e.message)
   });
 
+  const cannotOptimizeEmptyPlan = !!activePlan && routes.length === 0 && unplanned.length === 0;
+
+  function handleRouteDrop(e, route, toIndex = route.Stops?.length ?? 0) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget(null);
+    try {
+      const payload = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (payload.source === "unplanned") {
+        addOrderM.mutate({ routeId: route._id, orderId: payload.orderId, customerCode: payload.customerCode });
+      } else if (payload.orderId) {
+        reorderOrderM.mutate({ orderId: payload.orderId, toRouteId: route._id, toIndex });
+      }
+    } catch { /* ignore */ }
+  }
+
+  function isRouteDropTarget(routeId) {
+    return dragState && dropTarget?.routeId === String(routeId);
+  }
+
+  function renderDropSlot(route, index, isDisabled) {
+    const active = dragState && dropTarget?.routeId === String(route._id) && dropTarget?.index === index;
+    return (
+      <div
+        onDragOver={(e) => {
+          if (isDisabled) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = "move";
+          setDropTarget({ routeId: String(route._id), index });
+        }}
+        onDrop={(e) => {
+          if (isDisabled) return;
+          handleRouteDrop(e, route, index);
+        }}
+        style={{
+          width: active ? 42 : 14,
+          height: 82,
+          borderRadius: 8,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "width .16s ease, background .16s ease, border-color .16s ease",
+          background: active ? "#dbeafe" : "transparent",
+          border: active ? "2px dashed #2563eb" : "2px dashed transparent"
+        }}
+      >
+        {active && <span style={{ width: 4, height: 52, borderRadius: 999, background: "#2563eb" }} />}
+      </div>
+    );
+  }
+
+  function renderStopPopup(pt, route, color) {
+    return (
+      <div style={{ minWidth: 240 }}>
+        <strong>{pt.customerName || pt.code}</strong>
+        <br />
+        <Text type="secondary">{pt.code}{pt.customerGroup ? ` · ${pt.customerGroup}` : ""}</Text>
+        {pt.address && <><br />{pt.address}</>}
+        {pt.phone && <><br />{pt.phone}</>}
+        {pt.arrival && <><br />Dừng giao: <strong>{pt.arrival}{pt.departure ? ` - ${pt.departure}` : ""}</strong></>}
+        {pt.serviceTime ? <><br />Thời gian dỡ/giao: <strong>{pt.serviceTime} phút</strong></> : null}
+        <div style={{ marginTop: 8 }}>
+          <Tag color={color}>{route.VehicleCode}</Tag>
+        </div>
+        <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+          {(pt.orders ?? []).map((order) => (
+            <div key={order._id} style={{ borderTop: "1px solid #f0f0f0", paddingTop: 6 }}>
+              <Tag color="blue" style={{ marginBottom: 4 }}>{order.OrderCode}</Tag>
+              {(order.Items ?? []).slice(0, 4).map((item) => (
+                <div key={`${order._id}-${item.ProductCode}`} style={{ fontSize: 12 }}>
+                  {item.ProductName ?? item.ProductCode} × {item.NumberOfCases ?? 0}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   function openAssign(order) { setSelectedOrder(order); assignForm.resetFields(); setAssignOrderOpen(true); }
   async function onAssignOk() {
     const { routeId } = await assignForm.validateFields();
@@ -326,15 +652,17 @@ export default function PlanningPage() {
   }
 
   // Build all map points for display
-  const allMapPoints = Object.values(mapPoints).flatMap((pts) => pts.map((p) => p.latlng));
+  const allMapPoints = Object.values(displayMapPoints).flatMap((pts) => pts.map((p) => p.latlng));
+  const visibleMapPoints = shouldDrawDepot && allMapPoints.length ? [depot, ...allMapPoints] : allMapPoints;
+  const mapFitKey = visibleMapPoints.map(([lat, lng]) => `${lat},${lng}`).join("|");
 
 
   return (
     <>
       <div className="page-header">
         <div>
-          <h2 className="title">Lập kế hoạch (Dispatch)</h2>
-          <p className="subtitle">Phân công đơn hàng vào xe — xem lộ trình trên bản đồ trước khi chốt</p>
+          <h2 className="title">Lập kế hoạch</h2>
+          <p className="subtitle">Planner phân công đơn hàng vào xe và kiểm tra lộ trình trước khi chốt kế hoạch</p>
         </div>
       </div>
 
@@ -342,15 +670,21 @@ export default function PlanningPage() {
       <Card size="small" style={{ marginBottom:12 }}>
         <Row gutter={[12,8]} align="middle">
           <Col>
-            <Text type="secondary">Tổ chức:</Text>
+            <Text type="secondary">Kho lập kế hoạch:</Text>
           </Col>
           <Col>
-            <Select style={{ width:220 }} value={orgId} onChange={(v) => { setOrgId(v); setActivePlanId(null); }}
-              options={orgs.map((o) => ({ value: o._id, label: `[${o.XCode}] ${o.XName}` }))}
-              showSearch optionFilterProp="label" />
+            <Select
+              style={{ width:300 }}
+              value={orgId}
+              placeholder="Chọn kho có tọa độ"
+              onChange={(v) => { setOrgId(v); setActivePlanId(null); }}
+              options={depotOptions.map((o) => ({ value: o._id, label: `[${o.XCode}] ${o.XName}` }))}
+              showSearch
+              optionFilterProp="label"
+            />
           </Col>
           <Col>
-            <Text type="secondary">Ngày:</Text>
+            <Text type="secondary">Ngày chạy:</Text>
           </Col>
           <Col>
             <DatePicker value={planDate} onChange={setPlanDate} format="DD/MM/YYYY" allowClear={false} />
@@ -383,7 +717,7 @@ export default function PlanningPage() {
       </Card>
 
       {!orgId ? (
-        <Empty description="Chọn tổ chức để bắt đầu" />
+        <Empty description="Chọn kho để bắt đầu" />
       ) : (
         <>
           {/* ── TOP ROW: Big map on left, unplanned orders side panel on right ── */}
@@ -408,8 +742,8 @@ export default function PlanningPage() {
                 <MapContainer center={DEFAULT_CENTER} zoom={12} style={{ height:"55vh", width:"100%", borderRadius:"0 0 8px 8px" }}>
                   <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <FitBounds points={depot ? [depot, ...allMapPoints] : allMapPoints} />
-                  {depot && (
+                  <FitBounds points={visibleMapPoints} fitKey={mapFitKey} />
+                  {shouldDrawDepot && (
                     <Marker position={depot} icon={DEPOT_ICON}>
                       <Popup>
                     <strong>🏭 {depotOrg?.XName ?? "Kho"}</strong>
@@ -421,23 +755,25 @@ export default function PlanningPage() {
                   )}
                   {routes.map((r, rIdx) => {
                     const color = ROUTE_COLORS[rIdx % ROUTE_COLORS.length];
-                    const pts = mapPoints[r._id] ?? [];
-                    const linePts = depot && pts.length ? [depot, ...pts.map((p) => p.latlng), depot] : pts.map((p) => p.latlng);
+                    const pts = displayMapPoints[r._id] ?? [];
+                    const lineSegments = roadLines[r._id] ?? [shouldDrawDepot && pts.length ? [depot, ...pts.map((p) => p.latlng), depot] : pts.map((p) => p.latlng)];
                     return (
                       <span key={r._id}>
-                        {pts.map((pt, i) => (
-                          <Marker key={i} position={pt.latlng} icon={createColoredIcon(color, pt.label)}>
-                            <Popup>
-                              <strong>{pt.code}</strong><br />{pt.address}<br />
-                              {pt.arrival && <span>⏰ {pt.arrival}<br /></span>}
-                              <Tag color={color} style={{ marginTop:4 }}>{r.VehicleCode}</Tag>
-                            </Popup>
-                          </Marker>
+	                        {pts.map((pt) => (
+	                          <Marker key={pt.key} position={pt.latlng} icon={createColoredIcon(color, pt.label)}>
+	                            <Popup>{renderStopPopup(pt, r, color)}</Popup>
+	                          </Marker>
+	                        ))}
+                        {lineSegments.map((linePts, i) => linePts.length >= 2 && (
+                          <span key={i}>
+                            <Polyline positions={linePts} color="#111827" weight={8} opacity={0.35} />
+                            <Polyline positions={linePts} color={color} weight={5} opacity={0.96} />
+                            {(() => {
+                              const arrow = routeArrow(linePts, color);
+                              return arrow ? <Marker position={arrow.position} icon={arrow.icon} interactive={false} /> : null;
+                            })()}
+                          </span>
                         ))}
-                        {linePts.length >= 2 && (
-                          <Polyline positions={linePts} color={color} weight={3} opacity={0.8}
-                            dashArray={r.Status === "PLANNED" ? "6 4" : undefined} />
-                        )}
                       </span>
                     );
                   })}
@@ -463,7 +799,9 @@ export default function PlanningPage() {
                 )}
                 <div style={{ maxHeight: "calc(55vh - 50px)", overflowY: "auto" }}>
                   {unplanned.length === 0 ? (
-                    <Text type="secondary" style={{ fontSize: 12 }}>Tất cả đơn đã phân công ✓</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Không có đơn đã duyệt chờ lập kế hoạch trong tổ chức/ngày này
+                    </Text>
                   ) : (
                     unplanned.map((o) => (
                       <div
@@ -501,9 +839,21 @@ export default function PlanningPage() {
               }
               extra={
                 <Space size={4}>
-                  <Tooltip title="Tự động phân tuyến">
+                  {activePlan.Status !== "FINALIZED" && (
+                    <Popconfirm
+                      title="Xóa kế hoạch này?"
+                      description="Các đơn trong kế hoạch sẽ quay về trạng thái chờ lập kế hoạch. Kế hoạch đã hoàn tất thì không xóa được."
+                      onConfirm={() => removePlanM.mutate(activePlan._id)}
+                    >
+                      <Button size="small" danger icon={<DeleteOutlined />} loading={removePlanM.isPending}>
+                        Xóa kế hoạch
+                      </Button>
+                    </Popconfirm>
+                  )}
+                  <Tooltip title={cannotOptimizeEmptyPlan ? "Không có đơn đã duyệt chờ lập kế hoạch trong tổ chức/ngày này" : "Tự động phân tuyến"}>
                     <Button size="small" type="primary" icon={<NodeIndexOutlined />}
-                      loading={optimizeM.isPending} disabled={activePlan.Status === "FINALIZED"}
+                      loading={optimizeM.isPending}
+                      disabled={activePlan.Status === "FINALIZED" || cannotOptimizeEmptyPlan}
                       onClick={() => optimizeM.mutate()}>
                       Tối ưu tuyến
                     </Button>
@@ -518,7 +868,17 @@ export default function PlanningPage() {
               loading={planDetailQ.isLoading}
               bodyStyle={{ padding: 8 }}>
               {routes.length === 0 ? (
-                <Empty description="Chưa có xe — nhấn '+ Xe' để thêm" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                <Space direction="vertical" style={{ width: "100%" }} size={12}>
+                  {cannotOptimizeEmptyPlan && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      message="Chưa thể lên lộ trình"
+                      description="Tổ chức/ngày đang chọn không có đơn hàng đã duyệt ở trạng thái chờ lập kế hoạch. Hãy duyệt đơn trong màn Đơn hàng, chọn đúng ngày đặt hàng, hoặc tạo thêm đơn cho tổ chức này."
+                    />
+                  )}
+                  <Empty description="Chưa có lộ trình — nhấn '+ Xe' để thêm lộ trình thủ công" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                </Space>
               ) : (
                 <Space direction="vertical" size={6} style={{ width: "100%" }}>
                   {routes.map((r, rIdx) => {
@@ -526,31 +886,30 @@ export default function PlanningPage() {
                     const isLocked = r.Status === "LOCKED";
                     const isFinalized = r.Status === "FINALIZED";
                     const totalOrders = r.Stops?.reduce((s, st) => s + (st.OrderCodes?.length ?? 0), 0) ?? 0;
-                    const driver = drivers.find((d) => d._id === (r.DriverID?._id ?? r.DriverID));
+                    const driver = drivers.find((d) => String(d._id) === String(r.DriverID?._id ?? r.DriverID ?? ""));
+                    const service = services.find((s) => String(s._id) === String(r.ServiceID?._id ?? r.ServiceID ?? ""));
+                    const vehicleId = String(r.VehicleID?._id ?? r.VehicleID ?? "");
+                    const vehicleCode = r.VehicleCode || r.VehicleID?.VehicleCode || "Chưa chọn xe";
+                    const selectedDepotId = String(orgId ?? "");
 
-                    function onRowDragOver(e) {
-                      if (isLocked || isFinalized) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }
-                    function onRowDrop(e) {
-                      if (isLocked || isFinalized) return;
-                      e.preventDefault();
-                      try {
-                        const payload = JSON.parse(e.dataTransfer.getData("text/plain"));
-                        if (payload.source === "unplanned") {
-                          addOrderM.mutate({ routeId: r._id, orderId: payload.orderId, customerCode: payload.customerCode });
-                        } else if (payload.fromRouteId && payload.fromRouteId !== r._id) {
-                          moveOrderM.mutate({ orderId: payload.orderId, toRouteId: r._id });
-                        }
-                      } catch { /* ignore */ }
-                    }
+	                    function onRowDragOver(e) {
+	                      if (isLocked || isFinalized) return;
+	                      e.preventDefault();
+	                      e.dataTransfer.dropEffect = "move";
+	                      if (dragState) setDropTarget({ routeId: String(r._id), index: r.Stops?.length ?? 0 });
+	                    }
+	                    function onRowDrop(e) {
+	                      if (isLocked || isFinalized) return;
+	                      handleRouteDrop(e, r);
+	                    }
 
                     /* Vehicles available to swap into this route: Active + same org +
                        not already used by another route in this plan. */
                     const usedVehicleIds = new Set(routes.filter((rr) => rr._id !== r._id).map((rr) => String(rr.VehicleID?._id ?? rr.VehicleID)));
                     const swappableVehicles = vehicles.filter((v) =>
-                      v.Status === "Active" && !usedVehicleIds.has(String(v._id))
+                      v.Status === "Active" &&
+                      String(v.OrganizationID?._id ?? v.OrganizationID ?? "") === selectedDepotId &&
+                      !usedVehicleIds.has(String(v._id))
                     );
 
                     return (
@@ -558,74 +917,114 @@ export default function PlanningPage() {
                         key={r._id}
                         onDragOver={onRowDragOver}
                         onDrop={onRowDrop}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget(null);
+                        }}
                         className="route-row"
                         style={{
                           display: "flex", alignItems: "stretch",
-                          border: `1px solid ${isLocked ? "#ffd591" : isFinalized ? "#b7eb8f" : "#e5e7eb"}`,
+                          border: `1px solid ${isRouteDropTarget(r._id) ? "#2563eb" : isLocked ? "#ffd591" : isFinalized ? "#b7eb8f" : "#e5e7eb"}`,
                           borderLeft: `5px solid ${color}`,
-                          borderRadius: 8, background: "#fff",
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                          borderRadius: 8, background: isRouteDropTarget(r._id) ? "#eff6ff" : "#fff",
+                          boxShadow: isRouteDropTarget(r._id) ? "0 8px 20px rgba(37,99,235,0.16)" : "0 1px 2px rgba(0,0,0,0.04)",
                           transition: "box-shadow .15s, border-color .15s",
                           overflow: "hidden"
                         }}
                       >
                         {/* LEFT panel: vehicle + assignment */}
-                        <div style={{ width: 320, padding: "10px 12px", borderRight: "1px solid #f0f0f0", flexShrink: 0, background: "#fafbfc" }}>
-                          {/* Header row: vehicle + actions */}
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                            <Space size={6} align="center">
-                              <CarOutlined style={{ color, fontSize: 16 }} />
-                              {!isLocked && !isFinalized ? (
-                                <Select
-                                  size="small" variant="borderless"
-                                  showSearch optionFilterProp="label"
-                                  value={String(r.VehicleID?._id ?? r.VehicleID ?? "")}
-                                  onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { vehicleId: v } })}
+	                        <div style={{ width: 360, padding: "10px 12px", borderRight: "1px solid #f0f0f0", flexShrink: 0, background: "#fafbfc" }}>
+	                          {/* Header row: vehicle + actions */}
+	                          <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+	                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+		                            <Space size={8} align="center" style={{ minWidth: 0, flex: 1 }}>
+		                              <CarOutlined style={{ color, fontSize: 16, flexShrink: 0 }} />
+		                              {!isLocked && !isFinalized ? (
+	                                <Select
+	                                  size="small"
+	                                  showSearch optionFilterProp="label"
+	                                  value={vehicleId || undefined}
+	                                  onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { vehicleId: v } })}
                                   options={[
-                                    { value: String(r.VehicleID?._id ?? r.VehicleID), label: r.VehicleCode },
+                                    ...(vehicleId ? [{ value: vehicleId, label: `${vehicleCode} · xe hiện tại` }] : []),
                                     ...swappableVehicles.map((v) => ({
                                       value: String(v._id),
                                       label: `${v.VehicleCode} · ${v.MaxWeight}kg / ${v.MaxVolume}m³`
                                     }))
                                   ]}
-                                  style={{ minWidth: 140, fontWeight: 600 }}
-                                  dropdownStyle={{ minWidth: 280 }}
-                                />
-                              ) : (
-                                <Text strong>{r.VehicleCode}</Text>
-                              )}
-                              <Tag color={ROUTE_STATUS_COLOR[r.Status]} style={{ fontSize: 10, margin: 0 }}>{r.Status}</Tag>
-                            </Space>
-                            <Space size={0} onClick={(e) => e.stopPropagation()}>
-                              {!isLocked && !isFinalized && (
-                                <Popconfirm title="Khóa route này?" onConfirm={() => lockM.mutate(r._id)}>
-                                  <Tooltip title="Khóa"><Button size="small" type="text" icon={<LockOutlined />} /></Tooltip>
-                                </Popconfirm>
-                              )}
-                              {isLocked && (
-                                <>
-                                  <Popconfirm title="Mở khóa?" onConfirm={() => unlockM.mutate(r._id)}>
-                                    <Tooltip title="Mở khóa"><Button size="small" type="text" icon={<UnlockOutlined />} /></Tooltip>
-                                  </Popconfirm>
-                                  <Popconfirm title="Finalize route?" onConfirm={() => finalizeM.mutate(r._id)}>
-                                    <Tooltip title="Hoàn tất"><Button size="small" type="text" icon={<CheckCircleOutlined />} style={{ color: "#52c41a" }} /></Tooltip>
-                                  </Popconfirm>
-                                </>
-                              )}
-                              {!isLocked && !isFinalized && (
-                                <Popconfirm title="Xóa xe khỏi kế hoạch?" onConfirm={() => removeRouteM.mutate(r._id)}>
-                                  <Tooltip title="Xóa"><Button size="small" type="text" danger icon={<DeleteOutlined />} /></Tooltip>
-                                </Popconfirm>
-                              )}
-                            </Space>
+	                                  style={{ width: 220, fontWeight: 600 }}
+	                                  dropdownStyle={{ minWidth: 280 }}
+	                                />
+	                              ) : (
+	                                <Text strong>{vehicleCode}</Text>
+	                              )}
+		                              <RouteStatusPill status={r.Status} />
+	                            </Space>
+	                            </div>
+	                            <Space size={6} onClick={(e) => e.stopPropagation()} wrap>
+	                              {!isLocked && !isFinalized && (
+	                                <Popconfirm title="Khóa route này?" onConfirm={() => lockM.mutate(r._id)}>
+	                                  <Button size="small" icon={<LockOutlined />}>Khóa lộ trình</Button>
+	                                </Popconfirm>
+	                              )}
+	                              {isLocked && (
+	                                <>
+	                                  <Popconfirm title="Mở khóa?" onConfirm={() => unlockM.mutate(r._id)}>
+	                                    <Button size="small" icon={<UnlockOutlined />}>Mở khóa</Button>
+	                                  </Popconfirm>
+	                                  <Popconfirm title="Finalize route?" onConfirm={() => finalizeM.mutate(r._id)}>
+	                                    <Button size="small" icon={<CheckCircleOutlined />} style={{ color: "#52c41a" }}>Hoàn tất</Button>
+	                                  </Popconfirm>
+	                                  <Popconfirm title="Xóa lộ trình đã khóa này?" description="Các đơn trong route sẽ quay về trạng thái chờ lập kế hoạch." onConfirm={() => removeRouteM.mutate(r._id)}>
+	                                    <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
+	                                  </Popconfirm>
+	                                </>
+	                              )}
+	                              {!isLocked && !isFinalized && (
+	                                <Popconfirm title="Xóa lộ trình này?" onConfirm={() => removeRouteM.mutate(r._id)}>
+	                                  <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
+	                                </Popconfirm>
+	                              )}
+	                            </Space>
                           </div>
 
                           {/* Stats row */}
-                          <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
-                            <span>📦 {totalOrders} đơn</span>
-                            <span>📍 {r.Stops?.length ?? 0} điểm</span>
-                            <span>🛣 {r.TotalDistance ?? 0} km</span>
-                            <span>⚖ {r.TotalWeight ?? 0} kg</span>
+	                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, max-content)", gap: "6px 10px", fontSize: 11, color: "#6b7280", marginBottom: 8, whiteSpace: "nowrap" }}>
+	                            <span>{totalOrders} đơn</span>
+	                            <span>{r.Stops?.length ?? 0} điểm</span>
+	                            <span>{r.TotalDistance ?? 0} km</span>
+	                            <span>{r.TotalWeight ?? 0} kg</span>
+                          </div>
+                          {r.PlannedStartTime && r.PlannedReturnTime && (
+                            <div style={{ fontSize: 11, color: "#374151", marginBottom: 8 }}>
+                              Chạy: <b>{r.PlannedStartTime}</b> - <b>{r.PlannedReturnTime}</b>
+                            </div>
+                          )}
+
+                          <div style={{
+                            marginBottom: 8,
+                            padding: "7px 8px",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 6,
+                            background: "#fff",
+                            fontSize: 11,
+                            color: "#374151"
+                          }}>
+                            <Text type="secondary" style={{ fontSize: 11 }}>Vận hành: </Text>
+                            {r.IsOutsourced ? (
+                              service ? (
+                                <Tag color="purple" style={{ marginLeft: 4 }}>
+                                  3PL · {service.Carrier || service.XName} ({service.ServiceCode})
+                                </Tag>
+                              ) : (
+                                <Tag color="red" style={{ marginLeft: 4 }}>3PL · Chưa chọn dịch vụ</Tag>
+                              )
+                            ) : driver ? (
+                              <Tag color="green" style={{ marginLeft: 4 }}>
+                                Tài xế · {driver.XName ?? driver.FullName} ({driver.DriverCode})
+                              </Tag>
+                            ) : (
+                              <Tag color="red" style={{ marginLeft: 4 }}>Nội bộ · Chưa chọn tài xế</Tag>
+                            )}
                           </div>
 
                           {!isLocked && !isFinalized && (
@@ -681,25 +1080,31 @@ export default function PlanningPage() {
                         </div>
 
                         {/* RIGHT panel: horizontal stops timeline */}
-                        <div style={{ flex: 1, padding: "10px 12px", overflowX: "auto", display: "flex", alignItems: "center", gap: 6, minWidth: 0, background: "#fff" }}>
-                          <div style={{ background: "#1f2937", color: "#facc15", padding: "6px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>
-                            🏭 Kho
+                        <div style={{ flex: 1, padding: "10px 12px", overflowX: "auto", display: "flex", alignItems: "center", gap: 4, minWidth: 0, background: isRouteDropTarget(r._id) ? "#f8fbff" : "#fff", transition: "background .16s ease" }}>
+	                          <div title={depotOrg?.XName ?? "Kho"} style={{ background: "#111827", color: "#fde68a", padding: "7px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap", border: "1px solid #374151" }}>
+	                            Kho {depotTimelineLabel}
                           </div>
                           {(r.Stops ?? []).length === 0 ? (
                             <div style={{ flex: 1, padding: "16px 12px", border: "2px dashed #d9d9d9", borderRadius: 6, textAlign: "center", color: "#9ca3af", fontSize: 12 }}>
-                              ⬇ Kéo đơn từ panel "Đơn chưa phân công" hoặc xe khác vào đây
+	                              Kéo đơn từ panel "Đơn chưa phân công" hoặc từ xe khác vào đây
                             </div>
                           ) : (
-                            r.Stops.map((stop) => (
-                              <div key={stop.StopIndex} style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+	                            r.Stops.map((stop) => {
+	                              const slotIndex = Math.max(0, (stop.StopIndex ?? 1) - 1);
+	                              const stopActive = dragState && dropTarget?.routeId === String(r._id) && dropTarget?.index === slotIndex;
+	                              return (
+	                              <div key={stop.StopIndex} style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                                 <span style={{ color: "#9ca3af", fontSize: 16 }}>→</span>
+                                {renderDropSlot(r, slotIndex, isLocked || isFinalized)}
                                 <div style={{
-                                  border: `1.5px solid ${color}`,
-                                  background: "#fff",
+                                  border: `1.5px solid ${stopActive ? "#2563eb" : color}`,
+                                  background: stopActive ? "#eff6ff" : "#fff",
                                   borderRadius: 8,
                                   padding: "6px 10px",
                                   minWidth: 140,
-                                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+                                  boxShadow: stopActive ? "0 8px 18px rgba(37,99,235,0.18)" : "0 1px 2px rgba(0,0,0,0.05)",
+                                  transform: stopActive ? "translateY(-2px)" : "none",
+                                  transition: "background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease"
                                 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                                     <span style={{
@@ -714,44 +1119,69 @@ export default function PlanningPage() {
                                   </div>
                                   {stop.PlannedArrivalTime && (
                                     <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 4 }}>
-                                      ⏰ {stop.PlannedArrivalTime}
+                                      ⏰ {stop.PlannedArrivalTime}{stop.PlannedDepartureTime ? ` - ${stop.PlannedDepartureTime}` : ""}
+                                      {stop.PlannedServiceTime ? ` · dỡ ${stop.PlannedServiceTime}p` : ""}
                                     </div>
                                   )}
                                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                    {stop.OrderCodes?.map((code, i) => (
-                                      <div
-                                        key={code}
-                                        draggable={!isLocked && !isFinalized}
-                                        onDragStart={(e) => {
-                                          e.stopPropagation();
-                                          e.dataTransfer.setData("text/plain", JSON.stringify({ orderId: stop.OrderIDs?.[i], fromRouteId: r._id, source: "route" }));
-                                          e.dataTransfer.effectAllowed = "move";
-                                        }}
-                                        style={{
-                                          display: "flex", alignItems: "center", justifyContent: "space-between",
-                                          cursor: !isLocked && !isFinalized ? "grab" : "default",
-                                          background: "#f0f9ff", border: "1px solid #bae0ff",
-                                          borderRadius: 4, padding: "1px 6px"
-                                        }}
-                                      >
-                                        <span style={{ fontSize: 10, fontFamily: "monospace", color: "#1677ff" }}>{code}</span>
-                                        {!isLocked && !isFinalized && (
-                                          <Popconfirm title={`Gỡ ${code}?`} onConfirm={() => removeOrderM.mutate({ routeId: r._id, orderId: stop.OrderIDs?.[i] })}>
-                                            <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ height: 14, width: 14, padding: 0, fontSize: 10 }} />
-                                          </Popconfirm>
-                                        )}
-                                      </div>
-                                    ))}
+		                                    {stop.OrderCodes?.map((code, i) => {
+		                                      const orderId = String(stop.OrderIDs?.[i] ?? "");
+		                                      const canDragOrder = !isLocked && !isFinalized && !!orderId;
+		                                      return (
+		                                      <Tooltip key={code} title={canDragOrder ? "Kéo sang xe khác hoặc đổi vị trí trong lộ trình" : ""}>
+		                                        <div
+		                                          draggable={canDragOrder}
+		                                          onDragStart={(e) => {
+		                                            e.stopPropagation();
+		                                            if (!canDragOrder) {
+		                                              e.preventDefault();
+		                                              return;
+		                                            }
+		                                            setDragState({ orderId, code, fromRouteId: String(r._id) });
+		                                            setDropTarget({ routeId: String(r._id), index: slotIndex });
+		                                            e.dataTransfer.setData("text/plain", JSON.stringify({ orderId, fromRouteId: r._id, source: "route" }));
+		                                            e.dataTransfer.effectAllowed = "move";
+		                                          }}
+		                                          onDragEnd={() => {
+		                                            setDragState(null);
+		                                            setDropTarget(null);
+		                                          }}
+		                                          style={{
+		                                            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
+		                                            cursor: canDragOrder ? "grab" : "default",
+		                                            background: dragState?.orderId === orderId ? "#2563eb" : "#f8fafc",
+		                                            border: `1px solid ${dragState?.orderId === orderId ? "#1d4ed8" : "#bfdbfe"}`,
+		                                            borderRadius: 6, padding: "3px 6px",
+		                                            opacity: dragState?.orderId === orderId ? 0.72 : 1,
+		                                            transform: dragState?.orderId === orderId ? "scale(0.98)" : "none",
+		                                            transition: "background .14s ease, border-color .14s ease, opacity .14s ease, transform .14s ease"
+		                                          }}
+		                                        >
+		                                          <Space size={4} style={{ minWidth: 0 }}>
+		                                            {!isLocked && !isFinalized && <DragOutlined style={{ color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8", fontSize: 11, flexShrink: 0 }} />}
+		                                            <span style={{ fontSize: 10, fontFamily: "monospace", color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8", whiteSpace: "nowrap" }}>{code}</span>
+		                                          </Space>
+		                                          {!isLocked && !isFinalized && (
+	                                            <Popconfirm title={`Gỡ ${code}?`} onConfirm={() => removeOrderM.mutate({ routeId: r._id, orderId: stop.OrderIDs?.[i] })}>
+	                                              <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ height: 16, width: 16, padding: 0, fontSize: 10 }} />
+	                                            </Popconfirm>
+	                                          )}
+		                                        </div>
+		                                      </Tooltip>
+		                                    );
+		                                    })}
                                   </div>
                                 </div>
                               </div>
-                            ))
+                            );
+                            })
                           )}
                           {r.Stops?.length > 0 && (
                             <>
                               <span style={{ color: "#9ca3af", fontSize: 16 }}>→</span>
-                              <div style={{ background: "#1f2937", color: "#facc15", padding: "6px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>
-                                🏭 Kho
+                              {renderDropSlot(r, r.Stops.length, isLocked || isFinalized)}
+	                              <div title={depotOrg?.XName ?? "Kho"} style={{ background: "#111827", color: "#fde68a", padding: "7px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap", border: "1px solid #374151" }}>
+	                                Kho {depotTimelineLabel}
                               </div>
                             </>
                           )}
@@ -777,7 +1207,7 @@ export default function PlanningPage() {
             <Select options={[
               { value: "MORNING",   label: "Ca sáng — xuất phát 08:00, dự kiến quay về trước 12:00" },
               { value: "AFTERNOON", label: "Ca chiều — xuất phát 13:30, dự kiến quay về trước 17:30" },
-              { value: "FULL_DAY",  label: "Cả ngày — xe luân phiên ca sáng / ca chiều" }
+	              { value: "FULL_DAY",  label: "Cả ngày — xe chạy từ 08:00 đến 17:30" }
             ]} />
           </Form.Item>
           <Form.Item name="PlanName" label="Tên kế hoạch (tùy chọn)" extra="VD: 'Ca sáng tuần 19', 'Giao đặc biệt'...">
@@ -802,6 +1232,7 @@ export default function PlanningPage() {
             <Select showSearch optionFilterProp="label" placeholder="Chọn xe tải"
               options={vehicles
                 .filter((v) => v.Status === "Active")
+                .filter((v) => String(v.OrganizationID?._id ?? v.OrganizationID ?? "") === String(orgId ?? ""))
                 .filter((v) => !routes.some((r) => r.VehicleID?._id === v._id || r.VehicleCode === v.VehicleCode))
                 .map((v) => ({ value: v._id, label: `[${v.VehicleCode}] ${v.XName} · ${v.LicensePlate} · ${v.MaxWeight}kg` }))} />
           </Form.Item>
@@ -840,16 +1271,16 @@ export default function PlanningPage() {
         title={<Space><EnvironmentOutlined /><span>Bản đồ lộ trình — chế độ toàn màn hình</span></Space>}
         destroyOnHidden
       >
-        <div style={{ display: "flex", height: "100%" }}>
-          {/* LEFT: Big map */}
-          <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          {/* Big map */}
+          <div style={{ flex: 1, position: "relative", minWidth: 0, minHeight: 0 }}>
             <MapContainer ref={fullscreenMapRef} center={DEFAULT_CENTER} zoom={12} style={{ height: "100%", width: "100%" }}>
               <TileLayer
                 attribution='&copy; OpenStreetMap'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              <FitBounds points={depot ? [depot, ...allMapPoints] : allMapPoints} />
-              {depot && (
+              <FitBounds points={visibleMapPoints} fitKey={mapFitKey} />
+              {shouldDrawDepot && (
                 <Marker position={depot} icon={DEPOT_ICON}>
                   <Popup>
                     <strong>🏭 {depotOrg?.XName ?? "Kho"}</strong>
@@ -861,126 +1292,281 @@ export default function PlanningPage() {
               )}
               {routes.map((r, rIdx) => {
                 const color = ROUTE_COLORS[rIdx % ROUTE_COLORS.length];
-                const pts = mapPoints[r._id] ?? [];
+                const pts = displayMapPoints[r._id] ?? [];
                 const dim = highlightRouteId && highlightRouteId !== r._id ? 0.25 : 1;
-                const linePts = depot && pts.length
+                const lineSegments = roadLines[r._id] ?? [shouldDrawDepot && pts.length
                   ? [depot, ...pts.map((p) => p.latlng), depot]
-                  : pts.map((p) => p.latlng);
+                  : pts.map((p) => p.latlng)];
                 return (
                   <span key={r._id}>
-                    {pts.map((pt, i) => (
-                      <Marker key={i} position={pt.latlng} icon={createColoredIcon(color, pt.label)} opacity={dim}>
-                        <Popup>
-                          <strong>{pt.code}</strong><br />{pt.address}<br />
-                          {pt.arrival && <span>⏰ {pt.arrival}<br /></span>}
-                          <Tag color={color}>{r.VehicleCode}</Tag>
-                        </Popup>
-                      </Marker>
+	                    {pts.map((pt) => (
+	                      <Marker key={pt.key} position={pt.latlng} icon={createColoredIcon(color, pt.label)} opacity={dim}>
+	                        <Popup>{renderStopPopup(pt, r, color)}</Popup>
+	                      </Marker>
+	                    ))}
+                    {lineSegments.map((linePts, i) => linePts.length >= 2 && (
+                      <span key={i}>
+                        <Polyline positions={linePts} color="#111827" weight={highlightRouteId === r._id ? 10 : 8} opacity={dim * 0.35} />
+                        <Polyline positions={linePts} color={color} weight={highlightRouteId === r._id ? 7 : 5} opacity={dim * 0.96} />
+                        {(() => {
+                          const arrow = routeArrow(linePts, color, dim);
+                          return arrow ? <Marker position={arrow.position} icon={arrow.icon} interactive={false} opacity={dim} /> : null;
+                        })()}
+                      </span>
                     ))}
-                    {linePts.length >= 2 && (
-                      <Polyline
-                        positions={linePts}
-                        color={color}
-                        weight={highlightRouteId === r._id ? 6 : 4}
-                        opacity={dim * 0.85}
-                      />
-                    )}
                   </span>
                 );
               })}
             </MapContainer>
           </div>
 
-          {/* RIGHT: Route detail panel */}
-          <div style={{ width: 420, borderLeft: "1px solid #f0f0f0", overflowY: "auto", padding: 12 }}>
-            <Text strong style={{ fontSize: 14 }}>Phân công lộ trình</Text>
-            <p style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
-              Click vào 1 lộ trình để xem chi tiết và chốt tài xế / xe / 3PL.
-            </p>
-            <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 8 }}>
+          {/* Route detail panel */}
+          <div style={{ height: 310, borderTop: "1px solid #e5e7eb", overflow: "auto", padding: 8, background: "#f8fafc" }}>
+            <Space direction="vertical" size={6} style={{ minWidth: "100%" }}>
               {routes.map((r, rIdx) => {
                 const color = ROUTE_COLORS[rIdx % ROUTE_COLORS.length];
-                const driver = drivers.find((d) => d._id === (r.DriverID?._id ?? r.DriverID));
-                const service = services.find((s) => s._id === (r.ServiceID?._id ?? r.ServiceID));
+                const driver = drivers.find((d) => String(d._id) === String(r.DriverID?._id ?? r.DriverID ?? ""));
+                const service = services.find((s) => String(s._id) === String(r.ServiceID?._id ?? r.ServiceID ?? ""));
+                const totalOrders = r.Stops?.reduce((s, st) => s + (st.OrderCodes?.length ?? 0), 0) ?? 0;
                 const isHi = highlightRouteId === r._id;
+                const isLocked = r.Status === "LOCKED";
+                const isFinalized = r.Status === "FINALIZED";
+                const vehicleId = String(r.VehicleID?._id ?? r.VehicleID ?? "");
+                const vehicleCode = r.VehicleCode || r.VehicleID?.VehicleCode || "Chưa chọn xe";
+                const selectedDepotId = String(orgId ?? "");
+                const usedVehicleIds = new Set(routes.filter((rr) => rr._id !== r._id).map((rr) => String(rr.VehicleID?._id ?? rr.VehicleID)));
+                const swappableVehicles = vehicles.filter((v) =>
+                  v.Status === "Active" &&
+                  String(v.OrganizationID?._id ?? v.OrganizationID ?? "") === selectedDepotId &&
+                  !usedVehicleIds.has(String(v._id))
+                );
                 return (
-                  <Card
-                    key={r._id} size="small"
-                    style={{ borderLeft: `4px solid ${color}`, background: isHi ? "#f0f8ff" : "#fff", cursor: "pointer" }}
+                  <div
+                    key={r._id}
+                    onDragOver={(e) => {
+                      if (isLocked || isFinalized) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragState) setDropTarget({ routeId: String(r._id), index: r.Stops?.length ?? 0 });
+                    }}
+                    onDrop={(e) => {
+                      if (isLocked || isFinalized) return;
+                      handleRouteDrop(e, r);
+                    }}
+                    onDragLeave={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget(null);
+                    }}
+                    style={{
+                      display: "flex",
+                      minWidth: "100%",
+                      border: `1px solid ${isRouteDropTarget(r._id) ? "#2563eb" : isHi ? color : "#e5e7eb"}`,
+                      borderLeft: `5px solid ${color}`,
+                      borderRadius: 8,
+                      background: isRouteDropTarget(r._id) ? "#eff6ff" : "#fff",
+                      boxShadow: isRouteDropTarget(r._id) ? "0 8px 20px rgba(37,99,235,0.16)" : isHi ? `0 6px 18px ${color}33` : "0 1px 2px rgba(15,23,42,.06)",
+                      overflow: "hidden",
+                      cursor: "pointer"
+                    }}
                     onClick={() => setHighlightRouteId(isHi ? null : r._id)}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <Space>
-                        <CarOutlined style={{ color }} />
-                        <Text strong>{r.VehicleCode}</Text>
-                        <Tag color={r.IsOutsourced ? "purple" : "blue"} style={{ fontSize: 10 }}>
-                          {r.IsOutsourced ? "Thuê ngoài" : "Xe nội bộ"}
-                        </Tag>
+                    <div style={{ width: 360, padding: "10px 12px", borderRight: "1px solid #e5e7eb", background: "#fff", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                      <Space size={8} style={{ marginBottom: 6 }} wrap>
+                        <CarOutlined style={{ color, fontSize: 16 }} />
+                        {!isLocked && !isFinalized ? (
+                          <Select
+                            size="small"
+                            showSearch
+                            optionFilterProp="label"
+                            value={vehicleId || undefined}
+                            onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { vehicleId: v } })}
+                            options={[
+                              ...(vehicleId ? [{ value: vehicleId, label: `${vehicleCode} · xe hiện tại` }] : []),
+                              ...swappableVehicles.map((v) => ({
+                                value: String(v._id),
+                                label: `${v.VehicleCode} · ${v.MaxWeight}kg / ${v.MaxVolume}m³`
+                              }))
+                            ]}
+                            style={{ width: 210 }}
+                          />
+                        ) : (
+                          <Text strong>{vehicleCode}</Text>
+                        )}
+                        <RouteStatusPill status={r.Status} />
                       </Space>
-                      <Tag color={ROUTE_STATUS_COLOR[r.Status]} style={{ fontSize: 10 }}>{r.Status}</Tag>
-                    </div>
-                    <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                      {r.Stops?.length ?? 0} điểm · {r.TotalDistance ?? 0} km · {r.TotalWeight ?? 0} kg
-                    </div>
-
-                    {isHi && (
-                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #ddd" }} onClick={(e) => e.stopPropagation()}>
-                        <Form layout="vertical" size="small">
-                          <Form.Item label="Loại vận hành" style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, color: "#475569", display: "grid", gap: 3 }}>
+                        <span>{totalOrders} đơn · {r.Stops?.length ?? 0} điểm · {r.TotalDistance ?? 0} km</span>
+                        <span>Chạy: <b>{r.PlannedStartTime ?? "--:--"}</b> - <b>{r.PlannedReturnTime ?? "--:--"}</b></span>
+                        <span style={{ color: !r.IsOutsourced && !driver ? "#dc2626" : "#475569" }}>
+                          {r.IsOutsourced ? "3PL" : "Nội bộ"}
+                          {driver ? ` · ${driver.XName ?? driver.FullName}` : !r.IsOutsourced ? " · Chưa chọn tài xế" : ""}
+                        </span>
+                        <span style={{ color: "#1677ff", fontWeight: 700 }}>{(r.EstimatedCost ?? 0).toLocaleString("vi-VN")} ₫</span>
+                      </div>
+                      {!isLocked && !isFinalized && (
+                        <Space direction="vertical" size={6} style={{ width: "100%", marginTop: 8 }}>
+                          <Select
+                            size="small"
+                            style={{ width: "100%" }}
+                            value={r.Shift ?? "MORNING"}
+                            onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { shift: v } })}
+                            options={[
+                              { value: "MORNING", label: "Ca sáng (08:00-12:00)" },
+                              { value: "AFTERNOON", label: "Ca chiều (13:30-17:30)" },
+                              { value: "FULL_DAY", label: "Cả ngày (08:00-17:30)" }
+                            ]}
+                          />
+                          <div style={{ display: "flex", gap: 4 }}>
                             <Select
-                              value={r.IsOutsourced}
+                              size="small"
+                              style={{ width: 90 }}
+                              value={!!r.IsOutsourced}
                               onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { isOutsourced: v } })}
                               options={[
-                                { value: false, label: "Xe nội bộ (tự chở)" },
-                                { value: true,  label: "Thuê ngoài (3PL)" }
+                                { value: false, label: "Nội bộ" },
+                                { value: true, label: "3PL" }
                               ]}
                             />
-                          </Form.Item>
-                          {!r.IsOutsourced ? (
-                            <Form.Item label="Tài xế" style={{ marginBottom: 8 }}>
+                            {!r.IsOutsourced ? (
                               <Select
-                                showSearch optionFilterProp="label" allowClear placeholder="Chọn tài xế"
+                                size="small"
+                                style={{ flex: 1, minWidth: 0 }}
+                                showSearch
+                                optionFilterProp="label"
+                                allowClear
+                                placeholder="Chọn tài xế"
                                 value={driver?._id}
                                 onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { driverId: v ?? null } })}
-                                options={drivers.map((d) => ({
-                                  value: d._id,
-                                  label: `[${d.DriverCode}] ${d.XName ?? d.FullName ?? ""}`
-                                }))}
+                                options={drivers.map((d) => ({ value: d._id, label: `[${d.DriverCode}] ${d.XName ?? d.FullName ?? ""}` }))}
                               />
-                            </Form.Item>
-                          ) : (
-                            <Form.Item label="Dịch vụ 3PL" style={{ marginBottom: 8 }}>
+                            ) : (
                               <Select
-                                showSearch optionFilterProp="label" allowClear placeholder="Chọn nhà vận chuyển"
+                                size="small"
+                                style={{ flex: 1, minWidth: 0 }}
+                                showSearch
+                                optionFilterProp="label"
+                                allowClear
+                                placeholder="Chọn 3PL"
                                 value={service?._id}
                                 onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { serviceId: v ?? null } })}
-                                options={services
-                                  .filter((s) => s.Status === "Active")
-                                  .map((s) => ({ value: s._id, label: `[${s.ServiceCode}] ${s.XName} — ${s.Carrier}` }))}
+                                options={services.filter((s) => s.Status === "Active").map((s) => ({ value: s._id, label: `${s.Carrier} (${s.ServiceCode})` }))}
                               />
-                            </Form.Item>
-                          )}
-                          <div style={{ background: "#fafafa", padding: 8, borderRadius: 4, fontSize: 12 }}>
-                            <Text type="secondary">Chi phí ước tính:</Text>{" "}
-                            <Text strong style={{ color: "#1677ff" }}>
-                              {(r.EstimatedCost ?? 0).toLocaleString("vi-VN")} ₫
-                            </Text>
+                            )}
                           </div>
-                          <div style={{ marginTop: 8 }}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>Đơn hàng trong lộ trình:</Text>
-                            <ul style={{ paddingLeft: 18, fontSize: 11, margin: "4px 0 0 0" }}>
-                              {r.Stops?.map((st, i) => (
-                                <li key={i}>
-                                  <b>{st.CustomerCode}</b>
-                                  {st.OrderCodes?.length ? ` — ${st.OrderCodes.join(", ")}` : ""}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </Form>
+                          <Space size={6} wrap>
+                            <Popconfirm title="Khóa route này?" onConfirm={() => lockM.mutate(r._id)}>
+                              <Button size="small" icon={<LockOutlined />}>Khóa lộ trình</Button>
+                            </Popconfirm>
+                            <Popconfirm title="Xóa lộ trình này?" onConfirm={() => removeRouteM.mutate(r._id)}>
+                              <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
+                            </Popconfirm>
+                          </Space>
+                        </Space>
+                      )}
+                      {isLocked && (
+                        <Space size={6} wrap style={{ marginTop: 8 }}>
+                          <Popconfirm title="Mở khóa?" onConfirm={() => unlockM.mutate(r._id)}>
+                            <Button size="small" icon={<UnlockOutlined />}>Mở khóa</Button>
+                          </Popconfirm>
+                          <Popconfirm title="Chốt hoàn tất route?" onConfirm={() => finalizeM.mutate(r._id)}>
+                            <Button size="small" icon={<CheckCircleOutlined />} style={{ color: "#52c41a" }}>Hoàn tất</Button>
+                          </Popconfirm>
+                          <Popconfirm title="Xóa lộ trình đã khóa này?" description="Các đơn trong route sẽ quay về trạng thái chờ lập kế hoạch." onConfirm={() => removeRouteM.mutate(r._id)}>
+                            <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
+                          </Popconfirm>
+                        </Space>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, overflowX: "auto", padding: "12px 14px", display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      <div style={{ background: "#111827", color: "#fde68a", padding: "8px 11px", borderRadius: 6, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                        Kho {depotTimelineLabel}
                       </div>
-                    )}
-                  </Card>
+                      {(r.Stops ?? []).map((stop) => {
+                        const slotIndex = Math.max(0, (stop.StopIndex ?? 1) - 1);
+                        const stopActive = dragState && dropTarget?.routeId === String(r._id) && dropTarget?.index === slotIndex;
+                        return (
+                        <span key={`${r._id}-${stop.StopIndex}`} style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                          <span style={{ color, fontSize: 18, fontWeight: 800 }}>→</span>
+                          {renderDropSlot(r, slotIndex, isLocked || isFinalized)}
+                          <div style={{
+                            border: `2px solid ${stopActive ? "#2563eb" : color}`,
+                            borderRadius: 8,
+                            padding: "7px 10px",
+                            minWidth: 150,
+                            background: stopActive ? "#eff6ff" : "#fff",
+                            boxShadow: stopActive ? "0 8px 18px rgba(37,99,235,0.18)" : "none"
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ background: color, color: "#fff", borderRadius: "50%", width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>
+                                {stop.StopIndex}
+                              </span>
+                              <Text strong style={{ fontSize: 12 }}>{stop.CustomerCode}</Text>
+                            </div>
+                            <div style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>
+                              {stop.PlannedArrivalTime ?? "--:--"}{stop.PlannedDepartureTime ? ` - ${stop.PlannedDepartureTime}` : ""}
+                              {stop.PlannedServiceTime ? ` · dỡ ${stop.PlannedServiceTime}p` : ""}
+                            </div>
+                            <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
+                              {(stop.OrderCodes ?? []).map((code, i) => {
+                                const orderId = String(stop.OrderIDs?.[i] ?? "");
+                                const canDragOrder = !isLocked && !isFinalized && !!orderId;
+                                return (
+                                  <div
+                                    key={code}
+                                    draggable={canDragOrder}
+                                    onDragStart={(e) => {
+                                      e.stopPropagation();
+                                      if (!canDragOrder) {
+                                        e.preventDefault();
+                                        return;
+                                      }
+                                      setDragState({ orderId, code, fromRouteId: String(r._id) });
+                                      setDropTarget({ routeId: String(r._id), index: slotIndex });
+                                      e.dataTransfer.setData("text/plain", JSON.stringify({ orderId, fromRouteId: r._id, source: "route" }));
+                                      e.dataTransfer.effectAllowed = "move";
+                                    }}
+                                    onDragEnd={() => {
+                                      setDragState(null);
+                                      setDropTarget(null);
+                                    }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      cursor: canDragOrder ? "grab" : "default",
+                                      background: dragState?.orderId === orderId ? "#2563eb" : "#eff6ff",
+                                      border: `1px solid ${dragState?.orderId === orderId ? "#1d4ed8" : "#bfdbfe"}`,
+                                      borderRadius: 6,
+                                      padding: "2px 5px",
+                                      fontSize: 10,
+                                      color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8"
+                                    }}
+                                  >
+                                    {canDragOrder && <DragOutlined style={{ fontSize: 10 }} />}
+                                    <span style={{ fontFamily: "monospace" }}>{code}</span>
+                                    {canDragOrder && (
+                                      <Popconfirm title={`Gỡ ${code}?`} onConfirm={() => removeOrderM.mutate({ routeId: r._id, orderId })}>
+                                        <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ height: 14, width: 14, padding: 0, fontSize: 9 }} />
+                                      </Popconfirm>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </span>
+                      );
+                      })}
+                      {(r.Stops ?? []).length > 0 && (
+                        <>
+                          <span style={{ color, fontSize: 18, fontWeight: 800 }}>→</span>
+                          {renderDropSlot(r, r.Stops.length, isLocked || isFinalized)}
+                          <div style={{ background: "#111827", color: "#fde68a", padding: "8px 11px", borderRadius: 6, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                            Kho {depotTimelineLabel}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
             </Space>

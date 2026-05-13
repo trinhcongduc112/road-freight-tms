@@ -21,6 +21,7 @@ routePlanRouter.get("/unplanned-orders", requirePermission(READ), asyncHandler(c
 routePlanRouter.get("/", requirePermission(READ), asyncHandler(ctrl.listRoutePlans));
 routePlanRouter.get("/:id", requirePermission(READ), asyncHandler(ctrl.getRoutePlan));
 routePlanRouter.post("/", requireAnyPermission(WRITE), asyncHandler(ctrl.createRoutePlan));
+routePlanRouter.patch("/:id", requirePermission(WRITE), asyncHandler(ctrl.updateRoutePlan));
 routePlanRouter.delete("/:id", requirePermission(WRITE), asyncHandler(ctrl.deleteRoutePlan));
 
 /* ── Delivery Routes ── */
@@ -34,6 +35,7 @@ routePlanRouter.delete("/:planId/routes/:routeId/orders/:orderId", requirePermis
 
 /* ── Move order between routes (with constraint validation) ── */
 routePlanRouter.post("/:planId/move-order", requirePermission(WRITE), asyncHandler(ctrl.moveOrderBetweenRoutes));
+routePlanRouter.post("/:planId/reorder-order", requirePermission(WRITE), asyncHandler(ctrl.reorderOrder));
 
 /* ── Driver / 3PL service / cost assignment ── */
 routePlanRouter.patch("/:planId/routes/:routeId/assignment", requirePermission(WRITE), asyncHandler(ctrl.assignRoute));

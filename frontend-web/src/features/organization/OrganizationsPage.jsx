@@ -361,8 +361,7 @@ export default function OrganizationsPage() {
               options={[
                 { value: "MANUFACTURER", label: "Manufacturer" },
                 { value: "BRANCH",       label: "Branch" },
-                { value: "DEPOT",        label: "Depot" },
-                { value: "SHIPPER",      label: "Deliverer" }
+                { value: "DEPOT",        label: "Depot" }
               ]}
             />
           </Form.Item>

@@ -22,7 +22,9 @@ const stopSchema = new mongoose.Schema(
     Longitude: { type: Number, default: null },
     OrderIDs: [{ type: mongoose.Schema.Types.ObjectId, ref: "SalesOrder" }],
     OrderCodes: [{ type: String, trim: true, uppercase: true }],
+    CaseCount: { type: Number, default: 0, min: 0 },
     PlannedArrivalTime: { type: String, default: "" },
+    PlannedDepartureTime: { type: String, default: "" },
     PlannedServiceTime: { type: Number, default: 0, min: 0 },
     StopStatus: { type: String, enum: Object.values(StopStatus), default: StopStatus.PENDING },
     EpodSignature: { type: String, default: "" }, // Base64 signature
@@ -38,7 +40,7 @@ const deliveryRouteSchema = new mongoose.Schema(
     OrganizationID: { type: mongoose.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     VehicleID: { type: mongoose.Schema.Types.ObjectId, ref: "Vehicle", required: true },
     VehicleCode: { type: String, trim: true, uppercase: true, default: "" },
-    DriverID: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    DriverID: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
     DriverCode: { type: String, trim: true, default: "" },
     Shift: { type: String, enum: ["MORNING", "AFTERNOON", "FULL_DAY"], default: "MORNING" },
     IsOutsourced: { type: Boolean, default: false },
@@ -50,6 +52,8 @@ const deliveryRouteSchema = new mongoose.Schema(
     TotalDistance: { type: Number, default: 0, min: 0 },
     TotalWeight: { type: Number, default: 0, min: 0 },
     TotalVolume: { type: Number, default: 0, min: 0 },
+    PlannedStartTime: { type: String, default: "" },
+    PlannedReturnTime: { type: String, default: "" },
     Notes: { type: String, trim: true, default: "" }
   },
   { timestamps: true }

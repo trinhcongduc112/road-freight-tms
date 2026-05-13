@@ -9,6 +9,26 @@ import {
 import { ApiError } from "../utils/apiError.js";
 import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
 
+const ORG_CHILD_TYPE = {
+  [OrgType.MANUFACTURER]: OrgType.BRANCH,
+  [OrgType.BRANCH]: OrgType.DEPOT
+};
+const ROOT_ORG_TYPE = OrgType.MANUFACTURER;
+
+function expectedOrgTypeForParent(parent) {
+  return parent ? ORG_CHILD_TYPE[parent.OrgType] : ROOT_ORG_TYPE;
+}
+
+function assertOrgHierarchy(parent, orgType) {
+  const expected = expectedOrgTypeForParent(parent);
+  if (!expected) throw new ApiError(400, "DEPOT không được có tổ chức con");
+  if (orgType !== expected) {
+    throw new ApiError(400, parent
+      ? `OrgType dưới ${parent.OrgType} phải là ${expected}`
+      : `Tổ chức gốc phải là ${expected}`);
+  }
+}
+
 /** GET /api/organizations */
 export async function listOrganizations(req, res) {
   const filter = scopeFilter(req.orgScope, "_id");
@@ -84,12 +104,15 @@ export async function createOrganization(req, res) {
     path = [...parent.Path, parent._id];
   }
 
+  const normalizedOrgType = orgTypeInput ?? expectedOrgTypeForParent(parent);
+  assertOrgHierarchy(parent, normalizedOrgType);
+
   const org = await Organization.create({
     XCode: codeUpper,
     XName,
     Address: Address ?? "",
     Status: Status ?? "Active",
-    OrgType: orgTypeInput ?? null,
+    OrgType: normalizedOrgType,
     Parent: parent?._id ?? null,
     Path: path,
     Latitude: Latitude ?? null,
@@ -163,6 +186,15 @@ export async function updateOrganization(req, res) {
     throw new ApiError(400, "Invalid OrgType");
   }
 
+  if (req.body?.OrgType !== undefined) {
+    const parent = org.Parent ? await Organization.findById(org.Parent).lean() : null;
+    assertOrgHierarchy(parent, req.body.OrgType);
+    const expectedChildType = ORG_CHILD_TYPE[req.body.OrgType];
+    const children = await Organization.find({ Parent: org._id }).lean();
+    const invalidChild = children.find((child) => child.OrgType !== expectedChildType);
+    if (invalidChild) throw new ApiError(400, `Không thể đổi loại: tổ chức con phải là ${expectedChildType}`);
+  }
+
   await org.save();
   res.json({ success: true, data: org });
 }
@@ -214,7 +246,7 @@ export async function importOrganizations(req, res) {
       const org = await Organization.create({
         XCode: xCode,
         XName: xName,
-        OrgType: orgTypeInput ?? "DEPOT",
+        OrgType: orgTypeInput ?? "MANUFACTURER",
         Address: row["Address"] ? String(row["Address"]).trim() : "",
         Latitude: row["Latitude"] ? parseFloat(row["Latitude"]) : null,
         Longitude: row["Longitude"] ? parseFloat(row["Longitude"]) : null,

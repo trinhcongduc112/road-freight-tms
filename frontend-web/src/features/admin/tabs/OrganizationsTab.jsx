@@ -12,9 +12,15 @@ import { Permissions, usePermissions } from "../../../utils/permissions";
 const ORG_TYPE_OPTIONS = [
   { value: "MANUFACTURER", label: "Manufacturer" },
   { value: "BRANCH",       label: "Branch" },
-  { value: "DEPOT",        label: "Depot" },
-  { value: "SHIPPER",      label: "Deliverer" }
+  { value: "DEPOT",        label: "Depot" }
 ];
+
+function nextOrgType(parent) {
+  if (!parent) return "MANUFACTURER";
+  if (parent.OrgType === "MANUFACTURER") return "BRANCH";
+  if (parent.OrgType === "BRANCH") return "DEPOT";
+  return null;
+}
 
 function GeoButton() {
   const form = Form.useFormInstance();
@@ -152,6 +158,8 @@ export default function OrganizationsTab() {
 
   const orgs       = listQ.data?.data ?? [];
   const treeRoots  = treeQ.data?.data ?? [];
+  const parentOrg = creatingParentId ? orgs.find((o) => o._id === creatingParentId) : null;
+  const allowedCreateType = nextOrgType(parentOrg);
 
   const filtered = useMemo(() => {
     if (!search) return orgs;
@@ -199,7 +207,7 @@ export default function OrganizationsTab() {
         OpenTime: editing.OpenTime ?? null, CloseTime: editing.CloseTime ?? null,
         Status: editing.Status
       }
-    : { Status: "Active", ParentID: creatingParentId };
+    : { Status: "Active", ParentID: creatingParentId, OrgType: allowedCreateType };
 
   const onSubmit = async () => {
     const values = await form.validateFields();
@@ -217,6 +225,10 @@ export default function OrganizationsTab() {
       createM.mutate({ XCode: values.XCode, XName: values.XName, OrgType: values.OrgType, Address: values.Address, Status: values.Status, ParentID: values.ParentID || null, ...coords });
     }
   };
+
+  const orgTypeOptions = editing
+    ? ORG_TYPE_OPTIONS
+    : ORG_TYPE_OPTIONS.filter((option) => option.value === allowedCreateType);
 
   const columns = [
     { title: "Mã", dataIndex: "XCode", width: 160, render: (v) => <Tag color="blue">{v}</Tag> },
@@ -267,7 +279,7 @@ export default function OrganizationsTab() {
                 titleRender={(node) => (
                   <Space size={4}>
                     {node.title}
-                    {canManage && (
+                    {canManage && nextOrgType(node.raw) && (
                       <Button size="small" type="link" icon={<PlusOutlined />} onClick={(e) => { e.stopPropagation(); openCreate(node.raw._id); }}>con</Button>
                     )}
                   </Space>
@@ -317,11 +329,11 @@ export default function OrganizationsTab() {
         onCancel={closeModal} onOk={onSubmit}
         confirmLoading={createM.isPending || updateM.isPending} destroyOnHidden width={540}>
         <Form key={editing?._id ?? `new-${creatingParentId ?? "root"}`} form={form} layout="vertical" initialValues={initialValues}>
-          {!editing && (
-            <Form.Item name="ParentID" label="Tổ chức cha (để trống = tạo Org gốc)">
+          {!editing && creatingParentId !== undefined && (
+            <Form.Item name="ParentID" label="Tổ chức cha">
               <Select allowClear placeholder="Chọn tổ chức cha" showSearch optionFilterProp="label"
                 options={orgs.map((o) => ({ value: o._id, label: `[${o.XCode}] ${o.XName}` }))}
-                disabled={creatingParentId !== undefined} />
+                disabled />
             </Form.Item>
           )}
           <Form.Item name="XCode" label="Mã (XCode)" rules={[{ required: true }]}
@@ -332,7 +344,7 @@ export default function OrganizationsTab() {
             <Input placeholder="VD: Kho Hà Nội" />
           </Form.Item>
           <Form.Item name="OrgType" label="Loại tổ chức" rules={[{ required: true }]}>
-            <Select options={ORG_TYPE_OPTIONS} />
+            <Select options={orgTypeOptions} disabled={!editing} />
           </Form.Item>
           <Form.Item name="Address" label="Địa chỉ">
             <Input.TextArea rows={2} />

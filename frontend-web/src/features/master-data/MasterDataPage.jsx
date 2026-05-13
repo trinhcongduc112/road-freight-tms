@@ -335,6 +335,7 @@ export default function MasterDataPage() {
   const orgs   = orgsQ.data?.data ?? [];
   const groups = groupsQ.data?.data ?? [];
   const cats   = catsQ.data?.data  ?? [];
+  const groupByCode = Object.fromEntries(groups.map((g) => [g.GroupCode, g]));
 
   const statusCol = { title: "Trạng thái", dataIndex: "Status", width: 100, render: (v) => <Tag color={STATUS_COLOR[v] ?? "default"}>{v}</Tag> };
 
@@ -354,11 +355,14 @@ export default function MasterDataPage() {
           ]}
           exportFilename="customers.xlsx"
           importFn={customerApi.import}
-          importTemplateFields={["CustomerCode","XName","Address","Latitude","Longitude","Phone","Email","OpenTime","CloseTime","ServiceTime"]}
+          importTemplateFields={["CustomerCode","XName","CustomerGroup","Address","Latitude","Longitude","Phone","Email","OpenTime","CloseTime","ServiceTime"]}
           columns={[
             { title: "Mã KH", dataIndex: "CustomerCode", width: 130, render: (v) => <Tag color="blue">{v}</Tag> },
             { title: "Tên", dataIndex: "XName" },
-            { title: "Nhóm", dataIndex: "CustomerGroup", width: 130 },
+            {
+              title: "Nhóm", dataIndex: "CustomerGroup", width: 170,
+              render: (v) => v ? <Tag>{groupByCode[v]?.XName ?? v}</Tag> : <span style={{ color: "#8c8c8c" }}>—</span>
+            },
             { title: "SĐT", dataIndex: "Phone", width: 120 },
             statusCol
           ]}
@@ -366,7 +370,7 @@ export default function MasterDataPage() {
             <>
               <Form.Item name="CustomerGroup" label="Nhóm khách hàng">
                 <Select allowClear showSearch optionFilterProp="label" placeholder="Chọn nhóm"
-                  options={groups.map((g) => ({ value: g.XName, label: `[${g.GroupCode}] ${g.XName}` }))} />
+                  options={groups.map((g) => ({ value: g.GroupCode, label: `[${g.GroupCode}] ${g.XName}` }))} />
               </Form.Item>
               <Form.Item name="Address" label="Địa chỉ"><Input.TextArea rows={2} /></Form.Item>
               <Form.Item label="Tọa độ" tooltip="Cần cho tối ưu tuyến đường">
@@ -535,7 +539,7 @@ export default function MasterDataPage() {
           ]}
           exportFilename="vehicles.xlsx"
           importFn={vehicleApi.import}
-          importTemplateFields={["VehicleCode","XName","LicensePlate","VehicleType","MaxWeight","MaxVolume","MaxCases","FixedCost","CostPerKm"]}
+          importTemplateFields={["VehicleCode","XName","LicensePlate","VehicleType","MaxWeight","MaxVolume","MaxCases","FixedCost","CostPerKm","AvgSpeedKmh","LoadingTime","UnloadingTimePerStop"]}
           columns={[
             { title: "Mã xe", dataIndex: "VehicleCode", width: 120, render: (v) => <Tag color="cyan">{v}</Tag> },
             { title: "Tên / Mô tả", dataIndex: "XName" },

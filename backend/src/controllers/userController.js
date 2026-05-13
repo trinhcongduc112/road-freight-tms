@@ -31,6 +31,25 @@ function toDTO(user) {
   };
 }
 
+async function resolveRoleGroupId(roleGroupId, orgScope) {
+  if (!roleGroupId) return null;
+  const roleGroup = await RoleGroup.findById(roleGroupId).lean();
+  if (!roleGroup) throw new ApiError(404, "Không tìm thấy nhóm vai trò");
+  assertOrgInScope(orgScope, roleGroup.OrganizationID);
+  return roleGroup._id;
+}
+
+async function resolveRoleGroupIdFromInput(input, orgScope) {
+  if (!input) return null;
+  const value = String(input).trim();
+  const roleGroup = mongoose.isValidObjectId(value)
+    ? await RoleGroup.findById(value).lean()
+    : await RoleGroup.findOne({ XCode: value.toUpperCase() }).lean();
+  if (!roleGroup) throw new ApiError(404, `Không tìm thấy nhóm vai trò: ${value}`);
+  assertOrgInScope(orgScope, roleGroup.OrganizationID);
+  return roleGroup._id;
+}
+
 export async function listUsers(req, res) {
   const filter = scopeFilter(req.orgScope, "OrganizationIDs");
   if (req.query.organizationId) {
@@ -61,6 +80,7 @@ export async function createUser(req, res) {
     Password,
     FullName,
     Phone,
+    RoleGroupID,
     OrganizationIDs = [],
     FunctionRoles: functionRoles = [],
     AllowedVehicleTypes: allowedVehicleTypes = []
@@ -73,6 +93,7 @@ export async function createUser(req, res) {
     throw new ApiError(400, "OrganizationIDs phải có ít nhất 1 tổ chức");
   }
   for (const orgId of OrganizationIDs) assertOrgInScope(req.orgScope, orgId);
+  const roleGroupId = await resolveRoleGroupId(RoleGroupID, req.orgScope);
 
   const dup = await User.findOne({ $or: [{ Email: Email.toLowerCase() }, { UserName }] });
   if (dup) throw new ApiError(409, "Email hoặc UserName đã tồn tại");
@@ -86,6 +107,7 @@ export async function createUser(req, res) {
     Phone: Phone ?? "",
     PasswordHash: hash,
     OrganizationIDs,
+    RoleGroupID: roleGroupId,
     FunctionRoles: Array.isArray(functionRoles) ? functionRoles.filter((r) => Object.values(FunctionRole).includes(r)) : [],
     AllowedVehicleTypes: Array.isArray(allowedVehicleTypes) ? allowedVehicleTypes : [],
     IsSuperAdmin: false,
@@ -118,6 +140,7 @@ export async function inviteUser(req, res) {
   }
 
   for (const orgId of OrganizationIDs) assertOrgInScope(req.orgScope, orgId);
+  const roleGroupId = await resolveRoleGroupId(RoleGroupID, req.orgScope);
 
   const dup = await User.findOne({ $or: [{ Email: Email.toLowerCase() }, { UserName }] });
   if (dup) throw new ApiError(409, "Email or UserName already exists");
@@ -135,7 +158,7 @@ export async function inviteUser(req, res) {
     user = await User.create({
       XCode, UserName, FullName: FullName ?? "", Email: Email.toLowerCase(),
       Phone: Phone ?? "", PasswordHash: pwHash, OrganizationIDs,
-      RoleGroupID: RoleGroupID ?? null, FunctionRoles: cleanRoles,
+      RoleGroupID: roleGroupId, FunctionRoles: cleanRoles,
       AllowedVehicleTypes: cleanVehicles,
       IsSuperAdmin: false, IsActive: true, Status: UserStatus.ACTIVE,
       InvitedBy: req.user._id, InvitedAt: new Date()
@@ -152,7 +175,7 @@ export async function inviteUser(req, res) {
   user = await User.create({
     XCode, UserName, FullName: FullName ?? "", Email: Email.toLowerCase(),
     Phone: Phone ?? "", PasswordHash: null, OrganizationIDs,
-    RoleGroupID: RoleGroupID ?? null, FunctionRoles: cleanRoles,
+    RoleGroupID: roleGroupId, FunctionRoles: cleanRoles,
     AllowedVehicleTypes: cleanVehicles,
     IsSuperAdmin: false, IsActive: true, Status: UserStatus.PENDING_INVITE,
     InvitationTokenHash: hash, InvitationTokenExpiresAt: expiresIn(TOKEN_TTL.INVITATION),
@@ -240,7 +263,7 @@ export async function updateUser(req, res) {
     for (const id of OrganizationIDs) assertOrgInScope(req.orgScope, id);
     user.OrganizationIDs = OrganizationIDs;
   }
-  if (RoleGroupID !== undefined) user.RoleGroupID = RoleGroupID || null;
+  if (RoleGroupID !== undefined) user.RoleGroupID = await resolveRoleGroupId(RoleGroupID, req.orgScope);
   if (Array.isArray(functionRoles)) {
     user.FunctionRoles = functionRoles.filter((r) => Object.values(FunctionRole).includes(r));
   }
@@ -300,6 +323,13 @@ export async function importUsers(req, res) {
     const funcRoles = funcRolesRaw.filter((r) => Object.values(FunctionRole).includes(r));
     const vehicleTypesRaw = row["AllowedVehicleTypes"] ? String(row["AllowedVehicleTypes"]).split(",").map((s) => s.trim().toUpperCase()) : [];
     const password = row["Password"] ? String(row["Password"]).trim() : defaultPassword;
+    let roleGroupId = null;
+    try {
+      roleGroupId = await resolveRoleGroupIdFromInput(row["RoleGroupID"] || row["RoleGroupCode"], req.orgScope);
+    } catch (e) {
+      errors.push({ row: i + 2, reason: e.message });
+      continue;
+    }
 
     try {
       const hash = await User.hashPassword(password);
@@ -311,6 +341,7 @@ export async function importUsers(req, res) {
         Phone: row["Phone"] ? String(row["Phone"]).trim() : "",
         PasswordHash: hash,
         OrganizationIDs: [orgId],
+        RoleGroupID: roleGroupId,
         FunctionRoles: funcRoles,
         AllowedVehicleTypes: vehicleTypesRaw,
         IsSuperAdmin: false,

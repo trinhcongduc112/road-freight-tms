@@ -24,22 +24,16 @@ import { orderApi } from "../../api/order";
 import { vehicleApi } from "../../api/masterData";
 import { organizationApi } from "../../api/organization";
 import { userApi } from "../../api/user";
+import { useLanguage } from "../../i18n.jsx";
 import { useAuthStore } from "../../store/authStore";
 import { Permissions, usePermissions } from "../../utils/permissions";
 
 const { Text } = Typography;
 
-const APPROVAL_STATUS = {
-  PENDING:   { color: "#fa8c16", bg: "#fff7e6", label: "Chờ duyệt" },
-  APPROVED:  { color: "#52c41a", bg: "#f6ffed", label: "Đã duyệt" },
-  REJECTED:  { color: "#ff4d4f", bg: "#fff1f0", label: "Từ chối" },
-  PLANNING:  { color: "#1677ff", bg: "#e6f4ff", label: "Lên kế hoạch" },
-  COMPLETED: { color: "#13c2c2", bg: "#e6fffb", label: "Hoàn thành" }
-};
-
 function DemoSetupCard() {
   const { modal, message } = App.useApp();
   const { isSuper, isAll } = usePermissions();
+  const { t } = useLanguage();
   const qc = useQueryClient();
   const [seeding, setSeeding]   = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -59,54 +53,60 @@ function DemoSetupCard() {
 
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ["demo-status"] });
+    qc.invalidateQueries({ queryKey: ["organizations"] });
+    qc.invalidateQueries({ queryKey: ["role-groups"] });
+    qc.invalidateQueries({ queryKey: ["users"] });
     qc.invalidateQueries({ queryKey: ["customers"] });
+    qc.invalidateQueries({ queryKey: ["customer-groups"] });
     qc.invalidateQueries({ queryKey: ["products"] });
     qc.invalidateQueries({ queryKey: ["product-categories"] });
     qc.invalidateQueries({ queryKey: ["vehicles"] });
+    qc.invalidateQueries({ queryKey: ["drivers"] });
     qc.invalidateQueries({ queryKey: ["services"] });
     qc.invalidateQueries({ queryKey: ["orders"] });
+    qc.invalidateQueries({ queryKey: ["route-plans"] });
   };
 
   async function handleSeed() {
     modal.confirm({
-      title: "Tải dữ liệu mẫu vào tổ chức của bạn?",
+      title: t("dashboard.demo.confirmSeedTitle"),
       content: (
         <div>
-          <p>Sẽ thêm vào tổ chức hiện tại các bản ghi <code>DEMO-*</code>:</p>
+          <p>{t("dashboard.demo.confirmSeedIntro")} <code>DEMO-*</code>:</p>
           <ul style={{ marginBottom: 0 }}>
-            <li>3 nhóm SP · 8 sản phẩm · 3 xe tải · 2 dịch vụ 3PL</li>
-            <li>12 khách hàng Hà Nội · Bắc Ninh · Hưng Yên (tọa độ thật)</li>
-            <li>20 đơn hàng PENDING — sẵn sàng lập lộ trình</li>
+            <li>{t("dashboard.demo.seedItems1")}</li>
+            <li>{t("dashboard.demo.seedItems2")}</li>
+            <li>{t("dashboard.demo.seedItems3")}</li>
           </ul>
-          <p style={{ marginTop: 8, color: "#64748b" }}>Tất cả đều có prefix <code>DEMO-</code> để xóa lại dễ dàng.</p>
+          <p style={{ marginTop: 8, color: "#64748b" }}>{t("dashboard.demo.seedNote")}</p>
         </div>
       ),
-      okText: "Tải dữ liệu mẫu",
+      okText: t("dashboard.demo.seedOk"),
       okType: "primary",
-      cancelText: "Hủy",
+      cancelText: t("dashboard.demo.cancel"),
       onOk: async () => {
         setSeeding(true);
         const key = "seed-demo";
-        message.loading({ content: "Đang tải dữ liệu mẫu vào tổ chức...", key, duration: 0 });
+        message.loading({ content: t("dashboard.demo.loadingSeed"), key, duration: 0 });
         try {
           const res = await demoApi.seed();
           const { org, counts: c } = res.data ?? {};
-          message.success({ content: "Đã tải xong dữ liệu mẫu!", key, duration: 2.5 });
+          message.success({ content: t("dashboard.demo.seedSuccess"), key, duration: 2.5 });
           refreshAll();
           modal.success({
-            title: "Đã thêm dữ liệu mẫu!",
+            title: t("dashboard.demo.seedDoneTitle"),
             width: 480,
             content: (
               <div>
-                <p>Tổ chức: <Tag color="blue">{org?.XCode}</Tag> {org?.XName}</p>
-                <p>Đã thêm:</p>
+                <p>{t("dashboard.demo.organization")}: <Tag color="blue">{org?.XCode}</Tag> {org?.XName}</p>
+                <p>{t("dashboard.demo.added")}</p>
                 <ul>
-                  <li>{c?.categories} nhóm SP · {c?.products} sản phẩm</li>
-                  <li>{c?.vehicles} xe · {c?.services} dịch vụ 3PL</li>
-                  <li>{c?.customers} khách hàng · {c?.orders} đơn hàng</li>
+                  <li>{t("dashboard.demo.addedCategories", { categories: c?.categories, products: c?.products })}</li>
+                  <li>{t("dashboard.demo.addedVehicles", { vehicles: c?.vehicles, services: c?.services })}</li>
+                  <li>{t("dashboard.demo.addedCustomers", { customers: c?.customers, orders: c?.orders })}</li>
                 </ul>
                 <p style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
-                  Vào <b>Lập kế hoạch</b> để test tối ưu lộ trình ngay.
+                  {t("dashboard.demo.planNote")}
                 </p>
               </div>
             )
@@ -123,18 +123,18 @@ function DemoSetupCard() {
 
   async function handleClear() {
     modal.confirm({
-      title: "Xóa toàn bộ dữ liệu demo?",
-      content: "Sẽ xóa tất cả bản ghi có prefix DEMO- (khách hàng, sản phẩm, xe, đơn hàng, ...) khỏi tổ chức của bạn. Dữ liệu thật KHÔNG bị ảnh hưởng. Không thể hoàn tác.",
-      okText: "Xóa dữ liệu demo",
+      title: t("dashboard.demo.clearTitle"),
+      content: t("dashboard.demo.clearContent"),
+      okText: t("dashboard.demo.clearOk"),
       okType: "danger",
-      cancelText: "Hủy",
+      cancelText: t("dashboard.demo.cancel"),
       onOk: async () => {
         setClearing(true);
         const key = "clear-demo";
-        message.loading({ content: "Đang xóa dữ liệu demo...", key, duration: 0 });
+        message.loading({ content: t("dashboard.demo.loadingClear"), key, duration: 0 });
         try {
           await demoApi.clear();
-          message.success({ content: "Đã xóa toàn bộ dữ liệu demo", key, duration: 2.5 });
+          message.success({ content: t("dashboard.demo.clearSuccess"), key, duration: 2.5 });
           refreshAll();
         } catch (e) {
           message.error({ content: e.response?.data?.message || e.message, key, duration: 4 });
@@ -153,24 +153,24 @@ function DemoSetupCard() {
         {isActive ? (
           <>
             <div className="db-demo-title">
-              Dữ liệu mẫu đã kích hoạt
+              {t("dashboard.demo.activeTitle")}
               <span className="db-demo-pill">DEMO-*</span>
             </div>
             <div className="db-demo-desc">
-              Trong tổ chức hiện có:{" "}
-              <b>{counts.customers ?? 0} khách hàng</b> ·{" "}
-              <b>{counts.products ?? 0} sản phẩm</b> ·{" "}
-              <b>{counts.vehicles ?? 0} xe</b> ·{" "}
-              <b>{counts.orders ?? 0} đơn hàng</b>{" "}
-              · <b>{counts.categories ?? 0} nhóm SP</b>{" "}
-              · <b>{counts.services ?? 0} dịch vụ 3PL</b>.
+              {t("dashboard.demo.activeDesc")}{" "}
+              <b>{counts.customers ?? 0} {t("dashboard.unit.customers")}</b> ·{" "}
+              <b>{counts.products ?? 0} {t("dashboard.unit.products")}</b> ·{" "}
+              <b>{counts.vehicles ?? 0} {t("dashboard.unit.vehicles")}</b> ·{" "}
+              <b>{counts.orders ?? 0} {t("dashboard.unit.orders")}</b>{" "}
+              · <b>{counts.categories ?? 0} {t("dashboard.unit.categories")}</b>{" "}
+              · <b>{counts.services ?? 0} {t("dashboard.unit.services")}</b>.
             </div>
           </>
         ) : (
           <>
-            <div className="db-demo-title">Bắt đầu nhanh với dữ liệu mẫu</div>
+            <div className="db-demo-title">{t("dashboard.demo.quickTitle")}</div>
             <div className="db-demo-desc">
-              Thêm vào tổ chức của bạn: <b>12 khách hàng</b> Hà Nội · Bắc Ninh · Hưng Yên, <b>3 xe tải</b>, <b>8 sản phẩm</b>, <b>20 đơn hàng</b> — đều có prefix <code>DEMO-</code> để xóa lại dễ dàng.
+              {t("dashboard.demo.quickDesc", { customers: 12, vehicles: 3, products: 8, orders: 20 })}
             </div>
           </>
         )}
@@ -182,7 +182,7 @@ function DemoSetupCard() {
           loading={seeding}
           className="db-demo-btn-seed"
         >
-          {isActive ? "Tải lại" : "Tải dữ liệu mẫu"}
+          {isActive ? t("dashboard.demo.reload") : t("dashboard.demo.seedOk")}
         </Button>
         {isActive && (
           <Button
@@ -191,7 +191,7 @@ function DemoSetupCard() {
             loading={clearing}
             className="db-demo-btn-clear"
           >
-            Xóa demo
+            {t("dashboard.demo.clear")}
           </Button>
         )}
       </Space>
@@ -215,6 +215,8 @@ function StatCard({ icon, label, value, sub, accent }) {
 }
 
 function QuickCard({ icon, accent, title, desc, onClick, disabled }) {
+  const { t } = useLanguage();
+
   return (
     <button
       className={`db-qcard2${disabled ? " db-qcard2--off" : ""}`}
@@ -227,7 +229,7 @@ function QuickCard({ icon, accent, title, desc, onClick, disabled }) {
       <div className="db-qcard2-desc">{desc}</div>
       {!disabled && (
         <div className="db-qcard2-cta" style={{ color: accent }}>
-          Truy cập <RightOutlined style={{ fontSize: 10 }} />
+          {t("dashboard.quick.access")} <RightOutlined style={{ fontSize: 10 }} />
         </div>
       )}
     </button>
@@ -239,6 +241,15 @@ export default function DashboardPage() {
   const user  = useAuthStore((s) => s.user);
   const role  = useAuthStore((s) => s.role);
   const { can, isSuper } = usePermissions();
+  const { language, t } = useLanguage();
+
+  const approvalStatus = {
+    PENDING:   { color: "#fa8c16", bg: "#fff7e6", label: t("dashboard.status.pending") },
+    APPROVED:  { color: "#52c41a", bg: "#f6ffed", label: t("dashboard.status.approved") },
+    REJECTED:  { color: "#ff4d4f", bg: "#fff1f0", label: t("dashboard.status.rejected") },
+    PLANNING:  { color: "#1677ff", bg: "#e6f4ff", label: t("dashboard.status.planning") },
+    COMPLETED: { color: "#13c2c2", bg: "#e6fffb", label: t("dashboard.status.completed") }
+  };
 
   const orgsQ     = useQuery({ queryKey: ["organizations"],  queryFn: organizationApi.list });
   const usersQ    = useQuery({ queryKey: ["users"],          queryFn: () => userApi.list() });
@@ -254,48 +265,48 @@ export default function DashboardPage() {
     .slice(0, 6);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Chào buổi sáng" : hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
-  const displayName = user?.FullName || user?.UserName || "bạn";
+  const greeting = hour < 12 ? t("dashboard.greeting.morning") : hour < 18 ? t("dashboard.greeting.afternoon") : t("dashboard.greeting.evening");
+  const displayName = user?.FullName || user?.UserName || t("dashboard.defaultName");
 
   const quickActions = [
     {
       key: "masterdata", icon: <ShoppingOutlined />, accent: "#f59e0b",
-      title: "Master Data",   desc: "Khách hàng · Hàng hoá · Xe · Tài xế",
+      title: "Master Data", desc: t("dashboard.quick.masterDesc"),
       perm: Permissions.CUSTOMER_MANAGE, path: "/master-data"
     },
     {
       key: "orders", icon: <FileTextOutlined />, accent: "#3b82f6",
-      title: "Đơn hàng", desc: `${pendingOrders} đơn đang chờ phê duyệt`,
+      title: t("layout.nav.orders"), desc: t("dashboard.quick.ordersDesc", { count: pendingOrders }),
       perm: Permissions.ORDER_MANAGE, path: "/orders"
     },
     {
       key: "planning", icon: <EnvironmentOutlined />, accent: "#8b5cf6",
-      title: "Lập kế hoạch", desc: "Phân tuyến & điều phối xe",
+      title: t("layout.nav.planning"), desc: t("dashboard.quick.planningDesc"),
       perm: Permissions.ROUTE_PLAN_MANAGE, path: "/planning"
     },
     {
       key: "monitoring", icon: <TruckOutlined />, accent: "#06b6d4",
-      title: "Giám sát", desc: "GPS realtime · Hành trình xe",
+      title: t("layout.nav.monitoring"), desc: t("dashboard.quick.monitoringDesc"),
       perm: Permissions.TRIP_VIEW, path: "/monitoring"
     },
     {
       key: "user", icon: <UserAddOutlined />, accent: "#10b981",
-      title: "Người dùng", desc: "Thêm & phân quyền nhân sự",
+      title: t("dashboard.quick.userTitle"), desc: t("dashboard.quick.userDesc"),
       perm: Permissions.USER_MANAGE, path: "/users"
     },
     {
       key: "org", icon: <ApartmentOutlined />, accent: "#0ea5e9",
-      title: "Tổ chức", desc: "Cấu trúc công ty & chi nhánh",
+      title: t("dashboard.quick.orgTitle"), desc: t("dashboard.quick.orgDesc"),
       perm: Permissions.ORG_MANAGE, path: "/organizations"
     },
     {
       key: "role", icon: <IdcardOutlined />, accent: "#ec4899",
-      title: "Nhóm vai trò", desc: "Phân quyền RBAC linh hoạt",
+      title: t("dashboard.quick.roleTitle"), desc: t("dashboard.quick.roleDesc"),
       perm: Permissions.ROLE_MANAGE, path: "/role-groups"
     },
     {
       key: "reports", icon: <TeamOutlined />, accent: "#7c3aed",
-      title: "Báo cáo", desc: "Thống kê vận hành & doanh thu",
+      title: t("layout.nav.reports"), desc: t("dashboard.quick.reportsDesc"),
       perm: Permissions.REPORT_VIEW, path: "/reports"
     }
   ].filter((a) => isSuper || can(a.perm));
@@ -310,7 +321,7 @@ export default function DashboardPage() {
             {greeting}, <span className="db-greeting-name">{displayName}</span> 👋
           </h2>
           <p className="db-greeting-sub">
-            Đây là tổng quan hoạt động vận tải hôm nay của bạn.
+            {t("dashboard.summary")}
           </p>
         </div>
         <div className="db-greeting-badges">
@@ -329,28 +340,28 @@ export default function DashboardPage() {
       {/* ── Stats ── */}
       <div className="db-stats">
         <StatCard icon={<FileTextOutlined />} accent="#3b82f6"
-          label="Tổng đơn hàng"   value={ordersQ.isLoading   ? "…" : orders.length}
-          sub={`${pendingOrders} chờ phê duyệt`} />
+          label={t("dashboard.stats.totalOrders")} value={ordersQ.isLoading ? "…" : orders.length}
+          sub={t("dashboard.stats.pendingOrders", { count: pendingOrders })} />
         <StatCard icon={<CarOutlined />}      accent="#10b981"
-          label="Xe chờ điều phối"  value={vehiclesQ.isLoading  ? "…" : activeVehicles}
-          sub={`${vehicles.length - activeVehicles} xe không khả dụng`} />
+          label={t("dashboard.stats.dispatchVehicles")} value={vehiclesQ.isLoading ? "…" : activeVehicles}
+          sub={t("dashboard.stats.unavailableVehicles", { count: vehicles.length - activeVehicles })} />
         <StatCard icon={<TeamOutlined />}     accent="#06b6d4"
-          label="Tài khoản"       value={usersQ.isLoading     ? "…" : usersQ.data?.data?.length ?? 0}
-          sub="Người dùng trong tổ chức" />
+          label={t("dashboard.stats.accounts")} value={usersQ.isLoading ? "…" : usersQ.data?.data?.length ?? 0}
+          sub={t("dashboard.stats.accountsSub")} />
         <StatCard icon={<ApartmentOutlined />} accent="#8b5cf6"
-          label="Tổ chức"         value={orgsQ.isLoading      ? "…" : orgsQ.data?.data?.length ?? 0}
-          sub="Trong phạm vi truy cập" />
+          label={t("dashboard.stats.organizations")} value={orgsQ.isLoading ? "…" : orgsQ.data?.data?.length ?? 0}
+          sub={t("dashboard.stats.organizationsSub")} />
       </div>
 
       {/* ── Quick access ── */}
       <div className="db-section">
         <div className="db-section-hd">
-          <span className="db-section-title">Truy cập nhanh</span>
-          <span className="db-section-count">{quickActions.length} module khả dụng</span>
+          <span className="db-section-title">{t("dashboard.quick.title")}</span>
+          <span className="db-section-count">{t("dashboard.quick.count", { count: quickActions.length })}</span>
         </div>
         {quickActions.length === 0 ? (
           <div className="db-empty-perm">
-            Tài khoản của bạn chưa được cấp quyền truy cập module nào. Liên hệ quản trị viên.
+            {t("dashboard.quick.noPermission")}
           </div>
         ) : (
           <div className="db-qgrid2">
@@ -364,32 +375,32 @@ export default function DashboardPage() {
       {/* ── Recent orders ── */}
       <div className="db-section">
         <div className="db-section-hd">
-          <span className="db-section-title">Đơn hàng gần đây</span>
+          <span className="db-section-title">{t("dashboard.recent.title")}</span>
           <button className="db-link" onClick={() => navigate("/orders")}>
-            Xem tất cả →
+            {t("dashboard.recent.viewAll")}
           </button>
         </div>
         <div className="db-table-wrap">
           {ordersQ.isLoading ? (
-            <div className="db-panel-loading">Đang tải…</div>
+            <div className="db-panel-loading">{t("dashboard.recent.loading")}</div>
           ) : recentOrders.length === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={<Text type="secondary">Chưa có đơn hàng nào</Text>}
+              description={<Text type="secondary">{t("dashboard.recent.empty")}</Text>}
               style={{ padding: "28px 0" }} />
           ) : (
             <table className="db-table">
               <thead>
                 <tr>
-                  <th>Mã đơn</th>
-                  <th>Khách hàng</th>
-                  <th>Tuyến</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày tạo</th>
+                  <th>{t("dashboard.table.code")}</th>
+                  <th>{t("dashboard.table.customer")}</th>
+                  <th>{t("dashboard.table.route")}</th>
+                  <th>{t("dashboard.table.status")}</th>
+                  <th>{t("dashboard.table.createdAt")}</th>
                 </tr>
               </thead>
               <tbody>
                 {recentOrders.map((o) => {
-                  const s = APPROVAL_STATUS[o.ApprovalStatus] ?? APPROVAL_STATUS.PENDING;
+                  const s = approvalStatus[o.ApprovalStatus] ?? approvalStatus.PENDING;
                   return (
                     <tr key={o._id} className="db-table-row" onClick={() => navigate("/orders")}>
                       <td className="db-table-code">{o.XCode || o._id?.slice(-8)}</td>
@@ -408,7 +419,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="db-table-date">
                         {o.CreatedAt
-                          ? new Date(o.CreatedAt).toLocaleDateString("vi-VN")
+                          ? new Date(o.CreatedAt).toLocaleDateString(language === "vi" ? "vi-VN" : "en-US")
                           : "—"}
                       </td>
                     </tr>
