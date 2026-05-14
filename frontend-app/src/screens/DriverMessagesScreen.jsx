@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   messageMetaMine: { color: "rgba(255,255,255,.78)" },
   inputBar: { flexDirection: "row", gap: 8, padding: 10, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#e5e7eb" },
   input: { flex: 1, minHeight: 42, maxHeight: 96, backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#dbe3ef", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: "#0f172a" },
-  sendBtn: { alignSelf: "flex-end", backgroundColor: "#1677ff", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11 },
+  sendBtn: { alignSelf: "flex-end", backgroundColor: "#1677ff", borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, minHeight: 44, minWidth: 64, justifyContent: "center", alignItems: "center" },
   sendBtnDisabled: { opacity: 0.45 },
   sendText: { color: "#fff", fontWeight: "800" },
 });

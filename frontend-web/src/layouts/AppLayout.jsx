@@ -58,7 +58,7 @@ export default function AppLayout() {
     if (isSuper || canAny(Permissions.REPORT_VIEW, Permissions.REPORT_EXPORT)) {
       items.push({ key: "/reports", icon: <BarChartOutlined />, label: t("layout.nav.reports") });
     }
-    items.push({ key: "__support__", icon: <QuestionCircleOutlined />, label: "Hỏi đáp" });
+    items.push({ key: "__support__", icon: <QuestionCircleOutlined />, label: t("layout.nav.support") });
 
     return items;
   }, [can, canAny, isSuper, t]);

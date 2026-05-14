@@ -89,27 +89,36 @@ export default function RouteListScreen({ navigation }) {
   }
 
   return (
-    <FlatList
-      style={styles.root}
-      data={routes}
-      keyExtractor={(r) => r._id}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => fetchRoutes(true)} colors={["#1677ff"]} />
-      }
-      renderItem={({ item }) => (
-        <RouteCard
-          item={item}
-          onPress={() => navigation.navigate("RouteDetail", { routeId: item._id })}
-        />
-      )}
-      contentContainerStyle={routes.length === 0 && styles.emptyContainer}
-      ListEmptyComponent={
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📭</Text>
-          <Text style={styles.emptyText}>Chưa có chuyến đi nào được phân công.</Text>
-        </View>
-      }
-    />
+    <View style={styles.root}>
+      <FlatList
+        data={routes}
+        keyExtractor={(r) => r._id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchRoutes(true)} colors={["#1677ff"]} />
+        }
+        renderItem={({ item }) => (
+          <RouteCard
+            item={item}
+            onPress={() => navigation.navigate("RouteDetail", { routeId: item._id })}
+          />
+        )}
+        contentContainerStyle={[routes.length === 0 && styles.emptyContainer, { paddingBottom: 96 }]}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>📭</Text>
+            <Text style={styles.emptyText}>Chưa có chuyến đi nào được phân công.</Text>
+          </View>
+        }
+      />
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate("AIChat")}
+        activeOpacity={0.85}
+        accessibilityLabel="Mở trợ lý AI"
+      >
+        <Text style={styles.fabIcon}>💬</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -126,4 +135,21 @@ const styles = StyleSheet.create({
   empty:           { alignItems: "center", paddingTop: 80 },
   emptyIcon:       { fontSize: 52, marginBottom: 12 },
   emptyText:       { color: "#999", fontSize: 15, textAlign: "center" },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#1677ff",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  fabIcon: { fontSize: 26, color: "#fff" },
 });

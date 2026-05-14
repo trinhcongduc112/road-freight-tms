@@ -10,19 +10,7 @@ import remarkGfm from "remark-gfm";
 import { getSocket } from "../api/socket";
 import { supportApi } from "../api/support";
 import { useAuthStore } from "../store/authStore";
-
-const QUICK_PROMPTS = [
-  "Hôm nay có bao nhiêu đơn chưa vào kế hoạch?",
-  "Cách tối ưu lộ trình?",
-  "Có bao nhiêu xe đang Active?",
-  "Tôi muốn gặp nhân viên hỗ trợ"
-];
-
-const WELCOME = {
-  sender: "bot",
-  body: "Xin chào! Mình là trợ lý AI của Road Freight TMS. Bạn có thể hỏi về **đơn hàng, xe, tài xế, tuyến giao, sự cố, báo cáo**. Nếu mình không trả lời được, mình sẽ chuyển cho tư vấn viên.",
-  createdAt: new Date().toISOString()
-};
+import { useLanguage } from "../i18n";
 
 function normalizeSession(session) {
   if (!session) return null;
@@ -31,8 +19,21 @@ function normalizeSession(session) {
 
 export default function SupportChatWidget({ open, onClose }) {
   const user = useAuthStore((s) => s.user);
+  const { t } = useLanguage();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const QUICK_PROMPTS = [
+    t("support.quickPrompt.unplanned"),
+    t("support.quickPrompt.optimize"),
+    t("support.quickPrompt.activeVehicles"),
+    t("support.quickPrompt.askHuman"),
+  ];
+  const WELCOME = {
+    sender: "bot",
+    body: t("support.welcome"),
+    createdAt: new Date().toISOString()
+  };
   const [session, setSession] = useState(null);
   const bottomRef = useRef(null);
 
@@ -91,7 +92,7 @@ export default function SupportChatWidget({ open, onClose }) {
       const payload = res?.data ?? res;
       setSession(normalizeSession(payload?.session ?? payload));
     } catch (err) {
-      antdMessage.error(err.message || "Không gửi được tin nhắn");
+      antdMessage.error(err.message || t("support.error.send"));
     } finally {
       setLoading(false);
     }
@@ -105,7 +106,7 @@ export default function SupportChatWidget({ open, onClose }) {
       const payload = res?.data ?? res;
       setSession(normalizeSession(payload?.session ?? payload));
     } catch (err) {
-      antdMessage.error(err.message || "Không quay lại AI được");
+      antdMessage.error(err.message || t("support.error.resumeBot"));
     } finally {
       setLoading(false);
     }
@@ -121,7 +122,7 @@ export default function SupportChatWidget({ open, onClose }) {
         <div className="support-chat-bubble">
           {isMe ? msg.body : (
             <>
-              {isHuman && <b>Tư vấn viên: </b>}
+              {isHuman && <b>{t("support.consultantLabel")}: </b>}
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.body}</ReactMarkdown>
             </>
           )}
@@ -131,19 +132,19 @@ export default function SupportChatWidget({ open, onClose }) {
   };
 
   return (
-    <section className="support-chat-panel" aria-label="Trợ lý AI Road Freight TMS">
+    <section className="support-chat-panel" aria-label={t("support.title")}>
       <div className="support-chat-head">
         <div>
           <div className="support-chat-brand">
             <CustomerServiceOutlined />
-            <span>Trợ lý AI</span>
+            <span>{t("support.title")}</span>
           </div>
           <div className="support-chat-user">
             <span className="support-chat-avatar">{initials}</span>
-            <span>{`Hi ${user?.UserName ?? "bạn"}`}</span>
+            <span>{t("support.greet", { name: user?.UserName ?? "" })}</span>
           </div>
         </div>
-        <button type="button" className="support-chat-close" onClick={onClose} aria-label="Đóng">
+        <button type="button" className="support-chat-close" onClick={onClose} aria-label={t("support.close")}>
           <CloseOutlined />
         </button>
       </div>
@@ -152,7 +153,7 @@ export default function SupportChatWidget({ open, onClose }) {
         {messages.length <= 1 && (
           <div className="support-chat-prompts">
             {QUICK_PROMPTS.map((prompt) => (
-              <Tag key={prompt} className="support-chat-prompt" onClick={() => send(prompt, { forceSupport: prompt.includes("nhân viên") })}>
+              <Tag key={prompt} className="support-chat-prompt" onClick={() => send(prompt, { forceSupport: prompt === t("support.quickPrompt.askHuman") })}>
                 {prompt}
               </Tag>
             ))}
@@ -169,24 +170,24 @@ export default function SupportChatWidget({ open, onClose }) {
 
       {session?.handledBy === "human" && (
         <div className="support-status-banner" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderTop: "1px solid #fde68a", background: "#fffbeb" }}>
-          <span style={{ fontSize: 13, color: "#78350f" }}>Đang chờ tư vấn viên phản hồi.</span>
+          <span style={{ fontSize: 13, color: "#78350f" }}>{t("support.waitingHuman")}</span>
           <Button size="small" onClick={resumeBot} loading={loading}>
-            Quay lại AI
+            {t("support.resumeBot")}
           </Button>
         </div>
       )}
 
       <div className="support-chat-input">
         {messages.length > 1 && session?.handledBy !== "human" && (
-          <Button className="support-human-btn" onClick={() => send("Tôi muốn gặp nhân viên hỗ trợ", { forceSupport: true })}>
-            Gặp tư vấn viên
+          <Button className="support-human-btn" onClick={() => send(t("support.quickPrompt.askHuman"), { forceSupport: true })}>
+            {t("support.requestHuman")}
           </Button>
         )}
         <Input.TextArea
           autoSize={{ minRows: 1, maxRows: 3 }}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Nhập câu hỏi của bạn"
+          placeholder={t("support.placeholder")}
           onPressEnter={(e) => {
             if (!e.shiftKey) {
               e.preventDefault();

@@ -36,7 +36,7 @@ export const env = {
   supportEmail: process.env.SUPPORT_EMAIL ?? process.env.SMTP_USER ?? "support@road-freight.io",
 
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash"
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash"
 };
 
 export const isProduction = env.nodeEnv === "production";

@@ -23,4 +23,14 @@ export const driverApi = {
     apiClient.get(`/driver/trips/${id}/messages`),
   sendTripMessage: (id, payload) =>
     apiClient.post(`/driver/trips/${id}/messages`, payload),
+  postGps: (id, payload) =>
+    apiClient.post(`/driver/trips/${id}/gps`, payload),
+};
+
+export const supportApi = {
+  chatSession: () => apiClient.get("/support/chat/session"),
+  chatMessage: (message, options = {}) =>
+    apiClient.post("/support/chat/message", { message, ...options }),
+  resumeBot: (sessionId) =>
+    apiClient.post("/support/chat/resume-bot", { sessionId }),
 };

@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   nextName:        { fontSize: 15, fontWeight: "700", color: "#0f172a", marginTop: 2 },
   nextMeta:        { fontSize: 12, color: "#666", marginTop: 4 },
 
-  actionBtn:     { flex: 1, backgroundColor: "#fff", paddingVertical: 11, borderRadius: 24, alignItems: "center", elevation: 3, borderWidth: 1, borderColor: "#e5e7eb" },
+  actionBtn:     { flex: 1, backgroundColor: "#fff", paddingVertical: 12, borderRadius: 24, alignItems: "center", justifyContent: "center", minHeight: 44, elevation: 3, borderWidth: 1, borderColor: "#e5e7eb" },
   actionBtnActive: { backgroundColor: "#1677ff", borderColor: "#1677ff" },
   actionText:    { color: "#0f172a", fontWeight: "600", fontSize: 13 },
   actionTextActive: { color: "#fff" },

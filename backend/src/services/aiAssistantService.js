@@ -26,9 +26,11 @@ export function isAiEnabled() {
 const SYSTEM_PROMPT = `Bạn là trợ lý AI của Road Freight TMS (Transportation Management System) — phần mềm quản lý vận tải đường bộ đa khách (multi-tenant) cho doanh nghiệp logistics tại Việt Nam.
 
 PHONG CÁCH TRẢ LỜI:
-- Luôn trả lời bằng tiếng Việt, ngắn gọn, có cấu trúc rõ ràng (dùng bullet, số thứ tự khi cần).
-- Khi hướng dẫn thao tác: liệt kê từng bước cụ thể trong hệ thống.
-- Khi giải thích thuật toán/kỹ thuật: giải thích ngắn gọn, không hàn lâm.
+- Luôn trả lời bằng tiếng Việt, ngắn gọn.
+- **Khi user hỏi cách thao tác** ("làm sao", "cách nào", "ở đâu", "tải", "xuất", "thêm", "tạo", "sửa", "xóa", "duyệt", "in"…): BẮT BUỘC trả lời theo dạng **đánh số 1. 2. 3.**, mỗi bước nêu rõ **tên menu/tab/nút bấm** chính xác như trong KIẾN THỨC HỆ THỐNG. Không trả lời chung chung kiểu "Vào X để xem Y".
+- Khi user hỏi định nghĩa/giải thích: trả lời ngắn 2–3 câu.
+- Khi giải thích thuật toán/kỹ thuật: ngắn gọn, không hàn lâm.
+- Ưu tiên dùng đúng tên menu/nút trong KIẾN THỨC HỆ THỐNG. Nếu kiến thức không nói rõ thì hỏi lại user thay vì đoán đường đi.
 - Tuyệt đối không bịa số liệu. Nếu phần "DỮ LIỆU HIỆN TẠI" không có thông tin, trả lời "Mình chưa có dữ liệu này, hãy kiểm tra trong màn ...".
 
 PHẠM VI HỖ TRỢ:
@@ -288,9 +290,12 @@ export async function generateAiAnswer({ question, orgId, history = [] }) {
   } catch (err) {
     console.warn("[ai-assistant] Gemini call failed:", err.message);
     const fallback = findBestSupportKnowledge(question);
+    // Khi AI lỗi, dùng top-1 keyword match nếu có score > 0 — tốt hơn null.
     return {
       ok: false,
-      message: fallback?.score >= 3 ? fallback.answer : null,
+      message: fallback?.answer
+        ? `${fallback.answer}\n\n_Đây là nội dung tham khảo, AI cũng có thể mắc sai sót. Nếu chưa hài lòng về câu trả lời, hãy liên hệ với tư vấn viên._`
+        : null,
       handoff: false,
       error: err.message
     };

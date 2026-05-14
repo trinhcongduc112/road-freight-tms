@@ -6,6 +6,7 @@ import morgan from "morgan";
 import { env } from "./config/env.js";
 import { connectDatabase } from "./config/db.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { perfMonitor } from "./middlewares/perfMonitor.js";
 import { apiRouter } from "./routes/index.js";
 import { logger } from "./utils/logger.js";
 import { initSocket } from "./socket.js";
@@ -23,7 +24,7 @@ async function bootstrap() {
   app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
 
   app.get("/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
-  app.use("/api", apiRouter);
+  app.use("/api", perfMonitor(), apiRouter);
 
   app.use(errorHandler);
 

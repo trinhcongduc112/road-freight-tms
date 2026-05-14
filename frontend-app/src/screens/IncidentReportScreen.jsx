@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   typeBtnDesc:  { fontSize: 11, color: "#94a3b8", marginTop: 2 },
 
   severityRow:  { flexDirection: "row", gap: 8, paddingHorizontal: 12 },
-  sevBtn:       { flex: 1, paddingVertical: 9, borderRadius: 8, borderWidth: 1.5, alignItems: "center" },
+  sevBtn:       { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1.5, alignItems: "center", minHeight: 44, justifyContent: "center" },
   sevText:      { fontWeight: "700", fontSize: 13 },
 
   textArea:     { backgroundColor: "#fff", marginHorizontal: 12, borderRadius: 10, padding: 12, minHeight: 96, fontSize: 14, color: "#222", textAlignVertical: "top", elevation: 1 },

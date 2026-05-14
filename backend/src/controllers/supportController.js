@@ -139,18 +139,35 @@ ${replyUrl}`,
   }
 }
 
+let seedPromise = null;
 async function ensureDefaultSupportArticles() {
-  const existing = await SupportArticle.countDocuments({ OrganizationID: null, Status: SupportArticleStatus.PUBLISHED });
-  if (existing > 0) return;
-  await SupportArticle.insertMany(SUPPORT_KNOWLEDGE.map((item) => ({
-    OrganizationID: null,
-    Title: item.title,
-    Module: "SYSTEM",
-    Keywords: item.keywords,
-    Question: item.title,
-    Answer: item.answer,
-    Status: SupportArticleStatus.PUBLISHED
-  })));
+  if (seedPromise) return seedPromise;
+  seedPromise = (async () => {
+    const ops = SUPPORT_KNOWLEDGE.map((item) => ({
+      updateOne: {
+        filter: { OrganizationID: null, Module: "SYSTEM", Title: item.title },
+        update: {
+          $set: {
+            Keywords: item.keywords,
+            Question: item.title,
+            Answer: item.answer,
+            Status: SupportArticleStatus.PUBLISHED
+          },
+          $setOnInsert: {
+            OrganizationID: null,
+            Module: "SYSTEM",
+            Title: item.title
+          }
+        },
+        upsert: true
+      }
+    }));
+    if (ops.length) await SupportArticle.bulkWrite(ops, { ordered: false });
+  })().catch((err) => {
+    seedPromise = null;
+    console.warn("[support] seed knowledge failed:", err.message);
+  });
+  return seedPromise;
 }
 
 export async function getMyChatSession(req, res) {

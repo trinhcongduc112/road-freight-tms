@@ -6,7 +6,19 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { driverApi } from "../api/driver";
+import { gpsTracker } from "../services/gpsTracker";
 import StatusBadge from "../components/StatusBadge";
+
+const ACTIVE_TRIP_STATUSES = ["IN_PROGRESS", "RETURNING"];
+
+function syncTracker(trip) {
+  if (!trip?._id) return;
+  if (ACTIVE_TRIP_STATUSES.includes(trip.Status)) {
+    gpsTracker.start(trip._id).catch(() => {});
+  } else {
+    gpsTracker.stop().catch(() => {});
+  }
+}
 
 function StopCard({ stop, index, onPress }) {
   return (
@@ -40,6 +52,7 @@ export default function RouteDetailScreen({ route, navigation }) {
     try {
       const res = await driverApi.getRoute(routeId);
       setDetail(res.data.data);
+      syncTracker(res.data.data);
     } catch (err) {
       Alert.alert("Lỗi", err.response?.data?.message ?? err.message);
     } finally {
@@ -74,6 +87,7 @@ export default function RouteDetailScreen({ route, navigation }) {
       if (proofLabel && !payload) return;
       const res = await fn(payload);
       setDetail(res.data.data);
+      syncTracker(res.data.data);
       Alert.alert("Thành công", success);
     } catch (err) {
       Alert.alert("Lỗi", err.response?.data?.message ?? err.message);
@@ -96,6 +110,7 @@ export default function RouteDetailScreen({ route, navigation }) {
             try {
               const res = await fn({}); // Gửi payload rỗng vì không có ảnh
               setDetail(res.data.data);
+              syncTracker(res.data.data);
               Alert.alert("Thành công", successMsg);
             } catch (err) {
               Alert.alert("Lỗi", err.response?.data?.message ?? err.message);
@@ -229,7 +244,7 @@ const styles = StyleSheet.create({
   messageBtn: { backgroundColor: "#f0fdf4", borderRadius: 8, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "#bbf7d0" },
   messageBtnText: { color: "#16a34a", fontWeight: "700", fontSize: 14 },
   actionGrid:  { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
-  actionBtn:   { backgroundColor: "#eef6ff", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, borderWidth: 1, borderColor: "#bfdbfe" },
+  actionBtn:   { backgroundColor: "#eef6ff", borderRadius: 8, paddingVertical: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: "#bfdbfe", minHeight: 44, justifyContent: "center" },
   actionText:  { color: "#1677ff", fontWeight: "700", fontSize: 12 },
   doneBtn:     { backgroundColor: "#f0fdf4", borderColor: "#86efac" },
   doneText:    { color: "#16a34a", fontWeight: "700", fontSize: 12 },

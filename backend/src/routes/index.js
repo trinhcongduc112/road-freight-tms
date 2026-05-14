@@ -11,6 +11,8 @@ import { supportRouter } from "./supportRoutes.js";
 import { userRouter } from "./userRoutes.js";
 import { driverRouter } from "./driverRoutes.js";
 import { tripRouter } from "./tripRoutes.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { systemHealth, systemMetrics } from "../controllers/systemController.js";
 
 export const apiRouter = Router();
 
@@ -26,6 +28,9 @@ apiRouter.use("/reports", reportRouter);
 apiRouter.use("/support", supportRouter);
 apiRouter.use("/driver", driverRouter);
 apiRouter.use("/trips", tripRouter);
+
+apiRouter.get("/system/health", asyncHandler(systemHealth));
+apiRouter.get("/system/metrics", asyncHandler(systemMetrics));
 
 apiRouter.get("/", (_req, res) => {
   res.json({

@@ -318,36 +318,62 @@ export async function updateIncident(req, res) {
 
 export async function postGps(req, res) {
   const trip = await loadDriverTrip(req);
-  const latitude = Number(req.body?.latitude);
-  const longitude = Number(req.body?.longitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new ApiError(400, "GPS không hợp lệ");
-  const speed = Number(req.body?.speed ?? 0);
-  trip.LastLatitude = latitude;
-  trip.LastLongitude = longitude;
-  trip.LastSpeed = Number.isFinite(speed) ? speed : 0;
-  trip.LastGpsAt = new Date();
-  await trip.save();
-  await GpsLog.create({
+
+  // Hỗ trợ cả 2 dạng payload:
+  //   1) Single point: { latitude, longitude, speed?, batteryLevel?, capturedAt? }
+  //   2) Batch (offline-queue flush): { batch: [{ latitude, longitude, speed?, capturedAt }] }
+  const rawBatch = Array.isArray(req.body?.batch) ? req.body.batch : null;
+  const points = rawBatch ?? [{
+    latitude: req.body?.latitude,
+    longitude: req.body?.longitude,
+    speed: req.body?.speed,
+    capturedAt: req.body?.capturedAt,
+    batteryLevel: req.body?.batteryLevel
+  }];
+
+  const normalized = points
+    .map((p) => ({
+      latitude: Number(p?.latitude),
+      longitude: Number(p?.longitude),
+      speed: Number.isFinite(Number(p?.speed)) ? Number(p.speed) : 0,
+      batteryLevel: p?.batteryLevel,
+      capturedAt: p?.capturedAt ? new Date(p.capturedAt) : new Date()
+    }))
+    .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
+    .sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime());
+
+  if (normalized.length === 0) throw new ApiError(400, "GPS không hợp lệ");
+
+  await GpsLog.insertMany(normalized.map((p) => ({
     DriverID: trip.DriverID,
     RouteID: trip.DeliveryRouteID,
     OrganizationID: trip.OrganizationID,
-    Latitude: latitude,
-    Longitude: longitude,
-    Speed: trip.LastSpeed,
-    BatteryLevel: req.body?.batteryLevel
-  });
-  /* Broadcast realtime location to org room + run deviation check */
+    Latitude: p.latitude,
+    Longitude: p.longitude,
+    Speed: p.speed,
+    BatteryLevel: p.batteryLevel,
+    Timestamp: p.capturedAt
+  })));
+
+  const latest = normalized[normalized.length - 1];
+  trip.LastLatitude = latest.latitude;
+  trip.LastLongitude = latest.longitude;
+  trip.LastSpeed = latest.speed;
+  trip.LastGpsAt = latest.capturedAt;
+  await trip.save();
+
+  /* Broadcast realtime location to org room + run deviation check (chỉ điểm mới nhất) */
   try {
     getIO().to(`org_${trip.OrganizationID.toString()}`).emit("location_changed", {
       tripId: String(trip._id),
       driverId: trip.DriverID ? String(trip.DriverID) : null,
-      lat: latitude,
-      lng: longitude,
-      speed: trip.LastSpeed,
-      updatedAt: new Date()
+      lat: latest.latitude,
+      lng: latest.longitude,
+      speed: latest.speed,
+      updatedAt: latest.capturedAt
     });
   } catch { /* socket not ready */ }
-  checkDeviation(req.user._id, latitude, longitude).catch(() => {});
+  checkDeviation(req.user._id, latest.latitude, latest.longitude).catch(() => {});
 
-  res.json({ success: true });
+  res.json({ success: true, data: { accepted: normalized.length } });
 }
