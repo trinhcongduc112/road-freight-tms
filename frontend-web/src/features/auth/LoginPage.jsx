@@ -10,6 +10,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../../api/auth";
 import { languages, useLanguage } from "../../i18n.jsx";
 import { useAuthStore } from "../../store/authStore";
+import ContactModal from "./ContactModal";
 
 function friendlyError(rawMsg = "", t) {
   const m = rawMsg.toLowerCase();
@@ -36,6 +37,7 @@ export default function LoginPage() {
 
   // State chứa danh sách tài khoản đã lưu
   const [savedAccounts, setSavedAccounts] = useState([]);
+  const [contactOpen, setContactOpen] = useState(false);
 
   const from = location.state?.from?.pathname || "/";
 
@@ -180,10 +182,18 @@ export default function LoginPage() {
               {t("auth.login.registerText")}{" "}
               <Link to="/register" className="lp-lnk lp-lnk--bold">{t("auth.login.registerLink")}</Link>
             </p>
+
+            <div style={{ marginTop: 12, textAlign: "center" }}>
+              <Button type="link" onClick={() => setContactOpen(true)} className="lp-lnk">
+                {t("contact.cta")}
+              </Button>
+            </div>
           </Form>
 
         </div>
       </main>
+
+      <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
 
       {/* Bottom tagline */}
       <footer className="lp-footer">

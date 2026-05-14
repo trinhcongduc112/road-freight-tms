@@ -248,7 +248,28 @@ const dictionaries = {
     "supportReply.missingToken": "Thiếu token. Vui lòng mở link từ email gốc.",
     "supportReply.loadError": "Không tải được thông tin phiên chat",
     "supportReply.sendSuccess": "Đã gửi phản hồi tới khách hàng",
-    "supportReply.sendError": "Không gửi được"
+    "supportReply.sendError": "Không gửi được",
+
+    // === Liên hệ tư vấn (login page) ===
+    "contact.cta": "Liên hệ với chúng tôi",
+    "contact.title": "Liên hệ tư vấn sản phẩm",
+    "contact.subtitle": "Để lại thông tin, đội ngũ Road Freight TMS sẽ liên hệ tư vấn gói phù hợp.",
+    "contact.field.fullName": "Họ và tên",
+    "contact.field.fullNameRequired": "Vui lòng nhập họ tên",
+    "contact.field.email": "Email",
+    "contact.field.emailRequired": "Vui lòng nhập email",
+    "contact.field.emailInvalid": "Email không hợp lệ",
+    "contact.field.phone": "Số điện thoại",
+    "contact.field.company": "Công ty",
+    "contact.field.fleetSize": "Quy mô đội xe",
+    "contact.field.fleetSize.placeholder": "VD: < 10 xe, 10–50 xe, > 50 xe",
+    "contact.field.message": "Nhu cầu / câu hỏi",
+    "contact.field.messageRequired": "Vui lòng nhập lời nhắn",
+    "contact.field.messagePlaceholder": "VD: Doanh nghiệp em có 25 xe tải, muốn tư vấn gói phần mềm phù hợp...",
+    "contact.submit": "Gửi liên hệ",
+    "contact.cancel": "Đóng",
+    "contact.success.title": "Đã gửi thành công",
+    "contact.success.desc": "Cảm ơn bạn đã quan tâm. Đội ngũ tư vấn sẽ liên hệ qua email/điện thoại trong thời gian sớm nhất."
   },
   en: {
     "common.language": "Language",
@@ -488,7 +509,28 @@ const dictionaries = {
     "supportReply.missingToken": "Missing token. Please open the link from the original email.",
     "supportReply.loadError": "Failed to load chat session",
     "supportReply.sendSuccess": "Reply sent to customer",
-    "supportReply.sendError": "Send failed"
+    "supportReply.sendError": "Send failed",
+
+    // === Contact sales (login page) ===
+    "contact.cta": "Contact us",
+    "contact.title": "Talk to our sales team",
+    "contact.subtitle": "Leave your info and the Road Freight TMS team will get back to recommend the right plan.",
+    "contact.field.fullName": "Full name",
+    "contact.field.fullNameRequired": "Please enter your full name",
+    "contact.field.email": "Email",
+    "contact.field.emailRequired": "Please enter your email",
+    "contact.field.emailInvalid": "Invalid email",
+    "contact.field.phone": "Phone",
+    "contact.field.company": "Company",
+    "contact.field.fleetSize": "Fleet size",
+    "contact.field.fleetSize.placeholder": "e.g. < 10 trucks, 10–50, > 50",
+    "contact.field.message": "Your message",
+    "contact.field.messageRequired": "Please enter a message",
+    "contact.field.messagePlaceholder": "e.g. We operate 25 trucks and need help choosing a plan...",
+    "contact.submit": "Send",
+    "contact.cancel": "Close",
+    "contact.success.title": "Sent successfully",
+    "contact.success.desc": "Thanks for reaching out. Our team will contact you via email/phone shortly."
   }
 };
 

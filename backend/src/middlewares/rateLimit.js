@@ -17,3 +17,12 @@ export const strictAuthRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, error: "Quá nhiều yêu cầu nhạy cảm. Vui lòng thử lại sau 1 giờ." }
 });
+
+// Public contact form — 5 lần / 10 phút / IP để chống spam
+export const contactRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: isDev ? 50 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau ít phút." }
+});

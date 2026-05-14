@@ -52,7 +52,8 @@ apiClient.interceptors.response.use(
       url.includes("/auth/verify-email") ||
       url.includes("/auth/accept-invitation") ||
       url.includes("/support/reply-context") ||
-      url.includes("/support/reply");
+      url.includes("/support/reply") ||
+      url.includes("/public/");
 
     if (
       error.response?.status === 401 &&
