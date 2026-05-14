@@ -9,7 +9,7 @@ ANDROID_AVD := Pixel_6
 LOG_SERVICES := backend frontend-web optimizer mongo
 
 .PHONY: help start stop mongo backend web dev seed logs \
-        install clean db-ui db mobile mobile-android mobile-ios mobile-stop
+        install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop
 
 help:
 	@echo ""
@@ -19,7 +19,8 @@ help:
 	@echo "  make stop             — dừng backend + frontend"
 	@echo "  make logs             — xem log backend + frontend"
 	@echo "  ── Mobile App (Tài xế) ─────────────────────────────────────────"
-	@echo "  make mobile           — chạy app tài xế bằng Expo QR"
+	@echo "  make mobile           — chạy app tài xế bằng Expo QR (--lan)"
+	@echo "  make mobile-localhost — Expo cho VM/emulator standalone (--localhost)"
 	@echo "  make mobile-android   — Expo trực tiếp trên Android emulator"
 	@echo "  make mobile-ios       — Expo trực tiếp trên iOS simulator (macOS)"
 	@echo "  make mobile-stop      — dừng Expo dev server"
@@ -98,6 +99,18 @@ mobile:
 	if [ -z "$$HOST_IP" ]; then echo "Không tìm được IP LAN. Chạy thủ công: EXPO_PUBLIC_API_URL=http://<IP_MAY_TINH>:5000/api npx expo start --lan"; exit 1; fi; \
 	echo "  API mobile → http://$$HOST_IP:5000/api"; \
 	$(NVM) && cd frontend-app && EXPO_PUBLIC_API_URL=http://$$HOST_IP:5000/api npx expo start --lan
+
+mobile-localhost:
+	@echo "  Khởi động Expo cho VM/emulator (--localhost mode)"
+	@echo "  Sử dụng EXPO_PUBLIC_API_URL để kết nối backend"
+	@echo ""
+	@HOST_IP=$$(hostname -I 2>/dev/null | awk '{print $$1}'); \
+	if [ -z "$$HOST_IP" ]; then HOST_IP=$$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($$i=="src") {print $$(i+1); exit}}'); fi; \
+	if [ -z "$$HOST_IP" ]; then echo "Không tìm được IP LAN."; exit 1; fi; \
+	echo "  API backend  → http://$$HOST_IP:5000/api"; \
+	echo "  Metro server → http://127.0.0.1:8081"; \
+	echo ""; \
+	$(NVM) && cd frontend-app && EXPO_PUBLIC_API_URL=http://$$HOST_IP:5000/api npx expo start --localhost
 
 mobile-android:
 	@echo "  Khởi động Expo trên Android emulator..."
