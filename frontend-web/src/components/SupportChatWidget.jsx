@@ -20,14 +20,9 @@ const QUICK_PROMPTS = [
 
 const WELCOME = {
   sender: "bot",
-  body: "Xin chào! Mình là trợ lý AI của Road Freight TMS. Bạn có thể hỏi về **đơn hàng, xe, tài xế, tuyến giao, sự cố, báo cáo**. Nếu cần người thật, mình sẽ chuyển ngay cho nhân viên hỗ trợ.",
+  body: "Xin chào! Mình là trợ lý AI của Road Freight TMS. Bạn có thể hỏi về **đơn hàng, xe, tài xế, tuyến giao, sự cố, báo cáo**. Nếu mình không trả lời được, mình sẽ chuyển cho tư vấn viên.",
   createdAt: new Date().toISOString()
 };
-
-function canSupportReply(user, role) {
-  const perms = role?.Permissions ?? [];
-  return Boolean(user?.IsSuperAdmin || perms.includes("*"));
-}
 
 function normalizeSession(session) {
   if (!session) return null;
@@ -36,14 +31,9 @@ function normalizeSession(session) {
 
 export default function SupportChatWidget({ open, onClose }) {
   const user = useAuthStore((s) => s.user);
-  const role = useAuthStore((s) => s.role);
-  const isAdmin = canSupportReply(user, role);
   const [input, setInput] = useState("");
-  const [adminInput, setAdminInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [session, setSession] = useState(null);
-  const [adminSessions, setAdminSessions] = useState([]);
-  const [activeSessionId, setActiveSessionId] = useState(null);
   const bottomRef = useRef(null);
 
   const initials = useMemo(() => {
@@ -51,65 +41,40 @@ export default function SupportChatWidget({ open, onClose }) {
     return name.slice(0, 1).toUpperCase();
   }, [user]);
 
-  const activeAdminSession = adminSessions.find((item) => item._id === activeSessionId) ?? adminSessions[0] ?? null;
-  const userMessages = session?.messages?.length ? session.messages : [WELCOME];
+  const messages = session?.messages?.length ? session.messages : [WELCOME];
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [userMessages, activeAdminSession?.messages, open]);
+  }, [messages, open]);
 
   useEffect(() => {
     if (!open) return;
-    if (isAdmin) {
-      supportApi.adminChatSessions({ handledBy: "human" })
-        .then((res) => {
-          const rows = Array.isArray(res) ? res : res.data ?? [];
-          setAdminSessions(rows);
-          setActiveSessionId((current) => current ?? rows[0]?._id ?? null);
-        })
-        .catch(() => {});
-    } else {
-      supportApi.chatSession()
-        .then((res) => setSession(normalizeSession(res)))
-        .catch(() => setSession(null));
-    }
-  }, [open, isAdmin]);
+    supportApi.chatSession()
+      .then((res) => setSession(normalizeSession(res?.data ?? res)))
+      .catch(() => setSession(null));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
     const socket = getSocket();
     if (!socket) return undefined;
 
-    const upsertSession = (nextSession) => {
-      setAdminSessions((prev) => {
-        const without = prev.filter((item) => item._id !== nextSession._id);
-        return [nextSession, ...without];
-      });
-      setActiveSessionId((current) => current ?? nextSession._id);
-    };
-
-    const onUserMessage = ({ sessionId, message }) => {
+    const onChatMessage = ({ sessionId, message }) => {
       setSession((current) => {
         if (!current || String(current._id) !== String(sessionId)) return current;
         if (!message) return current;
-        const msgKey = `${message.sender}|${message.body}|${message.createdAt ?? ''}`;
+        const msgKey = `${message.sender}|${message.body}|${message.createdAt ?? ""}`;
         const exists = current.messages?.some((m) => {
-          const mKey = `${m.sender}|${m.body}|${m.createdAt ?? ''}`;
+          const mKey = `${m.sender}|${m.body}|${m.createdAt ?? ""}`;
           return mKey === msgKey;
         });
         return exists ? current : { ...current, messages: [...(current.messages ?? []), message] };
       });
     };
-    const onAdminAlert = ({ session: nextSession }) => upsertSession(nextSession);
-    const onAdminMessage = ({ session: nextSession }) => upsertSession(nextSession);
 
-    socket.on("chat_message", onUserMessage);
-    socket.on("admin_alert_new_ticket", onAdminAlert);
-    socket.on("support_admin_message", onAdminMessage);
+    socket.on("chat_message", onChatMessage);
     return () => {
-      socket.off("chat_message", onUserMessage);
-      socket.off("admin_alert_new_ticket", onAdminAlert);
-      socket.off("support_admin_message", onAdminMessage);
+      socket.off("chat_message", onChatMessage);
     };
   }, [open]);
 
@@ -123,7 +88,8 @@ export default function SupportChatWidget({ open, onClose }) {
         sessionId: session?._id,
         forceSupport: options.forceSupport === true || body.toLowerCase().includes("gặp nhân viên")
       });
-      setSession(normalizeSession(res.session));
+      const payload = res?.data ?? res;
+      setSession(normalizeSession(payload?.session ?? payload));
     } catch (err) {
       antdMessage.error(err.message || "Không gửi được tin nhắn");
     } finally {
@@ -131,17 +97,17 @@ export default function SupportChatWidget({ open, onClose }) {
     }
   }
 
-  async function replyAdmin() {
-    const body = adminInput.trim();
-    if (!body || !activeAdminSession) return;
-    setAdminInput("");
+  async function resumeBot() {
+    if (!session?._id || loading) return;
+    setLoading(true);
     try {
-      const res = await supportApi.adminChatReply(activeAdminSession._id, body);
-      const nextSession = res;
-      setAdminSessions((prev) => [nextSession, ...prev.filter((item) => item._id !== nextSession._id)]);
-      setActiveSessionId(nextSession._id);
+      const res = await supportApi.resumeBot(session._id);
+      const payload = res?.data ?? res;
+      setSession(normalizeSession(payload?.session ?? payload));
     } catch (err) {
-      antdMessage.error(err.message || "Không gửi được phản hồi");
+      antdMessage.error(err.message || "Không quay lại AI được");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -155,7 +121,7 @@ export default function SupportChatWidget({ open, onClose }) {
         <div className="support-chat-bubble">
           {isMe ? msg.body : (
             <>
-              {isHuman && <b>Nhân viên hỗ trợ: </b>}
+              {isHuman && <b>Tư vấn viên: </b>}
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.body}</ReactMarkdown>
             </>
           )}
@@ -165,16 +131,16 @@ export default function SupportChatWidget({ open, onClose }) {
   };
 
   return (
-    <section className="support-chat-panel" aria-label="Trợ lý hỗ trợ Road Freight TMS">
+    <section className="support-chat-panel" aria-label="Trợ lý AI Road Freight TMS">
       <div className="support-chat-head">
         <div>
           <div className="support-chat-brand">
             <CustomerServiceOutlined />
-            <span>{isAdmin ? "Support Inbox" : "Road Freight Support"}</span>
+            <span>Trợ lý AI</span>
           </div>
           <div className="support-chat-user">
             <span className="support-chat-avatar">{initials}</span>
-            <span>{isAdmin ? "Nhân viên trực" : `Hi ${user?.UserName ?? "bạn"}`}</span>
+            <span>{`Hi ${user?.UserName ?? "bạn"}`}</span>
           </div>
         </div>
         <button type="button" className="support-chat-close" onClick={onClose} aria-label="Đóng">
@@ -182,91 +148,54 @@ export default function SupportChatWidget({ open, onClose }) {
         </button>
       </div>
 
-      {isAdmin ? (
-        <>
-          <div className="support-chat-body support-admin-body">
-            <div className="support-ticket-list">
-              {adminSessions.length === 0 ? (
-                <div className="support-status-banner">Chưa có cuộc chat cần nhân viên xử lý.</div>
-              ) : adminSessions.map((item) => (
-                <button
-                  key={item._id}
-                  type="button"
-                  className={`support-ticket-item ${activeAdminSession?._id === item._id ? "is-active" : ""}`}
-                  onClick={() => setActiveSessionId(item._id)}
-                >
-                  <strong>{item.user?.FullName || item.user?.UserName || item.subject || "User"}</strong>
-                  <span>{item.subject || item.messages?.[0]?.body || "Yêu cầu hỗ trợ"}</span>
-                </button>
-              ))}
-            </div>
-            <div>
-              {(activeAdminSession?.messages ?? []).map(renderMessage)}
-              <div ref={bottomRef} />
-            </div>
+      <div className="support-chat-body">
+        {messages.length <= 1 && (
+          <div className="support-chat-prompts">
+            {QUICK_PROMPTS.map((prompt) => (
+              <Tag key={prompt} className="support-chat-prompt" onClick={() => send(prompt, { forceSupport: prompt.includes("nhân viên") })}>
+                {prompt}
+              </Tag>
+            ))}
           </div>
-          <div className="support-chat-input">
-            <Input.TextArea
-              autoSize={{ minRows: 1, maxRows: 3 }}
-              value={adminInput}
-              onChange={(e) => setAdminInput(e.target.value)}
-              placeholder="Nhập phản hồi cho khách"
-              onPressEnter={(e) => {
-                if (!e.shiftKey) {
-                  e.preventDefault();
-                  replyAdmin();
-                }
-              }}
-            />
-            <Button type="primary" icon={<SendOutlined />} disabled={!activeAdminSession} onClick={replyAdmin} />
+        )}
+        {messages.map(renderMessage)}
+        {loading && (
+          <div className="support-chat-loading">
+            <Spin size="small" />
           </div>
-        </>
-      ) : (
-        <>
-          <div className="support-chat-body">
-            {userMessages.length <= 1 && (
-              <div className="support-chat-prompts">
-                {QUICK_PROMPTS.map((prompt) => (
-                  <Tag key={prompt} className="support-chat-prompt" onClick={() => send(prompt, { forceSupport: prompt.includes("nhân viên") })}>
-                    {prompt}
-                  </Tag>
-                ))}
-              </div>
-            )}
-            {session?.handledBy === "human" && (
-              <div className="support-status-banner">Đang chờ nhân viên hỗ trợ phản hồi.</div>
-            )}
-            {userMessages.map(renderMessage)}
-            {loading && (
-              <div className="support-chat-loading">
-                <Spin size="small" />
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
 
-          <div className="support-chat-input">
-            {userMessages.length > 1 && (
-              <Button className="support-human-btn" onClick={() => send("Tôi muốn gặp nhân viên hỗ trợ", { forceSupport: true })}>
-                Gặp nhân viên hỗ trợ
-              </Button>
-            )}
-            <Input.TextArea
-              autoSize={{ minRows: 1, maxRows: 3 }}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Nhập câu hỏi của bạn"
-              onPressEnter={(e) => {
-                if (!e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-            />
-            <Button type="primary" icon={<SendOutlined />} loading={loading} onClick={() => send()} />
-          </div>
-        </>
+      {session?.handledBy === "human" && (
+        <div className="support-status-banner" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderTop: "1px solid #fde68a", background: "#fffbeb" }}>
+          <span style={{ fontSize: 13, color: "#78350f" }}>Đang chờ tư vấn viên phản hồi.</span>
+          <Button size="small" onClick={resumeBot} loading={loading}>
+            Quay lại AI
+          </Button>
+        </div>
       )}
+
+      <div className="support-chat-input">
+        {messages.length > 1 && session?.handledBy !== "human" && (
+          <Button className="support-human-btn" onClick={() => send("Tôi muốn gặp nhân viên hỗ trợ", { forceSupport: true })}>
+            Gặp tư vấn viên
+          </Button>
+        )}
+        <Input.TextArea
+          autoSize={{ minRows: 1, maxRows: 3 }}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Nhập câu hỏi của bạn"
+          onPressEnter={(e) => {
+            if (!e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+        />
+        <Button type="primary" icon={<SendOutlined />} loading={loading} onClick={() => send()} />
+      </div>
     </section>
   );
 }

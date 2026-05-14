@@ -5,6 +5,7 @@ import LoginPage from "./features/auth/LoginPage";
 import RegisterPage from "./features/auth/RegisterPage";
 import ResetPasswordPage from "./features/auth/ResetPasswordPage";
 import VerifyEmailPage from "./features/auth/VerifyEmailPage";
+import SupportReplyPage from "./features/support/SupportReplyPage";
 import AdminPage from "./features/admin/AdminPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MasterDataPage from "./features/master-data/MasterDataPage";
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
   { path: "/reset-password", element: <ResetPasswordPage /> },
   { path: "/accept-invitation", element: <AcceptInvitationPage /> },
+  { path: "/support/reply", element: <SupportReplyPage /> },
   { path: "/driver", element: <RequireAuth><DriverAppPage /></RequireAuth> },
   {
     path: "/",

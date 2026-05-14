@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Alert,
 } from "react-native";
 import * as Location from "expo-location";
+import { useFocusEffect } from "@react-navigation/native";
+import { driverApi } from "../api/driver";
 
 // react-native-maps không có sẵn trong Expo Go — require lười để không crash app
 let MapView, Marker, Polyline, Callout, mapsAvailable = false;
@@ -86,7 +88,12 @@ function StopListFallback({ stops }) {
 
 // ── Component chính ─────────────────────────────────────────────────────
 export default function MapScreen({ route, navigation }) {
-  const { route: trip } = route.params;
+  const { route: initialTrip } = route.params;
+  /* Giữ trip trong state để re-fetch được khi quay lại từ StopDetail/POD.
+     route.params chỉ là snapshot lúc navigate, không tự cập nhật khi stop xong. */
+  const [trip, setTrip] = useState(initialTrip);
+  const tripId = initialTrip._id ?? initialTrip.RouteID;
+
   const mapRef = useRef(null);
   const watchSubRef = useRef(null);
   const promptedStopRef = useRef(new Set()); // tránh prompt POD nhiều lần cho cùng 1 stop
@@ -98,10 +105,27 @@ export default function MapScreen({ route, navigation }) {
   const [routeLoading, setRouteLoading] = useState(false);
   const [panelExpanded, setPanelExpanded] = useState(true);
 
-  /* Android react-native-maps cần tracksViewChanges=true ở render đầu để bắt
-     kích thước của <View> bên trong <Marker>. Sau ~1.5s khi marker đã đo xong
-     thì tắt đi (false) để tránh re-render tốn pin. */
+  /* Mỗi lần screen được focus (vd quay lại từ StopDetail sau khi giao xong),
+     gọi lại API để lấy trạng thái mới nhất của trip. */
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await driverApi.getRoute(tripId);
+        const fresh = res?.data?.data ?? res?.data;
+        if (!cancelled && fresh) setTrip(fresh);
+      } catch {
+        // Im lặng — nếu fail giữ data cũ, không phá vỡ UI
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tripId]));
+
+  /* Android react-native-maps: custom <View> markers cần tracksViewChanges=true
+     để đo layout. Trước đây tắt sau 1.5s để tiết kiệm pin, nhưng trên thiết bị
+     chậm marker không kịp render → biến mất. Với ~10 markers, giữ true là OK. */
   const [tracksChanges, setTracksChanges] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
 
   const stops = useMemo(() =>
     (trip.Tasks ?? trip.Stops ?? [])
@@ -109,12 +133,20 @@ export default function MapScreen({ route, navigation }) {
       .sort((a, b) => a.StopIndex - b.StopIndex)
   , [trip]);
 
-  /* Phải đặt SAU `stops` vì dependency có dùng `stops.length` */
+  /* Bật lại tracksViewChanges mỗi khi: (a) map ready, (b) số lượng stops đổi,
+     (c) status bất kỳ stop nào đổi (PENDING → COMPLETED → marker đổi màu+icon).
+     Giữ true trong 3s để Android kịp đo lại View bên trong Marker, sau đó tắt
+     để tiết kiệm pin. */
+  const stopStatusKey = useMemo(
+    () => stops.map((s) => `${s.StopIndex}:${s.Status ?? s.StopStatus ?? "P"}`).join("|"),
+    [stops]
+  );
   useEffect(() => {
+    if (!mapReady) return;
     setTracksChanges(true);
-    const t = setTimeout(() => setTracksChanges(false), 1500);
+    const t = setTimeout(() => setTracksChanges(false), 3000);
     return () => clearTimeout(t);
-  }, [stops.length]);
+  }, [mapReady, stopStatusKey]);
 
   const depot = (Number.isFinite(Number(trip.DepotLatitude)) && Number.isFinite(Number(trip.DepotLongitude)))
     ? {
@@ -126,6 +158,23 @@ export default function MapScreen({ route, navigation }) {
       }
     : null;
   const routePoints = depot ? [depot, ...stops, depot] : stops;
+
+  /* GPS hợp lý = vị trí tài xế nằm trong bbox của lộ trình ± 100 km. Nếu không
+     (vd Android emulator để mặc định ở California), khoảng cách haversine từ
+     `me` → điểm đến sẽ ra ~11800 km — vô nghĩa. Khi đó fallback sang khoảng
+     cách của chặng (từ điểm trước → điểm này) để hiển thị số có ý nghĩa. */
+  const GPS_SANITY_BUFFER_KM = 100;
+  const isGpsSane = useMemo(() => {
+    if (!me || routePoints.length === 0) return false;
+    const lats = routePoints.map((p) => p.Latitude);
+    const lngs = routePoints.map((p) => p.Longitude);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    // 1 độ vĩ độ ~ 111 km, kinh độ ~ 111*cos(lat) km. Dùng 111 cho đơn giản.
+    const bufDeg = GPS_SANITY_BUFFER_KM / 111;
+    return me.latitude  >= minLat - bufDeg && me.latitude  <= maxLat + bufDeg
+        && me.longitude >= minLng - bufDeg && me.longitude <= maxLng + bufDeg;
+  }, [me, routePoints]);
 
   /* "Điểm đến hiện tại" phụ thuộc vào trạng thái chuyến:
      - Trước khi xuất kho (ASSIGNED / DRIVER_CONFIRMED / LOADING) → kho để bốc hàng
@@ -307,6 +356,7 @@ export default function MapScreen({ route, navigation }) {
         initialRegion={getRegion()}
         showsUserLocation
         showsMyLocationButton={false}
+        onMapReady={() => setMapReady(true)}
         onPanDrag={() => setFollow(false)}
       >
         {/* Đường đi thực — màu đậm khi OSRM trả về, mảnh-nét đứt khi fallback */}
@@ -320,6 +370,7 @@ export default function MapScreen({ route, navigation }) {
         {/* Kho — luôn dùng marker tùy chỉnh để hiện rõ icon 🏭 đen-vàng */}
         {depot && (
           <Marker
+            key={`depot-${mapReady ? "ready" : "init"}`}
             coordinate={{ latitude: depot.Latitude, longitude: depot.Longitude }}
             anchor={{ x: 0.5, y: 0.5 }}
             tracksViewChanges={tracksChanges}
@@ -346,7 +397,7 @@ export default function MapScreen({ route, navigation }) {
           const isFailed = stopStatus === "FAILED";
           return (
             <Marker
-              key={`stop-${stop.StopIndex ?? i}`}
+              key={`stop-${stop.StopIndex ?? i}-${stopStatus}-${mapReady ? "ready" : "init"}`}
               coordinate={{ latitude: stop.Latitude, longitude: stop.Longitude }}
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={tracksChanges}
@@ -397,9 +448,28 @@ export default function MapScreen({ route, navigation }) {
             {currentDestination.emoji} {currentDestination.subtitle || currentDestination.title}
           </Text>
           <Text style={styles.nextMeta}>
-            {me
-              ? `${(haversineMeters(me.latitude, me.longitude, currentDestination.Latitude, currentDestination.Longitude) / 1000).toFixed(2)} km còn lại`
-              : "Đang chờ GPS…"}
+            {(() => {
+              if (!me) return "Đang chờ GPS…";
+              if (isGpsSane) {
+                const km = haversineMeters(me.latitude, me.longitude, currentDestination.Latitude, currentDestination.Longitude) / 1000;
+                return `${km.toFixed(2)} km từ chỗ bạn`;
+              }
+              // GPS không hợp lệ (vd emulator) → khoảng cách của chặng kế tiếp
+              const prev = (() => {
+                if (currentDestination.phase === "DEPOT_LOAD") return null;
+                if (currentDestination.phase === "DEPOT_RETURN") {
+                  const lastDone = [...stops].reverse().find((s) => ["COMPLETED", "FAILED"].includes(s.Status ?? s.StopStatus));
+                  return lastDone ?? depot;
+                }
+                // STOP: tìm điểm trước (đã xong gần nhất) hoặc depot
+                const idx = stops.findIndex((s) => s.StopIndex === currentDestination.StopIndex);
+                if (idx > 0) return stops[idx - 1];
+                return depot;
+              })();
+              if (!prev) return "—";
+              const legKm = haversineMeters(prev.Latitude, prev.Longitude, currentDestination.Latitude, currentDestination.Longitude) / 1000;
+              return `${legKm.toFixed(2)} km chặng này (GPS chưa định vị)`;
+            })()}
             {currentDestination.PlannedArrivalTime ? ` · ⏰ ${currentDestination.PlannedArrivalTime}` : ""}
             {"  ›  Bấm để xem"}
           </Text>
@@ -487,7 +557,8 @@ export default function MapScreen({ route, navigation }) {
             {stops.map((stop, i) => {
               const status = stop.Status ?? stop.StopStatus ?? "PENDING";
               const isCurrent = currentDestination?.phase === "STOP" && currentDestination.StopIndex === stop.StopIndex;
-              const distFromMe = me
+              // Chỉ hiển thị khoảng cách từ chỗ tài xế khi GPS hợp lệ (trong bbox lộ trình)
+              const distFromMe = (me && isGpsSane)
                 ? haversineMeters(me.latitude, me.longitude, stop.Latitude, stop.Longitude) / 1000
                 : null;
               return (

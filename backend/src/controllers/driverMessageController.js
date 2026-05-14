@@ -98,10 +98,32 @@ export async function sendMyTripMessage(req, res) {
 }
 
 export async function unreadCounts(req, res) {
-  const filter = { ...scopeFilter(req.orgScope), SenderType: DriverMessageSender.DRIVER, ReadByDispatcherAt: null };
-  const rows = await DriverMessage.aggregate([
-    { $match: filter },
-    { $group: { _id: "$TripID", count: { $sum: 1 } } }
-  ]);
-  res.json({ success: true, data: rows.map((row) => ({ TripID: row._id, count: row.count })) });
+  try {
+    const filter = { 
+      ...scopeFilter(req.orgScope), 
+      SenderType: "DRIVER", 
+      $or: [
+        { ReadByDispatcherAt: null },
+        { ReadByDispatcherAt: { $exists: false } }
+      ]
+    };
+
+    const unreadMsgs = await DriverMessage.find(filter).select("TripID");
+
+    const countMap = {};
+    unreadMsgs.forEach(msg => {
+      const tripIdStr = msg.TripID.toString();
+      countMap[tripIdStr] = (countMap[tripIdStr] || 0) + 1;
+    });
+
+    const data = Object.keys(countMap).map(tripId => ({
+      TripID: tripId,
+      count: countMap[tripId]
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error("Lỗi đếm tin nhắn chưa đọc:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 }

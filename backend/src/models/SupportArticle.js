@@ -14,10 +14,7 @@ const supportArticleSchema = new mongoose.Schema(
     Keywords: [{ type: String, trim: true }],
     Question: { type: String, trim: true, default: "" },
     Answer: { type: String, required: true, trim: true },
-    Status: { type: String, enum: Object.values(SupportArticleStatus), default: SupportArticleStatus.DRAFT, index: true },
-    SourceTicketID: { type: mongoose.Schema.Types.ObjectId, ref: "SupportTicket", default: null },
-    CreatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-    UpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
+    Status: { type: String, enum: Object.values(SupportArticleStatus), default: SupportArticleStatus.DRAFT, index: true }
   },
   { timestamps: true }
 );

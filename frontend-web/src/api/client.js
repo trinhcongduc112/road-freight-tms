@@ -50,7 +50,9 @@ apiClient.interceptors.response.use(
       url.includes("/auth/forgot-password") ||
       url.includes("/auth/reset-password") ||
       url.includes("/auth/verify-email") ||
-      url.includes("/auth/accept-invitation");
+      url.includes("/auth/accept-invitation") ||
+      url.includes("/support/reply-context") ||
+      url.includes("/support/reply");
 
     if (
       error.response?.status === 401 &&

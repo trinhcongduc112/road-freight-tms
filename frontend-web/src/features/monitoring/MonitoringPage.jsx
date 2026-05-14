@@ -1,10 +1,10 @@
 import { CarOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, PhoneOutlined, WarningOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Badge, Button, Card, Col, DatePicker, Empty, Input, Modal, Popconfirm, Row, Space, Statistic, Tag, Timeline, Tooltip, Typography } from "antd";
+import { App, Badge, Button, Card, Col, DatePicker, Empty, Image, Input, Modal, Popconfirm, Row, Space, Statistic, Tag, Timeline, Tooltip, Typography, notification } from "antd";
 import dayjs from "dayjs";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { tripApi } from "../../api/trip";
 
@@ -109,44 +109,58 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString("vi-VN", { hour12: false });
 }
 
-function EvidenceThumbs({ photos = [], at }) {
-  if (!photos.length) return <Text type="secondary" style={{ fontSize: 11 }}>Chưa có ảnh xác minh</Text>;
+// Thêm biến noPhotoRequired vào prop
+function EvidenceThumbs({ photos = [], at, noPhotoRequired }) {
+  if (!photos.length) {
+    if (noPhotoRequired) {
+      return <Text style={{ fontSize: 11, color: "#16a34a", fontWeight: "500" }}>✓ Đã xác nhận trên app</Text>;
+    }
+    return <Text type="secondary" style={{ fontSize: 11 }}>Chưa có ảnh xác minh</Text>;
+  }
+
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-      {photos.slice(0, 4).map((photo, index) => (
-        <div key={index} style={{ position: "relative", width: 78, height: 58 }}>
-          <img
-            src={photo}
-            alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid #dbe3ef" }}
-          />
-          <div style={{
-            position: "absolute",
-            left: 3,
-            right: 3,
-            bottom: 3,
-            padding: "1px 3px",
-            borderRadius: 3,
-            background: "rgba(15,23,42,.72)",
-            color: "#fff",
-            fontSize: 8,
-            lineHeight: "12px"
-          }}>
-            {formatDateTime(at)}
+      {/* PreviewGroup giúp sếp bấm mũi tên trái/phải để chuyển ảnh khi đang phóng to */}
+      <Image.PreviewGroup>
+        {photos.slice(0, 4).map((photo, index) => (
+          <div key={index} style={{ position: "relative", width: 78, height: 58 }}>
+            <Image
+              src={photo}
+              alt="Bằng chứng"
+              width={78}
+              height={58}
+              style={{ objectFit: "cover", borderRadius: 6, border: "1px solid #dbe3ef" }}
+            />
+            <div style={{
+              position: "absolute",
+              left: 3,
+              right: 3,
+              bottom: 3,
+              padding: "1px 3px",
+              borderRadius: 3,
+              background: "rgba(15,23,42,.72)",
+              color: "#fff",
+              fontSize: 8,
+              lineHeight: "12px",
+              pointerEvents: "none" // Giúp sếp click xuyên qua chữ để mở ảnh
+            }}>
+              {formatDateTime(at)}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </Image.PreviewGroup>
     </div>
   );
 }
 
 function TripEvidencePanel({ trip }) {
   const stages = [
-    { label: "Nhận chuyến", at: trip.ConfirmedAt, photos: trip.ConfirmPhotos, color: "blue" },
+    // Gắn thêm noPhotoRequired: true vào 2 mốc này
+    { label: "Nhận chuyến", at: trip.ConfirmedAt, photos: trip.ConfirmPhotos, color: "blue", noPhotoRequired: true },
     { label: "Soạn hàng", at: trip.LoadingStartedAt, photos: trip.LoadingPhotos, color: "gold" },
     { label: "Xuất kho", at: trip.StartedAt, photos: trip.StartPhotos, color: "green" },
     { label: "Về kho", at: trip.ReturnedAt, photos: trip.ReturnPhotos, color: "purple" },
-    { label: "Kết thúc", at: trip.CompletedAt, photos: trip.FinishPhotos, color: "cyan" }
+    { label: "Kết thúc", at: trip.CompletedAt, photos: trip.FinishPhotos, color: "cyan", noPhotoRequired: true }
   ].filter((stage) => stage.at || stage.photos?.length);
 
   if (!stages.length) return null;
@@ -158,7 +172,8 @@ function TripEvidencePanel({ trip }) {
           <div key={stage.label} style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: 8, background: "#fff" }}>
             <Tag color={stage.color} style={{ marginBottom: 4 }}>{stage.label}</Tag>
             <div style={{ fontSize: 11, color: "#475569" }}>{formatDateTime(stage.at)}</div>
-            <EvidenceThumbs photos={stage.photos ?? []} at={stage.at} />
+            {/* Truyền cờ noPhotoRequired xuống đây */}
+            <EvidenceThumbs photos={stage.photos ?? []} at={stage.at} noPhotoRequired={stage.noPhotoRequired} />
           </div>
         ))}
       </div>
@@ -352,15 +367,15 @@ function inferredVehiclePosition(trip, points) {
 }
 
 const INCIDENT_TYPE_LABEL = {
-  BREAKDOWN:   "🔧 Hỏng xe",
-  ACCIDENT:    "🚨 Tai nạn",
-  TRAFFIC:     "🚧 Kẹt đường",
-  FUEL:        "⛽ Hết nhiên liệu",
+  BREAKDOWN: "🔧 Hỏng xe",
+  ACCIDENT: "🚨 Tai nạn",
+  TRAFFIC: "🚧 Kẹt đường",
+  FUEL: "⛽ Hết nhiên liệu",
   CARGO_ISSUE: "📦 Hàng hỏng/mất",
-  WEATHER:     "🌧 Thời tiết",
-  CUSTOMER:    "🙅 Khách từ chối",
-  DEVIATION:   "🧭 Đi sai lộ trình",
-  OTHER:       "❓ Khác"
+  WEATHER: "🌧 Thời tiết",
+  CUSTOMER: "🙅 Khách từ chối",
+  DEVIATION: "🧭 Đi sai lộ trình",
+  OTHER: "❓ Khác"
 };
 const INCIDENT_SEVERITY_COLOR = {
   LOW: "green", MEDIUM: "orange", HIGH: "red", CRITICAL: "magenta"
@@ -368,7 +383,8 @@ const INCIDENT_SEVERITY_COLOR = {
 
 export default function MonitoringPage() {
   const qc = useQueryClient();
-  const { message: msg } = App.useApp();
+  // Lấy thêm notification từ App context của Ant Design
+  const { message: msg, notification } = App.useApp();
 
   /* Lọc theo ngày — mặc định hôm nay. Nếu để trống → server trả toàn bộ
      chuyến đang chạy. */
@@ -376,7 +392,7 @@ export default function MonitoringPage() {
   const dateParam = selectedDate?.format("YYYY-MM-DD");
   const tripsQ = useQuery({
     queryKey: ["live-trips", dateParam],
-    queryFn:  () => tripApi.list(dateParam ? { date: dateParam } : undefined),
+    queryFn: () => tripApi.list(dateParam ? { date: dateParam } : undefined),
     refetchInterval: 5000
   });
   const trips = tripsQ.data?.data ?? [];
@@ -384,10 +400,53 @@ export default function MonitoringPage() {
   /* Realtime incidents (poll every 4s — could swap to socket later) */
   const incidentsQ = useQuery({
     queryKey: ["live-incidents"],
-    queryFn:  () => tripApi.listIncidents({ status: "OPEN" }),
+    queryFn: () => tripApi.listIncidents({ status: "OPEN" }),
     refetchInterval: 4000
   });
   const incidents = incidentsQ.data?.data ?? [];
+
+  /* Tin nhắn chưa đọc từ tài xế (poll mỗi 3s). Khi tổng tin chưa đọc tăng so
+     với lần check trước → kêu beep + show notification toast cho dispatcher. */
+  const unreadQ = useQuery({
+    queryKey: ["driver-message-unread"],
+    queryFn: () => tripApi.unreadMessageCounts(),
+    refetchInterval: 3000
+  });
+  const unreadByTrip = useMemo(() => {
+    const map = {};
+    (unreadQ.data?.data ?? []).forEach((row) => { map[row.TripID] = row.count; });
+    return map;
+  }, [unreadQ.data]);
+  const totalUnread = useMemo(
+    () => Object.values(unreadByTrip).reduce((s, n) => s + n, 0),
+    [unreadByTrip]
+  );
+  /* Trip nào đã được dispatcher mở chat → bỏ qua khỏi badge cho đến khi
+     có tin mới hơn. Lưu dạng { tripId: lastSeenCount } */
+  const [seenCounts, setSeenCounts] = useState({});
+  const prevTotalUnreadRef = useRef(0);
+  
+  useEffect(() => {
+    const prev = prevTotalUnreadRef.current;
+    
+    // Đã bỏ && prev !== 0, chỉ cần có tin nhắn mới là báo
+    if (totalUnread > prev) {
+      notification.info({
+        message: '💬 Có tin nhắn mới',
+        description: `Tài xế vừa gửi thêm ${totalUnread - prev} tin nhắn báo cáo trên app.`,
+        placement: 'topRight',
+        duration: 5,
+      });
+    }
+    
+    prevTotalUnreadRef.current = totalUnread;
+  }, [totalUnread, notification]);
+
+  const unreadFor = (tripId) => {
+    const total = unreadByTrip[tripId] ?? 0;
+    const seen = seenCounts[tripId] ?? 0;
+    return Math.max(0, total - seen);
+  };
 
   /* End-of-day reconciliation: tổng đơn đã giao / thất bại / tiền COD đã thu */
   const endOfDayStats = useMemo(() => {
@@ -507,6 +566,13 @@ export default function MonitoringPage() {
             <Badge count={incidents.length} offset={[-4, 4]}>
               <Tag icon={<WarningOutlined />} color="red" style={{ fontSize: 13, padding: "4px 10px", margin: 0 }}>
                 Cảnh báo mở
+              </Tag>
+            </Badge>
+          )}
+          {totalUnread > 0 && (
+            <Badge count={totalUnread} offset={[-4, 4]}>
+              <Tag color="blue" style={{ fontSize: 13, padding: "4px 10px", margin: 0 }}>
+                💬 Tin từ tài xế
               </Tag>
             </Badge>
           )}
@@ -731,9 +797,21 @@ export default function MonitoringPage() {
                         <a href={`sms:${selectedTrip.DriverPhone}`}>
                           <Button size="small">SMS</Button>
                         </a>
-                        <Button size="small" onClick={() => setChatTrip(selectedTrip)}>
-                          Chat app
-                        </Button>
+                        <Badge count={unreadFor(selectedTrip._id)} offset={[-4, 4]} size="small">
+                          <Button
+                            size="small"
+                            type={unreadFor(selectedTrip._id) > 0 ? "primary" : "default"}
+                            onClick={() => {
+                              setChatTrip(selectedTrip);
+                              setSeenCounts((prev) => ({
+                                ...prev,
+                                [selectedTrip._id]: unreadByTrip[selectedTrip._id] ?? 0
+                              }));
+                            }}
+                          >
+                            {unreadFor(selectedTrip._id) > 0 ? "💬 Trả lời" : "Chat app"}
+                          </Button>
+                        </Badge>
                       </div>
                     )}
                     <TripEvidencePanel trip={selectedTrip} />
@@ -839,7 +917,20 @@ export default function MonitoringPage() {
         </Col>
       </Row>
       <TaskProofModal task={selectedTaskProof} onClose={() => setSelectedTaskProof(null)} />
-      <DriverChatModal trip={chatTrip} open={Boolean(chatTrip)} onClose={() => setChatTrip(null)} />
+      <DriverChatModal
+        trip={chatTrip}
+        open={Boolean(chatTrip)}
+        onClose={() => {
+          // Đóng chat → đánh dấu đã thấy hết tin của trip này
+          if (chatTrip?._id) {
+            setSeenCounts((prev) => ({
+              ...prev,
+              [chatTrip._id]: unreadByTrip[chatTrip._id] ?? 0
+            }));
+          }
+          setChatTrip(null);
+        }}
+      />
     </div>
   );
 }

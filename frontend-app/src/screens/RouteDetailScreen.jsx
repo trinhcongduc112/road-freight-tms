@@ -82,6 +82,32 @@ export default function RouteDetailScreen({ route, navigation }) {
     }
   };
 
+  // Hàm mới: Chỉ hỏi xác nhận, không bật camera
+  const runConfirmAction = (fn, confirmTitle, confirmMessage, successMsg) => {
+    Alert.alert(
+      confirmTitle,
+      confirmMessage,
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xác nhận",
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const res = await fn({}); // Gửi payload rỗng vì không có ảnh
+              setDetail(res.data.data);
+              Alert.alert("Thành công", successMsg);
+            } catch (err) {
+              Alert.alert("Lỗi", err.response?.data?.message ?? err.message);
+            } finally {
+              setActionLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) return <ActivityIndicator size="large" color="#1677ff" style={{ marginTop: 60 }} />;
   if (!detail) return null;
 
@@ -138,19 +164,26 @@ export default function RouteDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
         <View style={styles.actionGrid}>
-          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || detail.Status !== "ASSIGNED"} onPress={() => runAction((payload) => driverApi.confirmTrip(routeId, payload), "Đã xác nhận kế hoạch", "Nhận chuyến")}>
+          {/* NÚT NHẬN CHUYẾN: Không camera */}
+          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || detail.Status !== "ASSIGNED"} onPress={() => runConfirmAction((payload) => driverApi.confirmTrip(routeId, payload), "Nhận chuyến", "Bạn có chắc chắn muốn nhận chuyến xe này không?", "Đã xác nhận kế hoạch")}>
             <Text style={styles.actionText}>✅ Nhận chuyến</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || !["ASSIGNED", "DRIVER_CONFIRMED"].includes(detail.Status)} onPress={() => runAction((payload) => driverApi.startLoading(routeId, payload), "Đang soạn hàng tại kho", "Soạn hàng")}>
             <Text style={styles.actionText}>📦 Soạn hàng</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || ["IN_PROGRESS", "RETURNING", "COMPLETED"].includes(detail.Status)} onPress={() => runAction((payload) => driverApi.startTrip(routeId, payload), "Đã xuất kho đi giao", "Xuất kho")}>
             <Text style={styles.actionText}>🚚 Xuất kho</Text>
           </TouchableOpacity>
+          
+          {/* NÚT VỀ KHO: Trả lại camera */}
           <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || completed < stops.length || detail.Status === "COMPLETED"} onPress={() => runAction((payload) => driverApi.returnTrip(routeId, payload), "Đang về kho", "Về kho")}>
             <Text style={styles.actionText}>↩️ Về kho</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, styles.doneBtn]} disabled={actionLoading || detail.Status !== "RETURNING"} onPress={() => runAction((payload) => driverApi.finishTrip(routeId, payload), "Đã kết thúc chuyến tại kho", "Kết thúc chuyến")}>
+          
+          {/* NÚT KẾT THÚC: Không camera */}
+          <TouchableOpacity style={[styles.actionBtn, styles.doneBtn]} disabled={actionLoading || detail.Status !== "RETURNING"} onPress={() => runConfirmAction((payload) => driverApi.finishTrip(routeId, payload), "Kết thúc chuyến", "Xác nhận đã bàn giao xong xe và kết thúc chuyến?", "Đã kết thúc chuyến tại kho")}>
             <Text style={styles.doneText}>🏁 Kết thúc</Text>
           </TouchableOpacity>
         </View>

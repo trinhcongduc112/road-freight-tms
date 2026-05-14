@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { driverApi } from "../api/driver";
 
 function formatTime(value) {
@@ -18,6 +19,10 @@ export default function DriverMessagesScreen({ route }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const headerHeight = useHeaderHeight();
+
+  // Khai báo ref để điều khiển FlatList
+  const flatListRef = useRef(null);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -71,7 +76,11 @@ export default function DriverMessagesScreen({ route }) {
   if (loading) return <ActivityIndicator size="large" color="#1677ff" style={{ marginTop: 60 }} />;
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={headerHeight}
+    >
       {!selectedTripId && trips.length > 1 && (
         <View style={styles.tripTabs}>
           {trips.map((trip, index) => (
@@ -89,6 +98,9 @@ export default function DriverMessagesScreen({ route }) {
       )}
 
       <FlatList
+        ref={flatListRef}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         style={styles.list}
         data={visibleMessages}
         keyExtractor={(item) => item._id}
