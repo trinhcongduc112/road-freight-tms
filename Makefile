@@ -119,11 +119,14 @@ mobile-android:
 	@adb devices | grep -q "device$$" || (nohup emulator -avd $(ANDROID_AVD) -no-snapshot -no-boot-anim -gpu swiftshader_indirect >/tmp/tms-emulator.log 2>&1 & \
 		adb wait-for-device >/dev/null 2>&1; \
 		until [ "$$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 2; done)
-	@if lsof -ti:8081 >/dev/null 2>&1; then \
+	@HOST_IP=$$(hostname -I 2>/dev/null | awk '{print $$1}'); \
+	if [ -z "$$HOST_IP" ]; then HOST_IP=$$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($$i=="src") {print $$(i+1); exit}}'); fi; \
+	if lsof -ti:8081 >/dev/null 2>&1; then \
 		echo "  Dùng Expo server đang chạy tại port 8081"; \
 		adb shell am start -a android.intent.action.VIEW -d "exp://10.0.2.2:8081" >/dev/null; \
 	else \
-		$(NVM) && cd frontend-app && npx expo start --android --lan; \
+		echo "  API backend  → http://$$HOST_IP:5000/api"; \
+		$(NVM) && cd frontend-app && EXPO_PUBLIC_API_URL=http://$$HOST_IP:5000/api npx expo start --android --localhost; \
 	fi
 
 mobile-ios:
