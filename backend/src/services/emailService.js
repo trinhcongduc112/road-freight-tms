@@ -32,7 +32,7 @@ function writeDevEmail({ to, subject, html, text }) {
   return file;
 }
 
-export async function sendEmail({ to, subject, html, text }) {
+export async function sendEmail({ to, subject, html, text, replyTo, headers }) {
   const transport = await getTransport();
   if (!transport) {
     const file = writeDevEmail({ to, subject, html, text });
@@ -40,7 +40,7 @@ export async function sendEmail({ to, subject, html, text }) {
     logger.info(`[email] saved to ${file}`);
     return { mocked: true, file };
   }
-  const info = await transport.sendMail({ from: env.smtpFrom, to, subject, html, text });
+  const info = await transport.sendMail({ from: env.smtpFrom, to, subject, html, text, replyTo, headers });
   logger.info(`[email] sent → ${to} | id=${info.messageId}`);
   return { mocked: false, messageId: info.messageId };
 }

@@ -55,7 +55,7 @@ export default function RegisterPage() {
         Phone: values.Phone,
         Password: values.Password
       });
-      if (res.data?.devVerifyLink) setDevLink(res.data.devVerifyLink);
+      if (res?.devVerifyLink) setDevLink(res.devVerifyLink);
       setDone(values.Email);
     } catch (err) {
       message.error(err.message);

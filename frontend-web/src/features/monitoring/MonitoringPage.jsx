@@ -1,6 +1,7 @@
-import { CarOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
-import { useQuery } from "@tanstack/react-query";
-import { Badge, Card, Col, Empty, Row, Space, Tag, Timeline, Typography } from "antd";
+import { CarOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, PhoneOutlined, WarningOutlined } from "@ant-design/icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { App, Badge, Button, Card, Col, DatePicker, Empty, Input, Modal, Popconfirm, Row, Space, Statistic, Tag, Timeline, Tooltip, Typography } from "antd";
+import dayjs from "dayjs";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -8,6 +9,7 @@ import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-
 import { tripApi } from "../../api/trip";
 
 const { Text, Title } = Typography;
+const { TextArea } = Input;
 
 const palette = ["#ef4444", "#1677ff", "#22c55e", "#f59e0b", "#8b5cf6", "#06b6d4"];
 const taskColor = {
@@ -102,6 +104,193 @@ function statusTag(status) {
   return <Tag color={color}>{label}</Tag>;
 }
 
+function formatDateTime(value) {
+  if (!value) return "Chưa ghi nhận";
+  return new Date(value).toLocaleString("vi-VN", { hour12: false });
+}
+
+function EvidenceThumbs({ photos = [], at }) {
+  if (!photos.length) return <Text type="secondary" style={{ fontSize: 11 }}>Chưa có ảnh xác minh</Text>;
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+      {photos.slice(0, 4).map((photo, index) => (
+        <div key={index} style={{ position: "relative", width: 78, height: 58 }}>
+          <img
+            src={photo}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid #dbe3ef" }}
+          />
+          <div style={{
+            position: "absolute",
+            left: 3,
+            right: 3,
+            bottom: 3,
+            padding: "1px 3px",
+            borderRadius: 3,
+            background: "rgba(15,23,42,.72)",
+            color: "#fff",
+            fontSize: 8,
+            lineHeight: "12px"
+          }}>
+            {formatDateTime(at)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TripEvidencePanel({ trip }) {
+  const stages = [
+    { label: "Nhận chuyến", at: trip.ConfirmedAt, photos: trip.ConfirmPhotos, color: "blue" },
+    { label: "Soạn hàng", at: trip.LoadingStartedAt, photos: trip.LoadingPhotos, color: "gold" },
+    { label: "Xuất kho", at: trip.StartedAt, photos: trip.StartPhotos, color: "green" },
+    { label: "Về kho", at: trip.ReturnedAt, photos: trip.ReturnPhotos, color: "purple" },
+    { label: "Kết thúc", at: trip.CompletedAt, photos: trip.FinishPhotos, color: "cyan" }
+  ].filter((stage) => stage.at || stage.photos?.length);
+
+  if (!stages.length) return null;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <Text strong style={{ fontSize: 12 }}>Bằng chứng mốc chuyến</Text>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 8, marginTop: 6 }}>
+        {stages.map((stage) => (
+          <div key={stage.label} style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: 8, background: "#fff" }}>
+            <Tag color={stage.color} style={{ marginBottom: 4 }}>{stage.label}</Tag>
+            <div style={{ fontSize: 11, color: "#475569" }}>{formatDateTime(stage.at)}</div>
+            <EvidenceThumbs photos={stage.photos ?? []} at={stage.at} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TaskProofModal({ task, onClose }) {
+  const signaturePaths = task?.SignatureImage?.startsWith("svg:")
+    ? task.SignatureImage.slice(4).split("|").filter(Boolean)
+    : [];
+  return (
+    <Modal
+      open={Boolean(task)}
+      title={task ? `ePOD · ${task.CustomerName || `Điểm ${task.StopIndex}`}` : "ePOD"}
+      onCancel={onClose}
+      footer={null}
+      width={760}
+    >
+      {!task ? null : (
+        <Space direction="vertical" size={10} style={{ width: "100%" }}>
+          <Space wrap>
+            <Tag color={task.Status === "COMPLETED" ? "green" : task.Status === "FAILED" ? "red" : "blue"}>{task.Status}</Tag>
+            <Text type="secondary">Đơn: {task.OrderCodes?.join(", ") || "—"}</Text>
+          </Space>
+          <Text><b>Địa chỉ:</b> {task.Address || "—"}</Text>
+          <Text><b>Đã đến:</b> {formatDateTime(task.ArrivedAt)}</Text>
+          <Text><b>Hoàn thành:</b> {formatDateTime(task.CompletedAt)}</Text>
+          <Text><b>Thất bại:</b> {formatDateTime(task.FailedAt)}</Text>
+          {task.DriverNote && <Text><b>Ghi chú tài xế:</b> {task.DriverNote}</Text>}
+          <div>
+            <Text strong>Ảnh giao hàng</Text>
+            <EvidenceThumbs photos={task.PodImages ?? []} at={task.CompletedAt || task.FailedAt} />
+          </div>
+          <div>
+            <Text strong>Chữ ký khách hàng</Text>
+            {task.SignatureImage ? (
+              <div style={{ marginTop: 6, padding: 10, border: "1px solid #e5e7eb", borderRadius: 6, background: "#fff" }}>
+                {task.SignatureImage.startsWith("data:image") ? (
+                  <img src={task.SignatureImage} alt="" style={{ maxWidth: "100%", maxHeight: 220 }} />
+                ) : signaturePaths.length ? (
+                  <svg viewBox="0 0 360 180" style={{ width: "100%", maxWidth: 420, height: 180, background: "#fafafa" }}>
+                    {signaturePaths.map((d, index) => (
+                      <path key={index} d={d} stroke="#111827" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                    ))}
+                  </svg>
+                ) : (
+                  <Text code style={{ whiteSpace: "normal" }}>{task.SignatureImage.slice(0, 180)}...</Text>
+                )}
+              </div>
+            ) : (
+              <Text type="secondary" style={{ display: "block", marginTop: 4 }}>Chưa có chữ ký</Text>
+            )}
+          </div>
+        </Space>
+      )}
+    </Modal>
+  );
+}
+
+function DriverChatModal({ trip, open, onClose }) {
+  const { message: msg } = App.useApp();
+  const qc = useQueryClient();
+  const [text, setText] = useState("");
+  const messagesQ = useQuery({
+    queryKey: ["driver-messages", trip?._id],
+    queryFn: () => tripApi.listMessages(trip._id),
+    enabled: open && Boolean(trip?._id),
+    refetchInterval: open ? 2500 : false
+  });
+  const sendM = useMutation({
+    mutationFn: () => tripApi.sendMessage(trip._id, { text }),
+    onSuccess: () => {
+      setText("");
+      qc.invalidateQueries({ queryKey: ["driver-messages", trip?._id] });
+      msg.success("Đã gửi tin nhắn");
+    },
+    onError: (e) => msg.error(e.message)
+  });
+  const messages = messagesQ.data?.data ?? [];
+
+  return (
+    <Modal
+      open={open}
+      title={`Chat tài xế · ${trip?.VehicleCode || ""}`}
+      onCancel={onClose}
+      footer={null}
+      width={520}
+    >
+      <Space direction="vertical" size={10} style={{ width: "100%" }}>
+        <Text type="secondary">
+          {trip?.DriverName || "Tài xế"} {trip?.DriverPhone ? `· ${trip.DriverPhone}` : ""}
+        </Text>
+        <div style={{ height: 340, overflowY: "auto", background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 }}>
+          {!messages.length ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có tin nhắn" />
+          ) : messages.map((item) => {
+            const mine = item.SenderType === "DISPATCHER";
+            return (
+              <div key={item._id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 8 }}>
+                <div style={{
+                  maxWidth: "78%",
+                  background: mine ? "#1d4ed8" : "#fff",
+                  color: mine ? "#fff" : "#0f172a",
+                  border: "1px solid #dbe3ef",
+                  borderRadius: 8,
+                  padding: "7px 9px"
+                }}>
+                  <div style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{item.Text}</div>
+                  <div style={{ fontSize: 10, opacity: 0.72, marginTop: 3 }}>
+                    {item.SenderName || item.SenderType} · {formatDateTime(item.createdAt)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <TextArea
+          rows={3}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Nhập tin nhắn cho tài xế..."
+          maxLength={2000}
+        />
+        <Button type="primary" disabled={!text.trim()} loading={sendM.isPending} onClick={() => sendM.mutate()}>
+          Gửi vào app tài xế
+        </Button>
+      </Space>
+    </Modal>
+  );
+}
+
 function samePoint(a, b) {
   return a && b && Math.abs(a[0] - b[0]) < 0.00001 && Math.abs(a[1] - b[1]) < 0.00001;
 }
@@ -162,13 +351,72 @@ function inferredVehiclePosition(trip, points) {
   return { position: routePointAt(points, 1, 0.18), source: "Đã xuất kho" };
 }
 
+const INCIDENT_TYPE_LABEL = {
+  BREAKDOWN:   "🔧 Hỏng xe",
+  ACCIDENT:    "🚨 Tai nạn",
+  TRAFFIC:     "🚧 Kẹt đường",
+  FUEL:        "⛽ Hết nhiên liệu",
+  CARGO_ISSUE: "📦 Hàng hỏng/mất",
+  WEATHER:     "🌧 Thời tiết",
+  CUSTOMER:    "🙅 Khách từ chối",
+  DEVIATION:   "🧭 Đi sai lộ trình",
+  OTHER:       "❓ Khác"
+};
+const INCIDENT_SEVERITY_COLOR = {
+  LOW: "green", MEDIUM: "orange", HIGH: "red", CRITICAL: "magenta"
+};
+
 export default function MonitoringPage() {
-  const tripsQ = useQuery({ queryKey: ["live-trips"], queryFn: () => tripApi.list(), refetchInterval: 5000 });
+  const qc = useQueryClient();
+  const { message: msg } = App.useApp();
+
+  /* Lọc theo ngày — mặc định hôm nay. Nếu để trống → server trả toàn bộ
+     chuyến đang chạy. */
+  const [selectedDate, setSelectedDate] = useState(dayjs());
+  const dateParam = selectedDate?.format("YYYY-MM-DD");
+  const tripsQ = useQuery({
+    queryKey: ["live-trips", dateParam],
+    queryFn:  () => tripApi.list(dateParam ? { date: dateParam } : undefined),
+    refetchInterval: 5000
+  });
   const trips = tripsQ.data?.data ?? [];
+
+  /* Realtime incidents (poll every 4s — could swap to socket later) */
+  const incidentsQ = useQuery({
+    queryKey: ["live-incidents"],
+    queryFn:  () => tripApi.listIncidents({ status: "OPEN" }),
+    refetchInterval: 4000
+  });
+  const incidents = incidentsQ.data?.data ?? [];
+
+  /* End-of-day reconciliation: tổng đơn đã giao / thất bại / tiền COD đã thu */
+  const endOfDayStats = useMemo(() => {
+    let delivered = 0, failed = 0, pending = 0, codCollected = 0;
+    trips.forEach((t) => {
+      (t.Tasks ?? []).forEach((task) => {
+        if (task.Status === "COMPLETED") delivered += 1;
+        else if (task.Status === "FAILED") failed += 1;
+        else pending += 1;
+        codCollected += Number(task.CashCollected ?? 0);
+      });
+    });
+    return { delivered, failed, pending, codCollected, totalTrips: trips.length };
+  }, [trips]);
+
+  const ackM = useMutation({
+    mutationFn: ({ id, status, note }) => tripApi.updateIncident(id, { status, dispatcherNote: note }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["live-incidents"] });
+      msg.success("Đã cập nhật sự cố");
+    },
+    onError: (e) => msg.error(e.response?.data?.message ?? e.message)
+  });
   const [roadLines, setRoadLines] = useState({});
   const [tripOrder, setTripOrder] = useState([]);
   const [selectedTripId, setSelectedTripId] = useState(null);
   const [swapSourceId, setSwapSourceId] = useState(null);
+  const [selectedTaskProof, setSelectedTaskProof] = useState(null);
+  const [chatTrip, setChatTrip] = useState(null);
   const routeSignature = useMemo(() => trips.map((trip) => {
     const points = positionsOf(trip).map((p) => p.join(",")).join("|");
     return `${trip._id}:${points}`;
@@ -243,19 +491,153 @@ export default function MonitoringPage() {
           <h2 className="title">Live Dispatch</h2>
           <p className="subtitle">Theo dõi tài xế, trạng thái điểm giao và vị trí GPS theo lộ trình đã chốt</p>
         </div>
-        <Badge status="processing" text="Tự cập nhật 5 giây" />
+        <Space>
+          <Text type="secondary" style={{ fontSize: 12 }}>Ngày:</Text>
+          <DatePicker
+            value={selectedDate}
+            onChange={setSelectedDate}
+            format="DD/MM/YYYY"
+            allowClear={false}
+            style={{ width: 140 }}
+          />
+          <Button size="small" onClick={() => setSelectedDate(dayjs())}>
+            Hôm nay
+          </Button>
+          {incidents.length > 0 && (
+            <Badge count={incidents.length} offset={[-4, 4]}>
+              <Tag icon={<WarningOutlined />} color="red" style={{ fontSize: 13, padding: "4px 10px", margin: 0 }}>
+                Cảnh báo mở
+              </Tag>
+            </Badge>
+          )}
+          <Badge status="processing" text="Tự cập nhật" />
+        </Space>
       </div>
+
+      {/* ── End-of-day reconciliation ── */}
+      {trips.length > 0 && (
+        <Card size="small" styles={{ body: { padding: "10px 14px" } }}>
+          <Row gutter={16} align="middle">
+            <Col flex="auto">
+              <Text strong style={{ fontSize: 13 }}>
+                📊 Tổng kết {selectedDate?.format("DD/MM/YYYY")}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                · {endOfDayStats.totalTrips} chuyến · cập nhật realtime
+              </Text>
+            </Col>
+            <Col><Statistic title="Đã giao" value={endOfDayStats.delivered} valueStyle={{ color: "#16a34a", fontSize: 18 }} /></Col>
+            <Col><Statistic title="Thất bại" value={endOfDayStats.failed} valueStyle={{ color: "#dc2626", fontSize: 18 }} /></Col>
+            <Col><Statistic title="Đang giao" value={endOfDayStats.pending} valueStyle={{ color: "#f59e0b", fontSize: 18 }} /></Col>
+            <Col><Statistic title="Tiền COD thu" value={endOfDayStats.codCollected} suffix="₫" valueStyle={{ color: "#1677ff", fontSize: 18 }} formatter={(v) => Number(v).toLocaleString("vi-VN")} /></Col>
+          </Row>
+        </Card>
+      )}
+
+      {/* ── Alerts panel (incident feed) ── */}
+      {incidents.length > 0 && (
+        <Card
+          size="small"
+          style={{ borderLeft: "4px solid #ef4444", background: "#fff7f7" }}
+          styles={{ body: { padding: "8px 12px" } }}
+        >
+          <Space direction="vertical" size={6} style={{ width: "100%" }}>
+            <Space>
+              <WarningOutlined style={{ color: "#dc2626" }} />
+              <Text strong style={{ color: "#dc2626" }}>
+                {incidents.length} cảnh báo / sự cố đang mở
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                · Tự cập nhật mỗi 4 giây · click "Tiếp nhận" hoặc "Đã xử lý" để xóa khỏi danh sách
+              </Text>
+            </Space>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
+              {incidents.map((inc) => (
+                <div
+                  key={inc._id}
+                  style={{
+                    background: "#fff",
+                    border: `1px solid ${inc.Severity === "CRITICAL" ? "#dc2626" : "#fecaca"}`,
+                    borderLeft: `4px solid ${inc.Severity === "CRITICAL" ? "#7c2d12" : inc.Severity === "HIGH" ? "#dc2626" : inc.Severity === "MEDIUM" ? "#f59e0b" : "#10b981"}`,
+                    borderRadius: 6,
+                    padding: "8px 10px"
+                  }}
+                >
+                  <Space style={{ width: "100%", justifyContent: "space-between" }} size={4}>
+                    <Space size={6}>
+                      <Text strong style={{ fontSize: 13 }}>
+                        {INCIDENT_TYPE_LABEL[inc.Type] ?? inc.Type}
+                      </Text>
+                      <Tag color={INCIDENT_SEVERITY_COLOR[inc.Severity]} style={{ margin: 0, fontSize: 10 }}>
+                        {inc.Severity}
+                      </Tag>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 10 }}>
+                      {new Date(inc.ReportedAt).toLocaleTimeString("vi-VN")}
+                    </Text>
+                  </Space>
+                  <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+                    🚛 <b>{inc.VehicleCode}</b> · {inc.DriverName || "—"}
+                    {inc.Type === "DEVIATION" && inc.DeviationDistance > 0 && (
+                      <Text type="secondary"> · lệch {inc.DeviationDistance}m</Text>
+                    )}
+                  </div>
+                  {inc.Description && (
+                    <Text style={{ fontSize: 12, color: "#0f172a", display: "block", marginTop: 4 }}>
+                      {inc.Description}
+                    </Text>
+                  )}
+                  {inc.Photos?.length > 0 && (
+                    <div style={{ display: "flex", gap: 4, marginTop: 6, overflowX: "auto" }}>
+                      {inc.Photos.slice(0, 4).map((p, i) => (
+                        <img key={i} src={p} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, border: "1px solid #e5e7eb" }} />
+                      ))}
+                    </div>
+                  )}
+                  <Space size={4} style={{ marginTop: 6, flexWrap: "wrap" }}>
+                    {/* Liên hệ tài xế — yêu cầu nghiệp vụ khi có cảnh báo */}
+                    {(() => {
+                      const tripForIncident = trips.find((t) => String(t._id) === String(inc.TripID));
+                      const phone = tripForIncident?.DriverPhone;
+                      return phone ? (
+                        <a href={`tel:${phone}`}>
+                          <Button size="small" type="primary" icon={<PhoneOutlined />}>
+                            Gọi {phone}
+                          </Button>
+                        </a>
+                      ) : null;
+                    })()}
+                    <Tooltip title="Đã thấy, đang xử lý">
+                      <Button size="small" type="primary" ghost loading={ackM.isPending}
+                        onClick={() => ackM.mutate({ id: inc._id, status: "ACKNOWLEDGED" })}>
+                        Tiếp nhận
+                      </Button>
+                    </Tooltip>
+                    <Popconfirm title="Đánh dấu đã xử lý xong?" onConfirm={() => ackM.mutate({ id: inc._id, status: "RESOLVED" })}>
+                      <Button size="small" style={{ color: "#16a34a", borderColor: "#86efac" }}>Đã xử lý</Button>
+                    </Popconfirm>
+                    <Popconfirm title="Bỏ qua cảnh báo này?" onConfirm={() => ackM.mutate({ id: inc._id, status: "DISMISSED" })}>
+                      <Button size="small" type="text" danger>Bỏ qua</Button>
+                    </Popconfirm>
+                  </Space>
+                </div>
+              ))}
+            </div>
+          </Space>
+        </Card>
+      )}
 
       <Row gutter={12}>
         <Col xs={24} lg={10}>
           <Card title="Timeline tài xế" loading={tripsQ.isLoading} style={{ minHeight: "calc(100vh - 220px)" }}>
             {!orderedTrips.length ? <Empty description="Chưa có chuyến đã khóa/chốt" /> : (
               <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 }}>
                   {orderedTrips.map((trip, idx) => {
                     const color = palette[idx % palette.length];
                     const active = selectedTrip?._id === trip._id;
                     const swapping = swapSourceId === trip._id;
+                    const planDate = trip.PlanDate ? new Date(trip.PlanDate).toLocaleDateString("vi-VN") : null;
                     return (
                       <button
                         key={trip._id}
@@ -263,23 +645,54 @@ export default function MonitoringPage() {
                         onClick={() => handleTripCardClick(trip._id)}
                         style={{
                           textAlign: "left",
-                          border: `1px solid ${active ? color : "#dbe3ef"}`,
-                          borderLeft: `4px solid ${color}`,
+                          border: `1px solid ${active ? color : "#e2e8f0"}`,
                           background: swapping ? "#fff7ed" : active ? "#f8fbff" : "#fff",
-                          borderRadius: 8,
-                          padding: 10,
+                          borderRadius: 10,
+                          padding: 12,
                           cursor: "pointer",
-                          boxShadow: active ? "0 4px 12px rgba(15,23,42,.12)" : "none"
+                          boxShadow: active ? "0 8px 18px rgba(15,23,42,.12)" : "0 1px 2px rgba(15,23,42,.04)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                          minHeight: 126,
+                          position: "relative",
+                          overflow: "hidden"
                         }}
                         title="Bấm 1 xe, rồi bấm xe khác để đổi vị trí hiển thị"
                       >
-                        <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                          <Text strong>{trip.VehicleCode}</Text>
-                          <Text type="secondary">{pct(trip)}%</Text>
-                        </Space>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{trip.DriverName || trip.ServiceName || "Chưa gán"}</Text>
-                        <br />
-                        {statusTag(trip.Status)}
+                        <div style={{ position: "absolute", inset: "0 auto 0 0", width: 4, background: color }} />
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+                          <div style={{ minWidth: 0 }}>
+                            <Text strong style={{ display: "block", fontSize: 14, lineHeight: "20px" }}>
+                              {trip.VehicleCode}
+                            </Text>
+                            <Text type="secondary" style={{ display: "block", fontSize: 12, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {trip.DriverName || trip.ServiceName || "Chưa gán"}
+                            </Text>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <Text strong style={{ display: "block", color, fontSize: 16, lineHeight: "20px" }}>{pct(trip)}%</Text>
+                            <Text type="secondary" style={{ fontSize: 10 }}>hoàn tất</Text>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: "auto" }}>
+                          <span style={{ minWidth: 0 }}>{statusTag(trip.Status)}</span>
+                          {planDate && (
+                            <Text style={{
+                              flexShrink: 0,
+                              fontSize: 11,
+                              lineHeight: "18px",
+                              color: "#475569",
+                              background: "#f1f5f9",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 999,
+                              padding: "1px 8px",
+                              whiteSpace: "nowrap"
+                            }}>
+                              {planDate}
+                            </Text>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -292,6 +705,14 @@ export default function MonitoringPage() {
                         <Text strong>{selectedTrip.VehicleCode}</Text>
                         <br />
                         <Text type="secondary">{selectedTrip.IsOutsourced ? selectedTrip.ServiceName || selectedTrip.ServiceCode : selectedTrip.DriverName || "Chưa gán tài xế"}</Text>
+                        {selectedTrip.PlanDate && (
+                          <>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              📅 {new Date(selectedTrip.PlanDate).toLocaleDateString("vi-VN")}
+                            </Text>
+                          </>
+                        )}
                       </div>
                       <div style={{ textAlign: "right" }}>
                         {statusTag(selectedTrip.Status)}
@@ -299,6 +720,23 @@ export default function MonitoringPage() {
                         <Text type="secondary">{pct(selectedTrip)}%</Text>
                       </div>
                     </Space>
+                    {/* Liên hệ tài xế nhanh — yêu cầu nghiệp vụ dispatcher khi thấy sai lệch */}
+                    {selectedTrip.DriverPhone && !selectedTrip.IsOutsourced && (
+                      <div style={{ marginTop: 10, padding: 8, background: "#f8fafc", borderRadius: 6, display: "flex", gap: 8, alignItems: "center" }}>
+                        <Text type="secondary" style={{ fontSize: 11 }}>📞 SĐT tài xế:</Text>
+                        <Text code style={{ fontSize: 12 }}>{selectedTrip.DriverPhone}</Text>
+                        <a href={`tel:${selectedTrip.DriverPhone}`} style={{ marginLeft: "auto" }}>
+                          <Button size="small" type="primary" icon={<PhoneOutlined />}>Gọi</Button>
+                        </a>
+                        <a href={`sms:${selectedTrip.DriverPhone}`}>
+                          <Button size="small">SMS</Button>
+                        </a>
+                        <Button size="small" onClick={() => setChatTrip(selectedTrip)}>
+                          Chat app
+                        </Button>
+                      </div>
+                    )}
+                    <TripEvidencePanel trip={selectedTrip} />
                     <Timeline style={{ marginTop: 14 }} items={[
                       {
                         color: selectedTrip.Status === "LOADING" ? "orange" : "gray",
@@ -309,9 +747,21 @@ export default function MonitoringPage() {
                         color: task.Status === "FAILED" ? "red" : task.Status === "COMPLETED" ? "green" : task.Status === "ARRIVED" ? "orange" : task.Status === "EN_ROUTE" ? "blue" : "gray",
                         dot: task.Status === "COMPLETED" ? <CheckCircleOutlined /> : task.Status === "FAILED" ? <ExclamationCircleOutlined /> : <ClockCircleOutlined />,
                         children: (
-                          <Space direction="vertical" size={0}>
-                            <Text strong>{task.PlannedArrivalTime || "--:--"} · {task.CustomerName}</Text>
+                          <Space direction="vertical" size={2}>
+                            <Button
+                              type="link"
+                              size="small"
+                              style={{ padding: 0, height: "auto", fontWeight: 700 }}
+                              onClick={() => setSelectedTaskProof(task)}
+                            >
+                              {task.PlannedArrivalTime || "--:--"} · {task.CustomerName}
+                            </Button>
                             <Text type="secondary">{task.OrderCodes?.join(", ")}</Text>
+                            {(task.CompletedAt || task.FailedAt || task.PodImages?.length || task.SignatureImage) && (
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                ePOD: {formatDateTime(task.CompletedAt || task.FailedAt)}
+                              </Text>
+                            )}
                           </Space>
                         )
                       })),
@@ -388,6 +838,8 @@ export default function MonitoringPage() {
           </Card>
         </Col>
       </Row>
+      <TaskProofModal task={selectedTaskProof} onClose={() => setSelectedTaskProof(null)} />
+      <DriverChatModal trip={chatTrip} open={Boolean(chatTrip)} onClose={() => setChatTrip(null)} />
     </div>
   );
 }

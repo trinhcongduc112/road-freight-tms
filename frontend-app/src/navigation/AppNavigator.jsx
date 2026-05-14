@@ -11,6 +11,8 @@ import RouteDetailScreen from "../screens/RouteDetailScreen";
 import StopDetailScreen  from "../screens/StopDetailScreen";
 import PODScreen         from "../screens/PODScreen";
 import MapScreen         from "../screens/MapScreen";
+import IncidentReportScreen from "../screens/IncidentReportScreen";
+import DriverMessagesScreen from "../screens/DriverMessagesScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -65,6 +67,11 @@ export default function AppNavigator() {
               options={{ title: "Chi tiết chuyến" }}
             />
             <Stack.Screen
+              name="DriverMessages"
+              component={DriverMessagesScreen}
+              options={{ title: "Tin nhắn dispatcher" }}
+            />
+            <Stack.Screen
               name="StopDetail"
               component={StopDetailScreen}
               options={{ title: "Điểm dừng" }}
@@ -78,6 +85,11 @@ export default function AppNavigator() {
               name="Map"
               component={MapScreen}
               options={{ title: "Bản đồ lộ trình" }}
+            />
+            <Stack.Screen
+              name="IncidentReport"
+              component={IncidentReportScreen}
+              options={{ title: "Báo sự cố" }}
             />
           </>
         )}

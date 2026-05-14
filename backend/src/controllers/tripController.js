@@ -3,9 +3,11 @@ import { Driver } from "../models/Driver.js";
 import { GpsLog } from "../models/GpsLog.js";
 import { OrderStatus, SalesOrder } from "../models/SalesOrder.js";
 import { Trip, TripStatus, TripTaskStatus } from "../models/Trip.js";
+import { TripIncident, IncidentType, IncidentSeverity, IncidentStatus } from "../models/TripIncident.js";
 import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
 import { ApiError } from "../utils/apiError.js";
 import { ensureTripForRouteId, ensureTripsForPlanId } from "../services/tripService.js";
+import { getIO, checkDeviation } from "../socket.js";
 
 const doneStatuses = [TripTaskStatus.COMPLETED, TripTaskStatus.FAILED];
 const activeTripStatuses = [TripStatus.IN_PROGRESS, TripStatus.RETURNING, TripStatus.COMPLETED];
@@ -77,12 +79,30 @@ async function loadDriverTrip(req) {
   return trip;
 }
 
+/** Helper — broadcast trip status update đến dispatcher trong org */
+function emitTripUpdate(trip) {
+  try {
+    getIO()?.to(`org_${trip.OrganizationID.toString()}`).emit("trip:status", {
+      tripId: String(trip._id), status: trip.Status,
+      vehicleCode: trip.VehicleCode, driverName: trip.DriverName,
+      updatedAt: new Date()
+    });
+  } catch { /* socket not initialised */ }
+}
+
+function takePhotos(body, max = 6) {
+  if (!Array.isArray(body?.photos)) return [];
+  return body.photos.filter((p) => typeof p === "string" && p.length < 2_000_000).slice(0, max);
+}
+
 export async function confirmTrip(req, res) {
   const trip = await loadDriverTrip(req);
   if (trip.Status === TripStatus.ASSIGNED) {
     trip.Status = TripStatus.DRIVER_CONFIRMED;
     trip.ConfirmedAt = new Date();
+    trip.ConfirmPhotos = takePhotos(req.body, 2);
     await trip.save();
+    emitTripUpdate(trip);
   }
   res.json({ success: true, data: trip });
 }
@@ -92,7 +112,10 @@ export async function startLoading(req, res) {
   if ([TripStatus.ASSIGNED, TripStatus.DRIVER_CONFIRMED].includes(trip.Status)) {
     trip.Status = TripStatus.LOADING;
     trip.LoadingStartedAt = new Date();
+    trip.LoadingPhotos = takePhotos(req.body);
+    trip.LoadingNote = String(req.body?.note ?? "").trim().slice(0, 500);
     await trip.save();
+    emitTripUpdate(trip);
   }
   res.json({ success: true, data: trip });
 }
@@ -102,7 +125,10 @@ export async function startTrip(req, res) {
   if (![...activeTripStatuses].includes(trip.Status)) {
     trip.Status = TripStatus.IN_PROGRESS;
     trip.StartedAt = new Date();
+    trip.StartPhotos = takePhotos(req.body);
+    if (Number.isFinite(Number(req.body?.odometer))) trip.StartOdometer = Number(req.body.odometer);
     await trip.save();
+    emitTripUpdate(trip);
   }
   res.json({ success: true, data: trip });
 }
@@ -111,7 +137,11 @@ export async function returnTrip(req, res) {
   const trip = await loadDriverTrip(req);
   if (!trip.Tasks.every((task) => doneStatuses.includes(task.Status))) throw new ApiError(409, "Còn điểm giao chưa xử lý");
   trip.Status = TripStatus.RETURNING;
+  trip.ReturnedAt = new Date();
+  trip.ReturnPhotos = takePhotos(req.body);
+  if (Number.isFinite(Number(req.body?.odometer))) trip.ReturnOdometer = Number(req.body.odometer);
   await trip.save();
+  emitTripUpdate(trip);
   res.json({ success: true, data: trip });
 }
 
@@ -135,6 +165,39 @@ export async function updateTask(req, res) {
     task.PodImages = Array.isArray(req.body?.podImages) ? req.body.podImages : task.PodImages;
     task.SignatureImage = req.body?.signatureImage ?? task.SignatureImage;
     await SalesOrder.updateMany({ _id: { $in: task.OrderIDs ?? [] } }, { $set: { OrderStatus: OrderStatus.DELIVERED } });
+
+    /* Phát hiện "giao hàng sai tọa độ" — nếu GPS hiện tại của xe cách điểm
+       dừng kế hoạch quá GEOFENCE_M thì tự tạo cảnh báo gửi dispatcher. */
+    const GEOFENCE_M = 300;
+    if (Number.isFinite(Number(task.Latitude)) && Number.isFinite(Number(task.Longitude))
+        && Number.isFinite(Number(trip.LastLatitude)) && Number.isFinite(Number(trip.LastLongitude))) {
+      const R = 6371000;
+      const dLat = (trip.LastLatitude - task.Latitude) * Math.PI / 180;
+      const dLng = (trip.LastLongitude - task.Longitude) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2
+              + Math.cos(task.Latitude * Math.PI / 180) * Math.cos(trip.LastLatitude * Math.PI / 180)
+              * Math.sin(dLng / 2) ** 2;
+      const distM = Math.round(2 * R * Math.asin(Math.sqrt(a)));
+      if (distM > GEOFENCE_M) {
+        try {
+          const incident = await TripIncident.create({
+            OrganizationID: trip.OrganizationID,
+            TripID:         trip._id,
+            TripCode:       trip.TripCode,
+            DriverUserID:   req.user._id,
+            DriverName:     trip.DriverName ?? req.user.FullName ?? "",
+            VehicleCode:    trip.VehicleCode,
+            Type:           IncidentType.OTHER,
+            Severity:       distM > 1000 ? IncidentSeverity.HIGH : IncidentSeverity.MEDIUM,
+            Description:    `Giao hàng sai tọa độ — xác nhận ePOD ở vị trí lệch ${distM}m so với địa chỉ khách ${task.CustomerName}`,
+            Latitude:       trip.LastLatitude,
+            Longitude:      trip.LastLongitude,
+            DeviationDistance: distM
+          });
+          getIO()?.to(`org_${trip.OrganizationID.toString()}`).emit("trip:incident", incident);
+        } catch { /* not critical */ }
+      }
+    }
   } else if (req.params.action === "fail") {
     task.Status = TripTaskStatus.FAILED;
     task.FailedAt = new Date();
@@ -152,6 +215,7 @@ export async function updateTask(req, res) {
     if (status === TripStatus.COMPLETED) trip.CompletedAt = new Date();
   }
   await trip.save();
+  emitTripUpdate(trip);
   res.json({ success: true, data: trip });
 }
 
@@ -178,8 +242,78 @@ export async function finishTrip(req, res) {
   if (!trip.Tasks.every((task) => doneStatuses.includes(task.Status))) throw new ApiError(409, "Còn điểm giao chưa xử lý");
   trip.Status = TripStatus.COMPLETED;
   trip.CompletedAt = trip.CompletedAt ?? new Date();
+  trip.FinishPhotos = takePhotos(req.body);
+  trip.FinishNote = String(req.body?.note ?? "").trim().slice(0, 500);
   await trip.save();
+  emitTripUpdate(trip);
   res.json({ success: true, data: trip });
+}
+
+/** POST /api/driver/trips/:id/incidents — tài xế báo sự cố trên chuyến */
+export async function reportIncident(req, res) {
+  const trip = await loadDriverTrip(req);
+  const { type, severity, description, latitude, longitude, photos } = req.body ?? {};
+  const incidentType = Object.values(IncidentType).includes(type) ? type : IncidentType.OTHER;
+  const incidentSeverity = Object.values(IncidentSeverity).includes(severity) ? severity : IncidentSeverity.MEDIUM;
+
+  const incident = await TripIncident.create({
+    OrganizationID: trip.OrganizationID,
+    TripID:         trip._id,
+    TripCode:       trip.TripCode,
+    DriverUserID:   req.user._id,
+    DriverName:     trip.DriverName ?? req.user.FullName ?? "",
+    VehicleCode:    trip.VehicleCode,
+    Type:           incidentType,
+    Severity:       incidentSeverity,
+    Description:    String(description ?? "").trim().slice(0, 1000),
+    Latitude:       Number.isFinite(Number(latitude))  ? Number(latitude)  : trip.LastLatitude  ?? null,
+    Longitude:      Number.isFinite(Number(longitude)) ? Number(longitude) : trip.LastLongitude ?? null,
+    Photos:         Array.isArray(photos) ? photos.slice(0, 6) : []
+  });
+
+  /* Realtime push to dispatchers in this org */
+  try {
+    getIO().to(`org_${trip.OrganizationID.toString()}`).emit("trip:incident", incident);
+  } catch { /* socket not initialised in tests */ }
+
+  res.status(201).json({ success: true, data: incident });
+}
+
+/** GET /api/trips/incidents — dispatcher feed (org-scoped) */
+export async function listIncidents(req, res) {
+  const filter = scopeFilter(req.orgScope);
+  if (req.query.status) filter.Status = req.query.status;
+  if (req.query.tripId) filter.TripID = req.query.tripId;
+  const incidents = await TripIncident.find(filter).sort({ ReportedAt: -1 }).limit(200).lean();
+  res.json({ success: true, data: incidents });
+}
+
+/** PATCH /api/trips/incidents/:id — dispatcher acknowledges / resolves / dismisses */
+export async function updateIncident(req, res) {
+  const incident = await TripIncident.findById(req.params.id);
+  if (!incident) throw new ApiError(404, "Incident not found");
+  assertOrgInScope(req.orgScope, incident.OrganizationID);
+
+  const { status, dispatcherNote } = req.body ?? {};
+  if (status && Object.values(IncidentStatus).includes(status)) {
+    incident.Status = status;
+    if (status === IncidentStatus.ACKNOWLEDGED) {
+      incident.AcknowledgedAt = new Date();
+      incident.AcknowledgedBy = req.user._id;
+    }
+    if (status === IncidentStatus.RESOLVED || status === IncidentStatus.DISMISSED) {
+      incident.ResolvedAt = new Date();
+      incident.ResolvedBy = req.user._id;
+    }
+  }
+  if (typeof dispatcherNote === "string") incident.DispatcherNote = dispatcherNote.slice(0, 500);
+  await incident.save();
+
+  try {
+    getIO().to(`org_${incident.OrganizationID.toString()}`).emit("trip:incident:update", incident);
+  } catch { /* */ }
+
+  res.json({ success: true, data: incident });
 }
 
 export async function postGps(req, res) {
@@ -202,5 +336,18 @@ export async function postGps(req, res) {
     Speed: trip.LastSpeed,
     BatteryLevel: req.body?.batteryLevel
   });
+  /* Broadcast realtime location to org room + run deviation check */
+  try {
+    getIO().to(`org_${trip.OrganizationID.toString()}`).emit("location_changed", {
+      tripId: String(trip._id),
+      driverId: trip.DriverID ? String(trip.DriverID) : null,
+      lat: latitude,
+      lng: longitude,
+      speed: trip.LastSpeed,
+      updatedAt: new Date()
+    });
+  } catch { /* socket not ready */ }
+  checkDeviation(req.user._id, latitude, longitude).catch(() => {});
+
   res.json({ success: true });
 }

@@ -3,7 +3,12 @@ import { apiClient } from "./client";
 export const tripApi = {
   list: (params) => apiClient.get("/trips", { params }),
   get: (id) => apiClient.get(`/trips/${id}`),
-  syncPlan: (planId) => apiClient.post(`/trips/sync-plan/${planId}`)
+  syncPlan: (planId) => apiClient.post(`/trips/sync-plan/${planId}`),
+  listMessages: (id) => apiClient.get(`/trips/${id}/messages`),
+  sendMessage: (id, payload) => apiClient.post(`/trips/${id}/messages`, payload),
+  unreadMessageCounts: () => apiClient.get("/trips/messages/unread-counts"),
+  listIncidents: (params) => apiClient.get("/trips/incidents", { params }),
+  updateIncident: (id, payload) => apiClient.patch(`/trips/incidents/${id}`, payload)
 };
 
 export const driverAppApi = {

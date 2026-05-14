@@ -9,6 +9,7 @@ import { errorHandler } from "./middlewares/errorHandler.js";
 import { apiRouter } from "./routes/index.js";
 import { logger } from "./utils/logger.js";
 import { initSocket } from "./socket.js";
+import { startSupportEmailInbox } from "./services/supportEmailInbox.js";
 import http from "http";
 
 async function bootstrap() {
@@ -34,6 +35,7 @@ async function bootstrap() {
 
   server.listen(env.port, () => {
     logger.info(`Server listening on http://localhost:${env.port}`);
+    startSupportEmailInbox();
   });
 }
 

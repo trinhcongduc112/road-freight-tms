@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, ScrollView,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { driverApi } from "../api/driver";
 import StatusBadge from "../components/StatusBadge";
@@ -48,10 +49,30 @@ export default function RouteDetailScreen({ route, navigation }) {
 
   useFocusEffect(useCallback(() => { fetchDetail(); }, [routeId]));
 
-  const runAction = async (fn, success) => {
+  const captureProof = async (label) => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Cần quyền camera", "Hãy cấp quyền camera để chụp ảnh xác minh.");
+      return null;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.65,
+      base64: true,
+    });
+    if (result.canceled || !result.assets?.[0]?.base64) return null;
+    return {
+      photos: [`data:image/jpeg;base64,${result.assets[0].base64}`],
+      note: `${label} lúc ${new Date().toLocaleString("vi-VN")}`,
+    };
+  };
+
+  const runAction = async (fn, success, proofLabel = "") => {
     setActionLoading(true);
     try {
-      const res = await fn();
+      const payload = proofLabel ? await captureProof(proofLabel) : {};
+      if (proofLabel && !payload) return;
+      const res = await fn(payload);
       setDetail(res.data.data);
       Alert.alert("Thành công", success);
     } catch (err) {
@@ -96,26 +117,40 @@ export default function RouteDetailScreen({ route, navigation }) {
             <Text style={styles.infoValue}>{detail.TotalDistance} km</Text>
           </View>
         )}
-        <TouchableOpacity
-          style={styles.mapBtn}
-          onPress={() => navigation.navigate("Map", { route: detail })}
-        >
-          <Text style={styles.mapBtnText}>🗺 Xem bản đồ lộ trình</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+          <TouchableOpacity
+            style={[styles.mapBtn, { flex: 1 }]}
+            onPress={() => navigation.navigate("Map", { route: detail })}
+          >
+            <Text style={styles.mapBtnText}>🗺 Bản đồ điều hướng</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.incidentBtn, { flex: 1 }]}
+            onPress={() => navigation.navigate("IncidentReport", { routeId, tripCode: detail.TripCode })}
+          >
+            <Text style={styles.incidentBtnText}>🚨 Báo sự cố</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.messageBtn, { flex: 1 }]}
+            onPress={() => navigation.navigate("DriverMessages", { tripId: routeId })}
+          >
+            <Text style={styles.messageBtnText}>💬 Tin nhắn</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.actionGrid}>
-          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || detail.Status !== "ASSIGNED"} onPress={() => runAction(() => driverApi.confirmTrip(routeId), "Đã xác nhận kế hoạch")}>
+          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || detail.Status !== "ASSIGNED"} onPress={() => runAction((payload) => driverApi.confirmTrip(routeId, payload), "Đã xác nhận kế hoạch", "Nhận chuyến")}>
             <Text style={styles.actionText}>✅ Nhận chuyến</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || !["ASSIGNED", "DRIVER_CONFIRMED"].includes(detail.Status)} onPress={() => runAction(() => driverApi.startLoading(routeId), "Đang soạn hàng tại kho")}>
+          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || !["ASSIGNED", "DRIVER_CONFIRMED"].includes(detail.Status)} onPress={() => runAction((payload) => driverApi.startLoading(routeId, payload), "Đang soạn hàng tại kho", "Soạn hàng")}>
             <Text style={styles.actionText}>📦 Soạn hàng</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || ["IN_PROGRESS", "RETURNING", "COMPLETED"].includes(detail.Status)} onPress={() => runAction(() => driverApi.startTrip(routeId), "Đã xuất kho đi giao")}>
+          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || ["IN_PROGRESS", "RETURNING", "COMPLETED"].includes(detail.Status)} onPress={() => runAction((payload) => driverApi.startTrip(routeId, payload), "Đã xuất kho đi giao", "Xuất kho")}>
             <Text style={styles.actionText}>🚚 Xuất kho</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || completed < stops.length || detail.Status === "COMPLETED"} onPress={() => runAction(() => driverApi.returnTrip(routeId), "Đang về kho")}>
+          <TouchableOpacity style={styles.actionBtn} disabled={actionLoading || completed < stops.length || detail.Status === "COMPLETED"} onPress={() => runAction((payload) => driverApi.returnTrip(routeId, payload), "Đang về kho", "Về kho")}>
             <Text style={styles.actionText}>↩️ Về kho</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, styles.doneBtn]} disabled={actionLoading || detail.Status !== "RETURNING"} onPress={() => runAction(() => driverApi.finishTrip(routeId), "Đã kết thúc chuyến tại kho")}>
+          <TouchableOpacity style={[styles.actionBtn, styles.doneBtn]} disabled={actionLoading || detail.Status !== "RETURNING"} onPress={() => runAction((payload) => driverApi.finishTrip(routeId, payload), "Đã kết thúc chuyến tại kho", "Kết thúc chuyến")}>
             <Text style={styles.doneText}>🏁 Kết thúc</Text>
           </TouchableOpacity>
         </View>
@@ -135,7 +170,6 @@ export default function RouteDetailScreen({ route, navigation }) {
                 routeId,
                 stop: item,
                 stopIndex: item.StopIndex,
-                onRefresh: fetchDetail,
               })
             }
           />
@@ -155,8 +189,12 @@ const styles = StyleSheet.create({
   infoRow:     { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   infoLabel:   { color: "#888", fontSize: 13, fontWeight: "500" },
   infoValue:   { color: "#222", fontSize: 13, fontWeight: "600" },
-  mapBtn:      { backgroundColor: "#e6f4ff", borderRadius: 8, padding: 10, alignItems: "center", marginTop: 8 },
+  mapBtn:      { backgroundColor: "#e6f4ff", borderRadius: 8, padding: 10, alignItems: "center" },
   mapBtnText:  { color: "#1677ff", fontWeight: "600", fontSize: 14 },
+  incidentBtn: { backgroundColor: "#fef2f2", borderRadius: 8, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "#fecaca" },
+  incidentBtnText: { color: "#dc2626", fontWeight: "700", fontSize: 14 },
+  messageBtn: { backgroundColor: "#f0fdf4", borderRadius: 8, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "#bbf7d0" },
+  messageBtnText: { color: "#16a34a", fontWeight: "700", fontSize: 14 },
   actionGrid:  { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   actionBtn:   { backgroundColor: "#eef6ff", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, borderWidth: 1, borderColor: "#bfdbfe" },
   actionText:  { color: "#1677ff", fontWeight: "700", fontSize: 12 },

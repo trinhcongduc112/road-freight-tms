@@ -71,9 +71,14 @@ export default function RouteListScreen({ navigation }) {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={handleLogout} style={{ marginRight: 4 }}>
-          <Text style={{ color: "#fff", fontSize: 14 }}>Đăng xuất</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 10, marginRight: 4, alignItems: "center" }}>
+          <TouchableOpacity onPress={() => navigation.navigate("DriverMessages")}>
+            <Text style={{ color: "#fff", fontSize: 14 }}>Tin nhắn</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout}>
+            <Text style={{ color: "#fff", fontSize: 14 }}>Đăng xuất</Text>
+          </TouchableOpacity>
+        </View>
       ),
       headerTitle: `Xin chào, ${user?.FullName || user?.UserName || "Tài xế"}`,
     });

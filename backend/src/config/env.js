@@ -33,7 +33,17 @@ export const env = {
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
   smtpFrom: process.env.SMTP_FROM ?? "Road Freight TMS <no-reply@road-freight.io>",
-  supportEmail: process.env.SUPPORT_EMAIL ?? process.env.SMTP_USER ?? "support@road-freight.io"
+  supportEmail: process.env.SUPPORT_EMAIL ?? process.env.SMTP_USER ?? "support@road-freight.io",
+
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
+
+  imapHost: process.env.IMAP_HOST ?? "",
+  imapPort: Number(process.env.IMAP_PORT ?? 993),
+  imapSecure: bool("IMAP_SECURE", true),
+  imapUser: process.env.IMAP_USER ?? "",
+  imapPass: process.env.IMAP_PASS ?? "",
+  imapPollIntervalMs: Number(process.env.IMAP_POLL_INTERVAL_MS ?? 30000)
 };
 
 export const isProduction = env.nodeEnv === "production";

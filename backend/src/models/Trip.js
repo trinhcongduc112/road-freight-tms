@@ -72,11 +72,29 @@ const tripSchema = new mongoose.Schema(
     PlannedStartTime: { type: String, default: "" },
     PlannedReturnTime: { type: String, default: "" },
     Status: { type: String, enum: Object.values(TripStatus), default: TripStatus.ASSIGNED, index: true },
-    ConfirmedAt: { type: Date, default: null },
-    LoadingStartedAt: { type: Date, default: null },
-    StartedAt: { type: Date, default: null },
-    CompletedAt: { type: Date, default: null },
-    CancelledAt: { type: Date, default: null },
+    /* Mốc thời gian + ảnh xác minh cho từng giai đoạn vận hành.
+       Tài xế bắt buộc chụp ảnh khi: nhận chuyến, soạn hàng, xuất kho, về kho.
+       Photos[] = base64/URL; *At = Date set khi gọi endpoint tương ứng. */
+    ConfirmedAt:        { type: Date, default: null },
+    ConfirmPhotos:      [{ type: String }],
+
+    LoadingStartedAt:   { type: Date, default: null },
+    LoadingPhotos:      [{ type: String }],
+    LoadingNote:        { type: String, trim: true, default: "" },
+
+    StartedAt:          { type: Date, default: null },
+    StartPhotos:        [{ type: String }],
+    StartOdometer:      { type: Number, default: null },
+
+    ReturnedAt:         { type: Date, default: null },
+    ReturnPhotos:       [{ type: String }],
+    ReturnOdometer:     { type: Number, default: null },
+
+    CompletedAt:        { type: Date, default: null },
+    FinishPhotos:       [{ type: String }],
+    FinishNote:         { type: String, trim: true, default: "" },
+
+    CancelledAt:        { type: Date, default: null },
     CurrentTaskIndex: { type: Number, default: 1, min: 1 },
     LastLatitude: { type: Number, default: null },
     LastLongitude: { type: Number, default: null },

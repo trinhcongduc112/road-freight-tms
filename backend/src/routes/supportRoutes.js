@@ -5,18 +5,27 @@ import {
   addTicketMessage,
   askSupportBot,
   createSupportArticle,
+  getMyChatSession,
   learnFromTicket,
+  listAdminChatSessions,
   listMyTickets,
   listSupportArticles,
   listSupportTickets,
+  replyChatSession,
   replySupportTicket,
   seedDefaultSupportArticles,
+  sendChatMessage,
   updateSupportArticle
 } from "../controllers/supportController.js";
 
 export const supportRouter = Router();
 
 supportRouter.use(authenticate);
+
+supportRouter.get("/chat/session", asyncHandler(getMyChatSession));
+supportRouter.post("/chat/message", asyncHandler(sendChatMessage));
+supportRouter.get("/admin/chat-sessions", asyncHandler(listAdminChatSessions));
+supportRouter.post("/admin/chat-sessions/:id/reply", asyncHandler(replyChatSession));
 
 supportRouter.post("/ask", asyncHandler(askSupportBot));
 supportRouter.get("/tickets", asyncHandler(listMyTickets));

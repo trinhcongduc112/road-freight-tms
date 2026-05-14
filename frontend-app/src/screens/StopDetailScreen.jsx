@@ -14,21 +14,23 @@ const ACTIONS = [
 ];
 
 export default function StopDetailScreen({ route, navigation }) {
-  const { routeId, stop: initStop, stopIndex, onRefresh } = route.params;
+  const { routeId, stop: initStop, stopIndex } = route.params;
   const [stop,    setStop]    = useState(initStop);
   const [loading, setLoading] = useState(false);
   const isClosed = ["COMPLETED", "FAILED"].includes(stop.Status);
 
+  /* RouteDetailScreen tự gọi fetchDetail() trong useFocusEffect mỗi lần được
+     focus lại — nên ở đây chỉ cần refresh stop hiện tại, KHÔNG truyền callback
+     qua nav params (sẽ bị warning non-serializable). */
   const refreshStop = useCallback(async () => {
     try {
       const res = await driverApi.getRoute(routeId);
       const updated = res.data.data?.Tasks?.find((s) => s.StopIndex === stopIndex);
       if (updated) setStop(updated);
-      onRefresh?.();
     } catch {
       // Giữ dữ liệu hiện tại nếu refresh nền lỗi.
     }
-  }, [routeId, stopIndex, onRefresh]);
+  }, [routeId, stopIndex]);
 
   useFocusEffect(useCallback(() => { refreshStop(); }, [refreshStop]));
 
@@ -53,7 +55,6 @@ export default function StopDetailScreen({ route, navigation }) {
               // Tìm lại stop đã cập nhật từ response
               const updated = res.data.data?.Tasks?.find((s) => s.StopIndex === stopIndex);
               if (updated) setStop(updated);
-              onRefresh?.();
               Alert.alert("Thành công", `Đã cập nhật trạng thái: ${label}`);
             } catch (err) {
               const message = err.response?.data?.message === "Task already closed"

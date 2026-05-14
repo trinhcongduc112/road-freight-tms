@@ -39,11 +39,23 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Chỉ xử lý 401, không phải endpoint /auth/refresh (tránh vòng lặp vô tận)
+    // Chỉ xử lý 401 cho request đã authenticate. Bỏ qua các endpoint public
+    // (login/register/refresh/forgot/reset) — 401 ở các endpoint này là lỗi
+    // credentials thật sự, không phải session hết hạn.
+    const url = originalRequest.url || "";
+    const isPublicAuthEndpoint =
+      url.includes("/auth/login") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/refresh") ||
+      url.includes("/auth/forgot-password") ||
+      url.includes("/auth/reset-password") ||
+      url.includes("/auth/verify-email") ||
+      url.includes("/auth/accept-invitation");
+
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/refresh")
+      !isPublicAuthEndpoint
     ) {
       const refreshToken = useAuthStore.getState().refreshToken;
 

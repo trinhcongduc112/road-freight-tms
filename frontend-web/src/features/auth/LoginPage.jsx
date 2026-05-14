@@ -25,13 +25,13 @@ function friendlyError(rawMsg = "", t) {
 }
 
 export default function LoginPage() {
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [form]                  = Form.useForm();
-  const navigate                = useNavigate();
-  const location                = useLocation();
-  const setSession              = useAuthStore((s) => s.setSession);
-  const { message }             = App.useApp();
+  const [form] = Form.useForm();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const setSession = useAuthStore((s) => s.setSession);
+  const { message } = App.useApp();
   const { language, setLanguage, t } = useLanguage();
 
   // State chứa danh sách tài khoản đã lưu
@@ -44,7 +44,7 @@ export default function LoginPage() {
     try {
       const accounts = JSON.parse(localStorage.getItem("tms_saved_accounts") || "[]");
       setSavedAccounts(accounts);
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Hàm tự động điền mật khẩu khi người dùng chọn 1 email từ danh sách xổ xuống
@@ -72,12 +72,11 @@ export default function LoginPage() {
     try {
       setLoading(true);
       const res = await authApi.login(values);
-      const { token, refreshToken, user } = res.data;
-      const meRes = await (async () => {
-        useAuthStore.getState().setSession({ token, refreshToken, user, role: null });
-        return authApi.me();
-      })();
-      setSession({ token, refreshToken, user, role: meRes.data.role });
+      const { token, refreshToken, user } = res.data ?? res;
+      useAuthStore.getState().setSession({ token, refreshToken, user, role: null });
+      const meRes = await authApi.me();
+      const role = meRes?.data?.role ?? meRes?.role ?? null;
+      setSession({ token, refreshToken, user, role });
       message.success(t("auth.login.welcome", { name: user.FullName || user.UserName }));
       navigate(from, { replace: true });
     } catch (err) {
@@ -129,7 +128,7 @@ export default function LoginPage() {
               name="Email"
               rules={[
                 { required: true, message: t("auth.login.emailRequired") },
-                { type: "email",  message: t("auth.login.emailInvalid") }
+                { type: "email", message: t("auth.login.emailInvalid") }
               ]}
             >
               {/* Thay vì dùng Input thường, ta dùng AutoComplete để tạo menu xổ xuống */}

@@ -426,8 +426,8 @@ export default function PlanningPage() {
       PlanName: vals.PlanName, Notes: vals.Notes, Shift: vals.Shift ?? "FULL_DAY"
     }),
     onSuccess: async (res) => {
-      message.success(`Đã tạo ${res.data.PlanCode} — đang tự động tối ưu tuyến...`);
-      const newPlanId = res.data._id;
+      message.success(`Đã tạo ${res.PlanCode} — đang tự động tối ưu tuyến...`);
+      const newPlanId = res._id;
       setActivePlanId(newPlanId);
       setCreateOpen(false);
       createForm.resetFields();
