@@ -26,6 +26,7 @@ import {
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   customerApi,
@@ -666,6 +667,12 @@ export default function MasterDataPage() {
     }
   ];
 
+  // AI Agent deep-link: ?tab=customers|vehicles|products|...
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validTabKeys = tabs.map((t) => t.key);
+  const urlTab = searchParams.get("tab");
+  const activeKey = validTabKeys.includes(urlTab) ? urlTab : "customers";
+
   return (
     <>
       <div className="page-header">
@@ -674,7 +681,12 @@ export default function MasterDataPage() {
           <p className="subtitle">Khách hàng · Nhóm KH · Nhóm SP · Sản phẩm · Phương tiện · Dịch vụ</p>
         </div>
       </div>
-      <Tabs defaultActiveKey="customers" items={tabs} type="card" />
+      <Tabs
+        activeKey={activeKey}
+        onChange={(key) => setSearchParams({ tab: key }, { replace: true })}
+        items={tabs}
+        type="card"
+      />
     </>
   );
 }

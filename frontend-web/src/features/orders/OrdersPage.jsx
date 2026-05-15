@@ -35,7 +35,8 @@ import {
 } from "antd";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { orderApi } from "../../api/order";
 import { organizationApi } from "../../api/organization";
 import { customerApi, productApi, productCategoryApi } from "../../api/masterData";
@@ -101,10 +102,46 @@ export default function OrdersPage() {
     { value: "REJECTED", label: t("orders.status.rejected") }
   ];
 
+  // AI Agent deep-link: ?approvalStatus, ?customerKeyword, ?dateFrom, ?dateTo
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialApproval = (() => {
+    const v = searchParams.get("approvalStatus");
+    return ["PENDING", "APPROVED", "REJECTED"].includes(v) ? v : undefined;
+  })();
+  const initialCustomerKw = searchParams.get("customerKeyword") ?? "";
+  const initialDateRange = (() => {
+    const from = searchParams.get("dateFrom");
+    const to = searchParams.get("dateTo");
+    if (!from && !to) return null;
+    const a = from ? dayjs(from) : null;
+    const b = to ? dayjs(to) : a;
+    if (a?.isValid() && b?.isValid()) return [a.startOf("day"), b.endOf("day")];
+    if (a?.isValid()) return [a.startOf("day"), a.endOf("day")];
+    return null;
+  })();
+  const consumedQueryRef = useRef(false);
+
   const [statusFilter, setStatusFilter] = useState(undefined);
-  const [approvalFilter, setApprovalFilter] = useState(undefined);
-  const [productFilter, setProductFilter] = useState("");
-  const [dateRange, setDateRange] = useState(null);
+  const [approvalFilter, setApprovalFilter] = useState(initialApproval);
+  const [productFilter, setProductFilter] = useState(initialCustomerKw);
+  const [dateRange, setDateRange] = useState(initialDateRange);
+
+  // Dọn URL sau khi đã consume — user đổi filter sau đó không bị stuck deep-link
+  useEffect(() => {
+    if (consumedQueryRef.current) return;
+    if (initialApproval || initialCustomerKw || initialDateRange) {
+      consumedQueryRef.current = true;
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("approvalStatus");
+        next.delete("customerKeyword");
+        next.delete("dateFrom");
+        next.delete("dateTo");
+        return next;
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [createOpen, setCreateOpen] = useState(false);

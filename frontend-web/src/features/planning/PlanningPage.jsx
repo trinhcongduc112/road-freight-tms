@@ -22,6 +22,7 @@ import {
 import { SwapOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { routePlanApi } from "../../api/routePlan";
 import { vehicleApi, driverApi, serviceApi } from "../../api/masterData";
@@ -174,8 +175,26 @@ export default function PlanningPage() {
   const { isSuper } = usePermissions();
   const user = useAuthStore((s) => s.user);
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orgId, setOrgId]             = useState(null);
-  const [planDate, setPlanDate]       = useState(() => dayjs().hour() >= 18 ? dayjs().add(1, "day") : dayjs());
+  // AI Agent deep-link: ?date=YYYY-MM-DD, ?autoCreate=1
+  const [planDate, setPlanDate]       = useState(() => {
+    const q = searchParams.get("date");
+    if (q) {
+      const d = dayjs(q);
+      if (d.isValid()) return d;
+    }
+    return dayjs().hour() >= 18 ? dayjs().add(1, "day") : dayjs();
+  });
+
+  // Sync planDate khi URL ?date thay đổi (vd nhảy từ AI Agent lần 2 với date khác)
+  useEffect(() => {
+    const q = searchParams.get("date");
+    if (!q) return;
+    const d = dayjs(q);
+    if (d.isValid() && !d.isSame(planDate, "day")) setPlanDate(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [activePlanId, setActivePlanId] = useState(null);
   const [mapPoints, setMapPoints]     = useState({});  // { routeId: [ [lat,lng], ... ] }
   const [roadLines, setRoadLines]     = useState({});
@@ -426,8 +445,9 @@ export default function PlanningPage() {
       PlanName: vals.PlanName, Notes: vals.Notes, Shift: vals.Shift ?? "FULL_DAY"
     }),
     onSuccess: async (res) => {
-      message.success(`Đã tạo ${res.PlanCode} — đang tự động tối ưu tuyến...`);
-      const newPlanId = res._id;
+      const created = res?.data ?? res;
+      message.success(`Đã tạo ${created.PlanCode} — đang tự động tối ưu tuyến...`);
+      const newPlanId = created._id;
       setActivePlanId(newPlanId);
       setCreateOpen(false);
       createForm.resetFields();
@@ -448,6 +468,21 @@ export default function PlanningPage() {
     },
     onError: (e) => message.error(e.message)
   });
+
+  // AI Agent auto-create: ?autoCreate=1 + orgId + planDate ready → tự fire createPlan 1 lần.
+  useEffect(() => {
+    if (searchParams.get("autoCreate") !== "1") return;
+    if (!orgId || !planDate || createPlanM.isPending) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("autoCreate");
+      next.delete("date");
+      return next;
+    }, { replace: true });
+    const planName = `Kế hoạch ${planDate.format("DD/MM/YYYY")} (AI Agent)`;
+    createPlanM.mutate({ PlanName: planName, Shift: "FULL_DAY", Notes: "Tạo bởi AI Agent" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, planDate, searchParams]);
 
   const addVehicleM = useMutation({
     mutationFn: ({ vehicleId }) => routePlanApi.addRoute(activePlan._id, { VehicleID: vehicleId }),

@@ -10,6 +10,7 @@ import {
   LogoutOutlined,
   QuestionCircleOutlined,
   RadarChartOutlined,
+  RobotOutlined,
   TruckFilled,
   UserOutlined
 } from "@ant-design/icons";
@@ -18,6 +19,7 @@ import { useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { languages, useLanguage } from "../i18n.jsx";
 import SupportChatWidget from "../components/SupportChatWidget.jsx";
+import AiAgentPanel from "../components/AiAgentPanel.jsx";
 import { useAuthStore } from "../store/authStore";
 import { Permissions, usePermissions } from "../utils/permissions";
 
@@ -30,8 +32,14 @@ export default function AppLayout() {
   const role      = useAuthStore((s) => s.role);
   const logout    = useAuthStore((s) => s.logout);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
   const { can, canAny, isSuper } = usePermissions();
   const { language, setLanguage, t } = useLanguage();
+
+  // Mutual exclusion: chỉ 1 panel mở tại 1 thời điểm — click panel khác → đóng cái cũ.
+  // "ngược lại" theo yêu cầu user: hỏi đáp ↔ AI Agent thay phiên nhau.
+  const openSupport = () => { setAgentOpen(false); setSupportOpen(true); };
+  const openAgent = () => { setSupportOpen(false); setAgentOpen(true); };
 
   const menuItems = useMemo(() => {
     const items = [
@@ -58,6 +66,7 @@ export default function AppLayout() {
     if (isSuper || canAny(Permissions.REPORT_VIEW, Permissions.REPORT_EXPORT)) {
       items.push({ key: "/reports", icon: <BarChartOutlined />, label: t("layout.nav.reports") });
     }
+    items.push({ key: "__agent__", icon: <RobotOutlined />, label: t("layout.nav.agent") });
     items.push({ key: "__support__", icon: <QuestionCircleOutlined />, label: t("layout.nav.support") });
 
     return items;
@@ -149,7 +158,8 @@ export default function AppLayout() {
           selectedKeys={[selectedKey]}
           items={menuItems}
           onClick={({ key }) => {
-            if (key === "__support__") setSupportOpen(true);
+            if (key === "__support__") openSupport();
+            else if (key === "__agent__") openAgent();
             else if (key.startsWith("/")) navigate(key);
           }}
         />
@@ -204,6 +214,7 @@ export default function AppLayout() {
         </Content>
       </Layout>
       <SupportChatWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
+      <AiAgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} />
     </Layout>
   );
 }

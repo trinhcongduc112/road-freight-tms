@@ -11,7 +11,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Button, Card, Col, DatePicker, Progress, Row, Segmented, Skeleton, Statistic, Table, Tag, Typography } from "antd";
 import dayjs from "dayjs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -102,8 +103,27 @@ function appendSheet(workbook, name, rows) {
 }
 
 export default function ReportingPage() {
-  const [periodType, setPeriodType] = useState("month");
-  const [dateRange, setDateRange] = useState(periodRange("month"));
+  const [searchParams, setSearchParams] = useSearchParams();
+  // AI Agent deep-link: ?period=month, ?dateFrom=…, ?dateTo=…, ?autoExport=1
+  const initial = useMemo(() => {
+    const VALID = ["week", "month", "quarter", "custom"];
+    const qp = searchParams.get("period");
+    const qFrom = searchParams.get("dateFrom");
+    const qTo = searchParams.get("dateTo");
+    if (qp && VALID.includes(qp)) {
+      if (qp === "custom" && qFrom && qTo) {
+        const a = dayjs(qFrom);
+        const b = dayjs(qTo);
+        if (a.isValid() && b.isValid()) return { period: "custom", range: [a.startOf("day"), b.endOf("day")] };
+      }
+      return { period: qp, range: periodRange(qp) };
+    }
+    return { period: "month", range: periodRange("month") };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [periodType, setPeriodType] = useState(initial.period);
+  const [dateRange, setDateRange] = useState(initial.range);
+  const autoExportPending = useRef(searchParams.get("autoExport") === "1");
 
   const { data, isLoading } = useQuery({
     queryKey: ["report-summary", periodType, dateRange[0]?.toISOString(), dateRange[1]?.toISOString()],
@@ -214,6 +234,24 @@ export default function ReportingPage() {
     })));
     XLSX.writeFile(workbook, `bao_cao_${periodType}_${dateRange[0].format("YYYYMMDD")}_${dateRange[1].format("YYYYMMDD")}.xlsx`);
   };
+
+  // Auto-export khi AI Agent navigate với ?autoExport=1.
+  // Đợi data load xong (d != null) rồi fire 1 lần, sau đó dọn URL.
+  useEffect(() => {
+    if (autoExportPending.current && d) {
+      autoExportPending.current = false;
+      exportReport();
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("autoExport");
+        next.delete("period");
+        next.delete("dateFrom");
+        next.delete("dateTo");
+        return next;
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d]);
 
   const selectPeriod = (value) => {
     setPeriodType(value);

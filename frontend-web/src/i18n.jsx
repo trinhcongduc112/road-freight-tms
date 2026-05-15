@@ -210,6 +210,14 @@ const dictionaries = {
 
     // === Trợ lý AI / Hỏi đáp ===
     "layout.nav.support": "Hỏi đáp",
+    "layout.nav.agent": "AI Agent",
+    "agent.title": "AI Agent",
+    "agent.tagline": "Ra lệnh để AI tự thao tác",
+    "agent.welcome": "Mình là **AI Agent**. Ra lệnh tự nhiên, mình sẽ tự mở trang và thao tác giúp bạn. Vd: _tải báo cáo tháng này_, _mở đơn hàng chờ duyệt_, _lập kế hoạch hôm nay_…",
+    "agent.placeholder": "Nhập lệnh cho AI (vd: tải báo cáo tháng này)",
+    "agent.working": "Đang xử lý lệnh…",
+    "agent.actionDone": "Đã thực hiện: {{label}}",
+    "agent.error.send": "Không gọi được AI Agent",
     "support.title": "Trợ lý AI",
     "support.brand": "Road Freight Support",
     "support.greet": "Hi {{name}}",
@@ -471,6 +479,14 @@ const dictionaries = {
 
     // === AI Assistant / Support ===
     "layout.nav.support": "Help & FAQ",
+    "layout.nav.agent": "AI Agent",
+    "agent.title": "AI Agent",
+    "agent.tagline": "Give a command, AI takes action",
+    "agent.welcome": "I'm the **AI Agent**. Type a natural-language command and I'll open the right page and act on it. E.g. _download this month's report_, _show pending orders_, _create a plan for today_…",
+    "agent.placeholder": "Type a command (e.g. download this month's report)",
+    "agent.working": "Working on it…",
+    "agent.actionDone": "Done: {{label}}",
+    "agent.error.send": "AI Agent call failed",
     "support.title": "AI Assistant",
     "support.brand": "Road Freight Support",
     "support.greet": "Hi {{name}}",

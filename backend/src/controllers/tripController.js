@@ -33,7 +33,13 @@ export async function listTrips(req, res) {
     end.setUTCDate(end.getUTCDate() + 1);
     filter.PlanDate = { $gte: start, $lt: end };
   }
-  if (req.query.status) filter.Status = req.query.status;
+  if (req.query.status) {
+    filter.Status = req.query.status;
+  } else {
+    // Mặc định ẩn trip CANCELLED (zombie từ plan cũ đã xóa) — Monitoring không cần thấy.
+    // Muốn xem trip huỷ: truyền ?status=CANCELLED.
+    filter.Status = { $ne: TripStatus.CANCELLED };
+  }
   const trips = await Trip.find(filter).sort({ PlanDate: -1, VehicleCode: 1 }).lean();
   res.json({ success: true, data: trips });
 }
