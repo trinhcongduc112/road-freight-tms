@@ -216,13 +216,22 @@ function buildHistory(messages = []) {
     }));
 }
 
+// Threshold cao hơn để tránh false-positive khi câu hỏi không liên quan
+// (vd "AI tự đánh giá mấy điểm" có thể match nhầm các keyword "import", "tự"...)
+const KNOWLEDGE_MIN_SCORE = 5;
+
+const OUT_OF_SCOPE_MESSAGE =
+  "Mình chỉ trả lời được các câu hỏi liên quan đến hệ thống quản lý vận tải Road Freight TMS " +
+  "(đăng nhập, tạo đơn, lập kế hoạch, theo dõi xe, báo cáo, bảo dưỡng...). " +
+  "Câu hỏi của bạn không nằm trong phạm vi này — bạn có thể bấm **Gặp tư vấn viên** để được hỗ trợ trực tiếp.";
+
 export async function generateAiAnswer({ question, orgId, history = [] }) {
   const client = getClient();
   if (!client) {
     const fallback = findBestSupportKnowledge(question);
     return {
       ok: false,
-      message: fallback?.score >= 3 ? fallback.answer : null,
+      message: fallback?.score >= KNOWLEDGE_MIN_SCORE ? fallback.answer : OUT_OF_SCOPE_MESSAGE,
       handoff: false
     };
   }
@@ -277,7 +286,7 @@ export async function generateAiAnswer({ question, orgId, history = [] }) {
       const fallback = findBestSupportKnowledge(question);
       return {
         ok: true,
-        message: fallback?.score >= 3 ? fallback.answer : "Mình chưa hiểu câu hỏi, bạn diễn đạt lại giúp mình nhé.",
+        message: fallback?.score >= KNOWLEDGE_MIN_SCORE ? fallback.answer : OUT_OF_SCOPE_MESSAGE,
         handoff: false
       };
     }

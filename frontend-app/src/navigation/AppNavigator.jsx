@@ -15,6 +15,8 @@ import MapScreen         from "../screens/MapScreen";
 import IncidentReportScreen from "../screens/IncidentReportScreen";
 import DriverMessagesScreen from "../screens/DriverMessagesScreen";
 import AIChatScreen from "../screens/AIChatScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
+import MaintenanceDetailScreen from "../screens/MaintenanceDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -106,6 +108,16 @@ export default function AppNavigator() {
               name="AIChat"
               component={AIChatScreen}
               options={{ title: "Trợ lý AI" }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{ title: "Thông báo" }}
+            />
+            <Stack.Screen
+              name="MaintenanceDetail"
+              component={MaintenanceDetailScreen}
+              options={{ title: "Bảo dưỡng xe" }}
             />
           </>
         )}

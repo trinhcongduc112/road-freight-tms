@@ -2,25 +2,57 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
-  lint-and-build:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
       - name: Install backend
         run: npm --prefix backend ci
-      - name: Install frontend
-        run: npm --prefix frontend ci
       - name: Lint backend
         run: npm --prefix backend run lint
-      - name: Lint frontend
-        run: npm --prefix frontend run lint
-      - name: Build frontend
-        run: npm --prefix frontend run build
+      - name: Test backend
+        run: npm --prefix backend test
+        env:
+          NODE_ENV: test
+
+  frontend-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend-web/package-lock.json
+      - name: Install frontend-web
+        run: npm --prefix frontend-web ci
+      - name: Build frontend-web
+        run: npm --prefix frontend-web run build
+        env:
+          VITE_API_URL: /api
+
+  optimizer-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install optimizer deps
+        run: |
+          cd optimizer-service
+          pip install -r requirements.txt
+      - name: Smoke import test
+        run: |
+          cd optimizer-service
+          python -c "from app.solver import solve_vrp; print('OK')"

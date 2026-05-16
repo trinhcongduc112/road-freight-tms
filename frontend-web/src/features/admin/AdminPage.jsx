@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import OrganizationsTab from "./tabs/OrganizationsTab";
 import UserGroupsTab from "./tabs/UserGroupsTab";
 import UsersTab from "./tabs/UsersTab";
+import AuditLogsTab from "./tabs/AuditLogsTab";
 
 export default function AdminPage() {
   const [params, setParams] = useSearchParams();
@@ -36,6 +37,11 @@ export default function AdminPage() {
             key: "users",
             label: "Người dùng",
             children: <UsersTab />
+          },
+          {
+            key: "audit-logs",
+            label: "Nhật ký hệ thống",
+            children: <AuditLogsTab />
           }
         ]}
       />

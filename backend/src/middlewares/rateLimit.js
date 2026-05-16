@@ -26,3 +26,12 @@ export const contactRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, error: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau ít phút." }
 });
+
+// Public tracking — 60 lần / 1 phút / IP (đủ cho khách F5 nhưng chặn bot scrape)
+export const trackingRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: isDev ? 300 : 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Quá nhiều yêu cầu tra cứu. Vui lòng đợi 1 phút." }
+});

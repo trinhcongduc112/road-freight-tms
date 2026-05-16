@@ -9,7 +9,7 @@ import {
   ThunderboltOutlined
 } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Card, Col, DatePicker, Progress, Row, Segmented, Skeleton, Statistic, Table, Tag, Typography } from "antd";
+import { Button, Card, Col, DatePicker, Progress, Row, Segmented, Skeleton, Statistic, Table, Tabs, Tag, Typography } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import { reportApi } from "../../api/report";
+import PayrollPanel from "./PayrollPanel";
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
@@ -258,7 +259,7 @@ export default function ReportingPage() {
     if (value !== "custom") setDateRange(periodRange(value));
   };
 
-  return (
+  const reportContent = (
     <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
         <div>
@@ -447,5 +448,16 @@ export default function ReportingPage() {
         </>
       )}
     </>
+  );
+
+  return (
+    <Tabs
+      defaultActiveKey="report"
+      type="card"
+      items={[
+        { key: "report", label: "📊 Báo cáo vận tải", children: reportContent },
+        { key: "payroll", label: "💰 Bảng lương tài xế", children: <PayrollPanel /> }
+      ]}
+    />
   );
 }

@@ -26,5 +26,6 @@ export const routePlanApi = {
 
   unplannedOrders: (params) => apiClient.get(`${base}/unplanned-orders`, { params }),
 
-  optimize: (planId) => apiClient.post(`${base}/${planId}/optimize`)
+  optimize: (planId) => apiClient.post(`${base}/${planId}/optimize`),
+  autoDispatch: (planId, opts = {}) => apiClient.post(`${base}/${planId}/auto-dispatch`, opts)
 };

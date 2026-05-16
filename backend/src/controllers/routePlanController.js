@@ -15,6 +15,7 @@ import { hasPermission, Modules, RoutePlanActions, p } from "../config/permissio
 import { optimizeRoutes } from "../utils/routeOptimizer.js";
 import { callOptimizer, callBenchmark } from "../utils/optimizerClient.js";
 import { cancelTripForRouteId, ensureTripForRouteId } from "../services/tripService.js";
+import { autoDispatchPlan } from "../services/autoDispatchService.js";
 
 function checkRoutePlanPermission(req, action) {
   if (req.user?.IsSuperAdmin) return;
@@ -900,7 +901,8 @@ export async function finalizeRoute(req, res) {
     plan.Status = RoutePlanStatus.FINALIZED;
     await plan.save();
   }
-  res.json({ success: true, data: route });
+
+  res.json({ success: true, data: { route } });
 }
 
 /** POST /api/route-plans/:planId/move-order
@@ -1691,4 +1693,39 @@ export async function benchmarkRoutePlan(req, res) {
       comparison: result.comparison
     }
   });
+}
+
+/**
+ * POST /api/route-plans/:id/auto-dispatch
+ *
+ * Tự động phân công tài xế cho mọi DeliveryRoute chưa có DriverID
+ * trong RoutePlan này, dựa trên scoring (workload + completion rate + seniority + vehicle match).
+ *
+ * Sau khi gán, ensureTrip để Trip phản ánh driver mới.
+ */
+export async function autoDispatchRoutePlan(req, res) {
+  checkRoutePlanPermission(req, RoutePlanActions.OPTIMIZE);
+
+  const orgId = req.role?.OrganizationID ?? req.user?.OrganizationIDs?.[0];
+  if (!orgId) throw new ApiError(400, "OrganizationID required");
+
+  const plan = await RoutePlan.findOne({ _id: req.params.id, OrganizationID: orgId });
+  if (!plan) throw new ApiError(404, "RoutePlan not found");
+
+  const reassignAll = req.body?.reassignAll === true || req.query?.reassignAll === "true";
+  const result = await autoDispatchPlan(plan._id, orgId, { reassignAll });
+
+  // Sync trips cho các route vừa được gán driver
+  for (const a of result.assigned) {
+    const route = await DeliveryRoute.findOne({
+      RoutePlanID: plan._id,
+      RouteCode: a.routeCode,
+      OrganizationID: orgId
+    }).lean();
+    if (route) {
+      await ensureTripForRouteId(route._id).catch(() => {});
+    }
+  }
+
+  res.json({ success: true, data: result });
 }

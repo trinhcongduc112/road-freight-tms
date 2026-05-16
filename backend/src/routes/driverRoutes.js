@@ -1,12 +1,26 @@
 import { Router } from "express";
 import * as ctrl from "../controllers/tripController.js";
 import * as messageCtrl from "../controllers/driverMessageController.js";
+import * as notifCtrl from "../controllers/driverNotificationController.js";
+import * as maintCtrl from "../controllers/driverMaintenanceController.js";
 import { authenticate } from "../middlewares/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const driverRouter = Router();
 
 driverRouter.use(authenticate);
+
+// Thông báo trong app (gán bảo dưỡng, chuyến mới...)
+driverRouter.get("/notifications", asyncHandler(notifCtrl.listMyNotifications));
+driverRouter.get("/notifications/unread-count", asyncHandler(notifCtrl.unreadCount));
+driverRouter.patch("/notifications/:id/read", asyncHandler(notifCtrl.markRead));
+driverRouter.patch("/notifications/mark-all-read", asyncHandler(notifCtrl.markAllRead));
+
+// Bảo dưỡng xe được giao
+driverRouter.get("/maintenance", asyncHandler(maintCtrl.listMyMaintenance));
+driverRouter.get("/maintenance/:id", asyncHandler(maintCtrl.getMyMaintenance));
+driverRouter.post("/maintenance/:id/acknowledge", asyncHandler(maintCtrl.acknowledgeMaintenance));
+driverRouter.post("/maintenance/:id/complete", asyncHandler(maintCtrl.completeMaintenance));
 
 driverRouter.get("/trips", asyncHandler(ctrl.getMyTrips));
 driverRouter.get("/messages", asyncHandler(messageCtrl.listMyMessages));

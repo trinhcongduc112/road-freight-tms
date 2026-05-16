@@ -25,6 +25,26 @@ export const driverApi = {
     apiClient.post(`/driver/trips/${id}/messages`, payload),
   postGps: (id, payload) =>
     apiClient.post(`/driver/trips/${id}/gps`, payload),
+
+  // ── Notifications (gán bảo dưỡng, chuyến mới...) ──
+  getNotifications: (params = {}) =>
+    apiClient.get("/driver/notifications", { params }),
+  getUnreadCount: () =>
+    apiClient.get("/driver/notifications/unread-count"),
+  markNotificationRead: (id) =>
+    apiClient.patch(`/driver/notifications/${id}/read`),
+  markAllNotificationsRead: () =>
+    apiClient.patch("/driver/notifications/mark-all-read"),
+
+  // ── Bảo dưỡng xe ──
+  getMyMaintenance: (params = {}) =>
+    apiClient.get("/driver/maintenance", { params }),
+  getMaintenanceDetail: (id) =>
+    apiClient.get(`/driver/maintenance/${id}`),
+  acknowledgeMaintenance: (id) =>
+    apiClient.post(`/driver/maintenance/${id}/acknowledge`),
+  completeMaintenance: (id, payload) =>
+    apiClient.post(`/driver/maintenance/${id}/complete`, payload),
 };
 
 export const supportApi = {

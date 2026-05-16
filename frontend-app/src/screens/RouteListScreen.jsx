@@ -43,6 +43,7 @@ export default function RouteListScreen({ navigation }) {
   const [routes,    setRoutes]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout } = useAuthStore();
 
   const fetchRoutes = async (isRefresh = false) => {
@@ -58,8 +59,21 @@ export default function RouteListScreen({ navigation }) {
     }
   };
 
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await driverApi.getUnreadCount();
+      setUnreadCount(res.data?.data?.count ?? 0);
+    } catch { /* silent */ }
+  };
+
   // Reload mỗi lần màn hình được focus
-  useFocusEffect(useCallback(() => { fetchRoutes(); }, []));
+  useFocusEffect(useCallback(() => {
+    fetchRoutes();
+    fetchUnreadCount();
+    // Poll unread count mỗi 20s khi đang ở màn này
+    const id = setInterval(fetchUnreadCount, 20000);
+    return () => clearInterval(id);
+  }, []));
 
   const handleLogout = () => {
     Alert.alert("Đăng xuất", "Bạn có chắc muốn đăng xuất?", [
@@ -71,7 +85,30 @@ export default function RouteListScreen({ navigation }) {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: "row", gap: 10, marginRight: 4, alignItems: "center" }}>
+        <View style={{ flexDirection: "row", gap: 12, marginRight: 4, alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Notifications")}
+            style={{ position: "relative", paddingHorizontal: 4 }}
+          >
+            <Text style={{ color: "#fff", fontSize: 18 }}>🔔</Text>
+            {unreadCount > 0 && (
+              <View style={{
+                position: "absolute",
+                top: -2, right: -6,
+                backgroundColor: "#ff4d4f",
+                borderRadius: 10,
+                minWidth: 18,
+                height: 18,
+                paddingHorizontal: 4,
+                alignItems: "center",
+                justifyContent: "center"
+              }}>
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("DriverMessages")}>
             <Text style={{ color: "#fff", fontSize: 14 }}>Tin nhắn</Text>
           </TouchableOpacity>
@@ -82,7 +119,7 @@ export default function RouteListScreen({ navigation }) {
       ),
       headerTitle: `Xin chào, ${user?.FullName || user?.UserName || "Tài xế"}`,
     });
-  }, [navigation, user]);
+  }, [navigation, user, unreadCount]);
 
   if (loading) {
     return <ActivityIndicator size="large" color="#1677ff" style={{ marginTop: 60 }} />;

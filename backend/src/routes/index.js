@@ -13,6 +13,10 @@ import { driverRouter } from "./driverRoutes.js";
 import { tripRouter } from "./tripRoutes.js";
 import { contactRouter } from "./contactRoutes.js";
 import { agentRouter } from "./agentRoutes.js";
+import { auditRouter } from "./auditRoutes.js";
+import { trackingRouter } from "./trackingRoutes.js";
+import { maintenanceRouter } from "./maintenanceRoutes.js";
+import { payrollRouter } from "./payrollRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { systemHealth, systemMetrics } from "../controllers/systemController.js";
 
@@ -32,6 +36,10 @@ apiRouter.use("/driver", driverRouter);
 apiRouter.use("/trips", tripRouter);
 apiRouter.use("/public", contactRouter);
 apiRouter.use("/agent", agentRouter);
+apiRouter.use("/audit-logs", auditRouter);
+apiRouter.use("/track", trackingRouter);
+apiRouter.use("/maintenance", maintenanceRouter);
+apiRouter.use("/payroll", payrollRouter);
 
 apiRouter.get("/system/health", asyncHandler(systemHealth));
 apiRouter.get("/system/metrics", asyncHandler(systemMetrics));

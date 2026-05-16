@@ -6,6 +6,7 @@ import {
   FileAddOutlined,
   InfoCircleOutlined,
   PlusOutlined,
+  ShareAltOutlined,
   SwapOutlined,
   UploadOutlined
 } from "@ant-design/icons";
@@ -86,7 +87,7 @@ const ORDER_STATUS_OPTIONS = [
 
 export default function OrdersPage() {
   const qc = useQueryClient();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { can, isSuper } = usePermissions();
   const { language, t } = useLanguage();
   const canManage = isSuper || can(Permissions.ORDER_MANAGE);
@@ -405,6 +406,33 @@ export default function OrdersPage() {
               <Button size="small" icon={<SwapOutlined />} onClick={() => openStatusChange(record)} />
             </Tooltip>
           )}
+          <Tooltip title="Sao chép link tracking cho khách">
+            <Button
+              size="small"
+              icon={<ShareAltOutlined />}
+              style={{ color: "#722ed1", borderColor: "#d3adf7" }}
+              onClick={() => {
+                const url = `${window.location.origin}/track/${record.OrderCode}`;
+                navigator.clipboard?.writeText(url);
+                modal.success({
+                  title: "Link tracking đã sao chép",
+                  content: (
+                    <div>
+                      <p>Gửi link này cho khách hàng để họ tự theo dõi đơn:</p>
+                      <Input.TextArea value={url} readOnly rows={2} onClick={(e) => e.target.select()} />
+                      <p style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
+                        Khách KHÔNG cần đăng nhập. Có thể mở trên điện thoại để xem vị trí xe real-time + ETA + ảnh ePOD.
+                      </p>
+                      <a href={url} target="_blank" rel="noreferrer" style={{ marginTop: 8, display: "inline-block" }}>
+                        🔗 Mở thử trong tab mới
+                      </a>
+                    </div>
+                  ),
+                  width: 520
+                });
+              }}
+            />
+          </Tooltip>
         </Space>
       )
     }

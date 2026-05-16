@@ -49,3 +49,20 @@ routePlanRouter.post("/:planId/routes/:routeId/finalize", requirePermission(FINA
 const OPTIMIZE = p(Modules.ROUTE_PLAN, RoutePlanActions.OPTIMIZE);
 routePlanRouter.post("/:id/optimize", requirePermission(OPTIMIZE), asyncHandler(ctrl.optimizeRoutePlan));
 routePlanRouter.post("/:id/benchmark", requirePermission(OPTIMIZE), asyncHandler(ctrl.benchmarkRoutePlan));
+
+/**
+ * @openapi
+ * /api/route-plans/{id}/auto-dispatch:
+ *   post:
+ *     tags: [Route Planning]
+ *     summary: Tự động phân công tài xế cho tất cả tuyến chưa gán
+ *     description: Chấm điểm tài xế theo workload + completion rate + seniority + vehicle match, gán greedy.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: "Trả về danh sách đã gán + skipped + tóm tắt" }
+ */
+routePlanRouter.post("/:id/auto-dispatch", requirePermission(OPTIMIZE), asyncHandler(ctrl.autoDispatchRoutePlan));

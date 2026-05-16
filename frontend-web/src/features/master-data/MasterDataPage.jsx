@@ -38,6 +38,7 @@ import {
 } from "../../api/masterData";
 import { organizationApi } from "../../api/organization";
 import { Permissions, usePermissions } from "../../utils/permissions";
+import MaintenanceTab from "./MaintenanceTab";
 
 const STATUS_OPTIONS = [
   { value: "Active", label: "Active" },
@@ -664,6 +665,11 @@ export default function MasterDataPage() {
           }
         />
       )
+    },
+    {
+      key: "maintenance",
+      label: "Bảo dưỡng xe",
+      children: <MaintenanceTab />
     }
   ];
 

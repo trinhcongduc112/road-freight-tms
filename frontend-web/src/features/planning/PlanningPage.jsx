@@ -15,7 +15,7 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  App, Badge, Button, Card, Col, Collapse, DatePicker, Dropdown,
+  App, Badge, Button, Card, Col, Collapse, DatePicker,
   Empty, Form, Input, Modal, Popconfirm, Row, Select, Alert,
   Space, Table, Tag, Tooltip, Typography
 } from "antd";
@@ -556,10 +556,11 @@ export default function PlanningPage() {
   const finalizeM = useMutation({
     mutationFn: (rId) => routePlanApi.finalize(activePlan._id, rId),
     onSuccess: (res, rId) => {
-      updateRouteCache(rId, res.data);
-      message.success("Route finalized");
+      const route = res.data?.route ?? res.data;
+      updateRouteCache(rId, route);
       qc.invalidateQueries({ queryKey: ["route-plans"] });
       qc.invalidateQueries({ queryKey: ["unplanned-orders"] });
+      message.success("Đã chốt lộ trình");
     },
     onError: (e) => message.error(e.message)
   });
@@ -599,6 +600,7 @@ export default function PlanningPage() {
   });
 
   const cannotOptimizeEmptyPlan = !!activePlan && routes.length === 0 && unplanned.length === 0;
+
 
   function handleRouteDrop(e, route, toIndex = route.Stops?.length ?? 0) {
     e.preventDefault();

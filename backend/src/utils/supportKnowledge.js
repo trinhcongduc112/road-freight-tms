@@ -268,6 +268,87 @@ export const SUPPORT_KNOWLEDGE = [
       "reset password app", "không đăng nhập được", "khong dang nhap duoc", "lỗi đăng nhập", "loi dang nhap"
     ],
     answer: "App tài xế hiện không có chức năng tự reset. Vào trang web Road Freight TMS bấm **Quên mật khẩu**, nhập email → đặt lại mật khẩu mới → quay về app đăng nhập lại. Nếu không có máy tính, gọi điều phối/IT để được reset thủ công."
+  },
+  {
+    title: "Tracking link cho khách hàng",
+    keywords: [
+      "tracking khách hàng", "tracking khach hang", "link tracking", "link theo dõi",
+      "khách theo dõi đơn", "khach theo doi don", "chia sẻ link", "chia se link",
+      "khách xem đơn", "khach xem don", "khách hàng theo dõi", "khach hang theo doi"
+    ],
+    answer: "**Tracking portal công khai:** `/track/<OrderCode>` — không cần đăng nhập. Khách bấm vào xem realtime: vị trí xe trên bản đồ, ETA, tên + SĐT tài xế, ảnh ePOD khi giao xong.\n\n**Cách chia sẻ:** Vào Đơn hàng → bấm icon **Share (tím)** ở cột Hành động → copy URL → gửi cho khách qua Zalo cá nhân / email / SMS thủ công.\n\n**Lưu ý:** Hệ thống không tự gửi SMS/Zalo (cần Brandname + verify business, không khả thi trong môi trường demo). Planner/Dispatcher gửi thủ công sau khi chốt lộ trình."
+  },
+  {
+    title: "Phân quyền — vai trò Planner / Dispatcher / Accountant",
+    keywords: [
+      "phân quyền", "phan quyen", "vai trò", "vai tro", "role", "rbac",
+      "planner", "dispatcher", "accountant", "kế toán", "ke toan",
+      "lập kế hoạch", "lap ke hoach", "điều phối", "dieu phoi",
+      "ai làm gì", "ai lam gi", "chức năng của", "chuc nang cua", "quyền của", "quyen cua"
+    ],
+    answer: "Hệ thống có 5 preset RBAC chính:\n\n• **IT Admin (Quản trị tổ chức)** — toàn quyền tổ chức: quản lý user/org/role, master data, planning, monitoring, báo cáo.\n• **Planner (Lập kế hoạch)** — tạo plan, tối ưu tuyến, phân tài xế/xe, lock & finalize. KHÔNG có monitoring realtime, không kế toán.\n• **Dispatcher (Điều phối)** — chỉ giám sát chuyến chạy realtime, đổi tài xế/xe, đóng chuyến, xử lý sự cố. KHÔNG tạo plan.\n• **Planner & Dispatcher** — gộp 2 vai trò trên (phù hợp doanh nghiệp nhỏ).\n• **Accountant (Kế toán)** — chỉ xem báo cáo doanh thu/chi phí, bảng lương tài xế, xuất Excel. KHÔNG sửa master data hay plan.\n• **Driver (Tài xế)** — chỉ dùng app mobile, xem chuyến của mình + ePOD.\n\n**Tạo user:** Admin vào Quản trị → Người dùng → Mời → chọn RoleGroup + FunctionRoles tương ứng. User mới đăng nhập sẽ thấy sidebar phù hợp với quyền."
+  },
+  {
+    title: "Bảo dưỡng xe — Workflow đầy đủ",
+    keywords: [
+      "bảo dưỡng", "bao duong", "thay nhớt", "thay nhot", "đảo lốp", "dao lop",
+      "maintenance", "lịch bảo dưỡng", "lich bao duong", "quá hạn bảo dưỡng", "qua han bao duong",
+      "tài xế đi bảo dưỡng", "tai xe di bao duong", "phân tài xế bảo dưỡng", "phan tai xe bao duong"
+    ],
+    answer: "**Tạo lịch:** Master Data → Bảo dưỡng xe → Tạo lịch. Chọn xe, loại (thay dầu / đảo lốp / bảo hiểm...), ngày hẹn, chi phí dự kiến, **tài xế phụ trách** (TX sẽ đưa xe đi BD).\n\n**Tài xế nhận việc:** TX được gán có thông báo trong app mobile (icon 🔔). Bấm vào → màn chi tiết → **Nhận việc** (xác nhận đã đọc).\n\n**Tài xế hoàn thành:** Sau khi BD xong, TX chụp ảnh hoá đơn + ghi chú → bấm **Hoàn thành (N ảnh)**. Trạng thái → AWAITING_REVIEW.\n\n**Quản lý duyệt:** Master Data → Bảo dưỡng xe → cột Hành động hiện **[📷 Xem ảnh] [✓ Duyệt]**. Click Xem ảnh để kiểm tra → Duyệt hoàn thành. Trạng thái → COMPLETED.\n\n**Cảnh báo tự động:** Hệ thống cảnh báo lịch quá hạn (đỏ) + xe sắp đạt km bảo dưỡng (cam) ở banner đầu trang."
+  },
+  {
+    title: "Bảng lương tài xế — Công thức + tuỳ chỉnh",
+    keywords: [
+      "bảng lương", "bang luong", "lương tài xế", "luong tai xe", "payroll",
+      "công thức lương", "cong thuc luong", "tính lương", "tinh luong",
+      "thưởng km", "thuong km", "hoa hồng cod", "hoa hong cod", "commission",
+      "cấu hình lương", "cau hinh luong", "đổi lương cứng", "doi luong cung"
+    ],
+    answer: "**Công thức:** Thực lĩnh = Lương cứng + (km vượt × thưởng/km) + (chuyến hoàn thành × thưởng/chuyến) + (COD thu hộ × % hoa hồng).\n\n**KHÔNG phạt huỷ chuyến** — huỷ thường do planner lập sai hoặc khách đổi ý, không phải lỗi tài xế.\n\n**Mặc định:** Lương cứng 8.000.000đ · ngưỡng 1000km · +500đ/km vượt · +50.000đ/chuyến HT · 0.5% COD.\n\n**Tuỳ chỉnh:** Vào Báo cáo → tab **Bảng lương tài xế** → bấm **⚙️ Cấu hình lương**. Sửa từng tham số → Lưu. Bảng tự cập nhật ngay. Mỗi tổ chức có config riêng (multi-tenant).\n\n**Xuất Excel:** Bấm Xuất Excel — file có đầy đủ breakdown từng tài xế (lương cứng, thưởng km, thưởng chuyến, hoa hồng COD, thực lĩnh)."
+  },
+  {
+    title: "Nhật ký hệ thống (Audit Log) — Đọc và filter",
+    keywords: [
+      "nhật ký", "nhat ky", "audit log", "audit", "lịch sử thao tác", "lich su thao tac",
+      "ai làm gì", "ai lam gi", "lịch sử hệ thống", "lich su he thong",
+      "ghi log", "ghi nhật ký", "ghi nhat ky", "iso 27001", "compliance"
+    ],
+    answer: "**Truy cập:** Quản trị → tab **Nhật ký hệ thống**. Default hiện log của hôm nay (00:00–23:59).\n\n**Ghi lại gì:** Mọi thao tác mutation (CREATE/UPDATE/DELETE) + xuất Excel báo cáo / lương. Ghi: ai làm (UserName/Email), khi nào, làm gì (Method+Path), thay đổi gì (diff), HTTP status, IP, latency.\n\n**KHÔNG ghi:** Refresh token, GPS push 5s (quá nhiều), agent execute (đã có log riêng).\n\n**Filter:** Chọn Hành động (CREATE/UPDATE/DELETE/LOGIN/EXPORT/IMPORT), Đối tượng (Order/Trip/User/RoutePlan/MasterData), khoảng thời gian. Bấm icon refresh để cập nhật.\n\n**Bảo mật:** Mỗi org thấy log của riêng tổ chức + sub-org của mình (DAC). Super Admin thấy toàn bộ."
+  },
+  {
+    title: "ISO 25010 — Hệ thống đáp ứng tiêu chí nào",
+    keywords: [
+      "iso 25010", "iso25010", "tiêu chuẩn", "tieu chuan", "chất lượng phần mềm", "chat luong phan mem",
+      "performance", "reliability", "security", "maintainability", "iso"
+    ],
+    answer: "Hệ thống Road Freight TMS đáp ứng các đặc tính chính của ISO 25010:\n\n• **Performance Efficiency** — Time-behaviour: API response p95 < 500ms (đo bằng `scripts/benchmark.sh`), GPS push 5s, perfMonitor middleware tự log slow requests.\n• **Reliability** — Fault Tolerance: offline queue cho GPS khi mất mạng, audit log append-only, AI fallback khi Gemini fail.\n• **Security** — Confidentiality + Integrity: JWT + bcrypt, RBAC (5 role) + DAC (multi-tenant subtree), rate-limiter, audit log không cho sửa/xoá.\n• **Usability** — Touch target ≥ 44dp trên mobile, i18n VI/EN, error message tiếng Việt rõ ràng.\n• **Maintainability** — Modularity (separation of concerns: model/controller/service/route), test suite Jest + Supertest ~43 test.\n• **Compatibility** — Co-existence: Web + Mobile (Expo) + Optimizer microservice giao tiếp qua REST.\n• **Portability** — Adaptability: chạy Docker, deploy Render + Vercel + Atlas (free tier)."
+  },
+  {
+    title: "Tích hợp Gemini API — AI hoạt động thế nào",
+    keywords: [
+      "ai chatbot", "ai agent", "gemini", "google ai", "ai hoạt động", "ai hoat dong",
+      "ai trả lời", "ai tra loi", "ai sai", "ai khong chinh xac", "ai không chính xác",
+      "function calling", "rag", "ai làm sao", "ai lam sao"
+    ],
+    answer: "Hệ thống dùng **Google Gemini API** (model `gemini-2.5-flash-lite` mặc định) cho 2 tính năng:\n\n• **Hỏi đáp (AI chatbot)** — Q&A về hệ thống. Quy trình: nhận câu hỏi → retrieve top-4 article từ knowledge base (33 entries) → đưa context cho Gemini → Gemini tổng hợp trả lời. Có nút **Gặp tư vấn viên** để handoff sang con người.\n\n• **AI Agent** — Thực thi hành động. Người dùng ra lệnh tự nhiên (vd \"tải báo cáo tháng này\") → Gemini Function Calling → backend thực thi tool → mở URL deep-link tương ứng → page tự auto-execute.\n\n**Fallback offline:** Khi Gemini API fail (quota / network), hệ thống chuyển sang **regex parser tiếng Việt** (chuẩn hoá NFD + đ→d) để parse lệnh cơ bản. Không bị crash.\n\n**Giới hạn:** AI chỉ trả lời câu hỏi liên quan đến hệ thống Road Freight TMS. Câu ngoài phạm vi (đố vui, đánh giá AI...) sẽ chuyển sang tư vấn viên."
+  },
+  {
+    title: "Đặt câu hỏi hiệu quả với AI",
+    keywords: [
+      "hỏi ai", "hoi ai", "ai trả lời gì", "ai tra loi gi", "câu hỏi cho ai", "cau hoi cho ai",
+      "ai không hiểu", "ai khong hieu", "cách hỏi", "cach hoi", "ai sai", "ai dở", "ai do"
+    ],
+    answer: "AI chỉ trả lời được các câu hỏi **liên quan đến hệ thống Road Freight TMS**. Để có câu trả lời tốt:\n\n• Hỏi cụ thể về chức năng: *\"Làm sao tạo đơn hàng?\"*, *\"Cách lập kế hoạch tuyến?\"*, *\"Xem báo cáo tháng ở đâu?\"*\n• Mô tả vấn đề: *\"Tôi không thấy menu Master Data\"*, *\"Đăng nhập bị lỗi 401\"*.\n• Hỏi về quy trình: *\"Workflow chuyến đi cho tài xế?\"*, *\"Phân quyền cho kế toán\"*.\n\n**Câu hỏi AI KHÔNG trả lời:**\n• Đánh giá/chấm điểm chính bản thân AI hoặc đồ án.\n• Câu hỏi đời sống, đố vui, ngoài phạm vi vận tải.\n• Yêu cầu thay đổi data lớn (dùng AI Agent thay vì Hỏi đáp).\n\nNếu AI không trả lời được, bấm **Gặp tư vấn viên** để trò chuyện trực tiếp với con người."
+  },
+  {
+    title: "Thông báo trên app tài xế",
+    keywords: [
+      "thông báo app", "thong bao app", "notification", "icon chuông", "icon chuong",
+      "badge", "đếm số", "dem so", "tài xế nhận thông báo", "tai xe nhan thong bao",
+      "khi nào có thông báo", "khi nao co thong bao"
+    ],
+    answer: "Tài xế nhận thông báo realtime trong app mobile khi:\n\n• Được phân chuyến mới (TRIP_ASSIGNED)\n• Được giao đi bảo dưỡng xe (MAINTENANCE_ASSIGNED)\n• Trạng thái chuyến thay đổi (TRIP_STATUS_CHANGED)\n\n**Cách xem:** Icon **🔔** ở góc phải header màn hình chính. Badge đỏ hiện số chưa đọc (max 99+). Bấm icon → màn **Thông báo** liệt kê tất cả, items chưa đọc có nền xanh nhạt.\n\n**Tap notification** → tự navigate tới screen tương ứng (chi tiết chuyến / chi tiết bảo dưỡng) + đánh dấu đã đọc.\n\n**Mark all read:** Nút \"Đánh dấu đã đọc\" góc phải header màn Thông báo (chỉ hiện khi có unread > 0).\n\n**Realtime:** Socket.IO emit event `notification:new` ngay khi server tạo notification. Mobile cũng poll mỗi 20s để fallback."
   }
 ];
 
