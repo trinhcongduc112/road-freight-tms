@@ -608,7 +608,144 @@ const staticUiText = {
   "Giám sát": "Monitoring",
   "Giám sát hành trình": "Route Monitoring",
   "Dữ liệu Master": "Master Data",
-  "Đăng xuất": "Log out"
+  "Đăng xuất": "Log out",
+
+  // ───── Audit Logs tab (Admin) ─────
+  "Nhật ký hệ thống": "System Logs",
+  "Nhật ký kiểm toán (Audit Log)": "Audit Log",
+  "Hoạt động 24h qua": "Activity in last 24h",
+  "Phân bố theo hành động": "Distribution by action",
+  "Chưa có hoạt động trong 24h qua. Thực hiện thao tác bất kỳ (tạo/sửa/xoá đơn, tải báo cáo...) → log sẽ xuất hiện ở đây.":
+    "No activity in the last 24h. Any action (create/edit/delete orders, download reports...) will appear here.",
+  "THỜI GIAN": "TIME",
+  "HÀNH ĐỘNG": "ACTION",
+  "ĐỐI TƯỢNG": "RESOURCE",
+  "NGƯỜI THỰC HIỆN": "USER",
+  "ENDPOINT": "ENDPOINT",
+  "HTTP": "HTTP",
+  "THAY ĐỔI": "CHANGES",
+  "LATENCY": "LATENCY",
+  "IP": "IP",
+  "Hành động": "Action",
+  "Đối tượng": "Resource",
+  "Làm mới": "Refresh",
+
+  // ───── Maintenance tab (Master Data) ─────
+  "Bảo dưỡng xe": "Vehicle Maintenance",
+  "Lịch bảo dưỡng phương tiện": "Vehicle maintenance schedule",
+  "Lịch sắp tới (7 ngày)": "Upcoming (7 days)",
+  "Quá hạn": "Overdue",
+  "Cảnh báo Km": "Mileage warnings",
+  "Tạo lịch": "Create schedule",
+  "Tạo lịch bảo dưỡng": "Create maintenance schedule",
+  "Sửa lịch bảo dưỡng": "Edit maintenance schedule",
+  "Tài xế phụ trách": "Assigned driver",
+  "Chưa phân công": "Unassigned",
+  "Chưa nhận": "Not acknowledged",
+  "Người sẽ đưa xe đi bảo dưỡng (có thể để trống nếu chưa phân công)":
+    "Person who will take the vehicle for maintenance (can leave empty if unassigned)",
+  "Chọn xe": "Select vehicle",
+  "Chọn tài xế đưa xe đi bảo dưỡng": "Select driver to take vehicle for maintenance",
+  "Loại bảo dưỡng": "Maintenance type",
+  "Tiêu đề": "Title",
+  "Mô tả": "Description",
+  "Ngày lên lịch": "Scheduled date",
+  "Ngày hoàn tất": "Completed date",
+  "Km hiện tại": "Current km",
+  "Km kế tiếp": "Next service km",
+  "Chi phí (đ)": "Cost (VND)",
+  "Chi phí": "Cost",
+  "Nhà cung cấp": "Vendor",
+  "Trạng thái": "Status",
+  "Ghi chú": "Notes",
+  "🛢️ Thay dầu nhớt": "🛢️ Oil change",
+  "🛞 Đảo lốp": "🛞 Tire rotation",
+  "🔧 Kiểm tra phanh": "🔧 Brake check",
+  "🔍 Bảo dưỡng tổng quát": "🔍 General service",
+  "📄 Gia hạn bảo hiểm": "📄 Insurance renewal",
+  "🚗 Gia hạn đăng kiểm": "🚗 Vehicle inspection renewal",
+  "⚙️ Sửa chữa đột xuất": "⚙️ Emergency repair",
+  "📌 Khác": "📌 Other",
+  "Chờ tài xế nhận": "Waiting driver",
+  "TX đã nhận việc": "Driver acknowledged",
+  "Đang thực hiện": "In progress",
+  "Chờ duyệt": "Awaiting review",
+  "Hoàn tất": "Completed",
+  "Đã huỷ": "Cancelled",
+  "Xem ảnh": "View photos",
+  "Duyệt": "Approve",
+  "Duyệt hoàn thành": "Approve completion",
+  "Duyệt hoàn thành?": "Approve completion?",
+  "Sau khi duyệt, lịch bảo dưỡng được khoá.": "After approval, the schedule will be locked.",
+  "Sửa": "Edit",
+  "Xoá": "Delete",
+  "Xoá bản ghi?": "Delete record?",
+  "Ảnh tài xế upload": "Photos uploaded by driver",
+  "Ghi chú từ tài xế": "Driver's note",
+  "Không có ảnh": "No photos",
+  "Đóng": "Close",
+
+  // ───── Payroll tab (Reports) ─────
+  "💰 Bảng lương tài xế": "💰 Driver Payroll",
+  "📊 Báo cáo vận tải": "📊 Transport Reports",
+  "Bảng lương + Hoa hồng tài xế": "Driver Payroll + Commission",
+  "Tổng quỹ lương tháng": "Monthly payroll total",
+  "Số tài xế": "Driver count",
+  "Tổng thưởng": "Total bonuses",
+  "Tổng COD thu hộ": "Total COD collected",
+  "Cấu hình lương": "Payroll config",
+  "Cấu hình lương tài xế": "Driver payroll configuration",
+  "Tuỳ chỉnh công thức lương (lương cứng, thưởng, % COD...)":
+    "Customize the payroll formula (base salary, bonuses, COD %)...",
+  "Xuất Excel": "Export Excel",
+  "Không có dữ liệu lương cho tháng này": "No payroll data for this month",
+  "Mã TX": "Driver code",
+  "Tên": "Name",
+  "SĐT": "Phone",
+  "Chuyến (HT/Tổng)": "Trips (Done/Total)",
+  "Km": "Km",
+  "COD thu": "COD collected",
+  "Lương cứng": "Base salary",
+  "Thưởng km": "Km bonus",
+  "Thưởng chuyến": "Trip bonus",
+  "% COD": "% COD",
+  "Thực lĩnh": "Net pay",
+  "TỔNG CỘNG": "TOTAL",
+  "Lương cứng / tháng (đ)": "Base salary / month (VND)",
+  "Lương cố định trả mỗi tháng cho tài xế bất kể số chuyến":
+    "Fixed monthly salary regardless of trip count",
+  "Ngưỡng km / tháng": "Km threshold / month",
+  "Chạy vượt ngưỡng này mới được tính thưởng km": "Bonus only applies above this km threshold",
+  "Thưởng / km vượt (đ)": "Bonus / km over (VND)",
+  "Thưởng / chuyến hoàn thành (đ)": "Bonus / completed trip (VND)",
+  "Hoa hồng COD thu hộ (%)": "COD commission (%)",
+  "Vd: 0.005 = 0.5%. Tài xế nhận % này trên tổng COD họ thu hộ":
+    "E.g. 0.005 = 0.5%. Driver receives this % of total COD collected",
+  "Lưu": "Save",
+  "Huỷ": "Cancel",
+  "Đã cập nhật cấu hình lương": "Payroll config updated",
+
+  // ───── Orders tracking link ─────
+  "Sao chép link tracking cho khách": "Copy customer tracking link",
+  "Link tracking đã sao chép": "Tracking link copied",
+  "Gửi link này cho khách hàng để họ tự theo dõi đơn:":
+    "Send this link to the customer so they can track their order:",
+  "Khách KHÔNG cần đăng nhập. Có thể mở trên điện thoại để xem vị trí xe real-time + ETA + ảnh ePOD.":
+    "Customer does NOT need to log in. Can be opened on mobile to view real-time vehicle position + ETA + ePOD photos.",
+  "🔗 Mở thử trong tab mới": "🔗 Try opening in new tab",
+
+  // ───── Notifications ─────
+  "Có tin nhắn mới": "New message",
+
+  // ───── Planning page ─────
+  "Đã chốt lộ trình": "Route finalized",
+  "Đã tạo ${planCode}": "Created ${planCode}",
+  "Đã tạo lịch bảo dưỡng": "Maintenance scheduled",
+  "Đã cập nhật": "Updated",
+
+  // ───── Admin Audit Logs filter dropdown ─────
+  "Tổng ": "Total ",
+  " bản ghi": " records"
 };
 
 function translateStaticText(text) {
@@ -630,7 +767,17 @@ function translateStaticText(text) {
     [/^(\d+)\s+xe$/, (_, count) => `${count} vehicles`],
     [/^(\d+)\s+đơn hàng$/, (_, count) => `${count} orders`],
     [/^(\d+)\s+nhóm SP$/, (_, count) => `${count} product groups`],
-    [/^(\d+)\s+dịch vụ 3PL\.?$/, (_, count) => `${count} 3PL services`]
+    [/^(\d+)\s+dịch vụ 3PL\.?$/, (_, count) => `${count} 3PL services`],
+
+    // ─── Audit / Maintenance / Payroll dynamic strings ───
+    [/^Tổng\s+(\d+)\s+bản ghi$/, (_, count) => `Total ${count} records`],
+    [/^Có\s+(\d+)\s+lịch bảo dưỡng QUÁ HẠN$/, (_, count) => `${count} OVERDUE maintenance schedules`],
+    [/^(\d+)\s+xe sắp\/đã vượt km bảo dưỡng$/, (_, count) => `${count} vehicles approaching/past maintenance mileage`],
+    [/^TX xong\s+(.+)$/, (_, dt) => `Driver done ${dt}`],
+    [/^Đã nhận\s+(.+)$/, (_, dt) => `Acknowledged ${dt}`],
+    [/^Xem ảnh \((\d+)\)$/, (_, count) => `View photos (${count})`],
+    [/^Hoàn thành \((\d+)\s+ảnh\)$/, (_, count) => `Complete (${count} photos)`],
+    [/^Đã phân\s+(\d+)\/(\d+)\s+tuyến chưa có tài xế$/, (_, a, b) => `Assigned ${a}/${b} routes without driver`]
   ];
 
   for (const [pattern, replacer] of replacements) {

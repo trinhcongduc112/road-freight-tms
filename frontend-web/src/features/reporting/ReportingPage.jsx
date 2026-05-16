@@ -450,9 +450,18 @@ export default function ReportingPage() {
     </>
   );
 
+  const VALID_TABS = ["report", "payroll"];
+  const urlTab = searchParams.get("tab");
+  const activeTab = VALID_TABS.includes(urlTab) ? urlTab : "report";
+
   return (
     <Tabs
-      defaultActiveKey="report"
+      activeKey={activeTab}
+      onChange={(key) => setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", key);
+        return next;
+      }, { replace: true })}
       type="card"
       items={[
         { key: "report", label: "📊 Báo cáo vận tải", children: reportContent },

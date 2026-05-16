@@ -42,23 +42,44 @@ TOOLS SẴN CÓ:
    - approvalStatus: "PENDING" | "APPROVED" | "REJECTED"
    - dateFrom/dateTo: YYYY-MM-DD. Hôm nay = cả 2 cùng = ngày hôm nay. Hôm qua/ngày mai tương tự.
 4. openMasterData(tab) — mở Master Data, chuyển sẵn tab cần xem.
-   - tab: "customers" | "customer-groups" | "product-categories" | "products" | "vehicles" | "services"
-   - VD: "tìm khách hàng" → tab=customers; "xem xe" → tab=vehicles; "danh mục sản phẩm" → tab=products.
-5. openUsers() — mở Admin > Người dùng. Dùng khi user hỏi về **tài xế** hoặc **người dùng** (vd "thông tin tài xế Lê Văn Nam", "danh sách user").
+   - tab: "customers" | "customer-groups" | "product-categories" | "products" | "vehicles" | "services" | "maintenance"
+   - VD: "tìm khách hàng" → tab=customers; "xem xe" → tab=vehicles; "danh mục sản phẩm" → tab=products; "lịch bảo dưỡng" → tab=maintenance.
+5. openUsers() — mở Admin > Người dùng. Dùng khi user hỏi về **tài xế** hoặc **người dùng** (vd "thông tin tài xế Lê Văn Nam", "danh sách user", "danh sách tài xế").
 6. openMonitoring(date?) — mở Giám sát hành trình. date dạng YYYY-MM-DD; bỏ qua nếu user không nói rõ.
 7. openPlanning(date?) — chỉ MỞ trang Lập kế hoạch (xem). date YYYY-MM-DD; bỏ qua nếu user không nói rõ.
 8. createRoutePlan(date) — TẠO MỚI kế hoạch vận chuyển cho ngày chỉ định, hệ thống sẽ tự chạy tối ưu tuyến luôn. Dùng khi user nói "lập kế hoạch", "tạo kế hoạch", "lập lộ trình", "tối ưu lộ trình"…
+9. openPayroll() — mở trang Báo cáo > tab **Bảng lương tài xế**. Dùng khi user nói "bảng lương", "lương tài xế", "tiền lương", "thanh toán tài xế", "payroll", "công tài xế tháng này", "xem lương".
+10. openMaintenance() — mở Master Data > tab **Bảo dưỡng xe**. Dùng khi user nói "bảo dưỡng", "lịch bảo dưỡng", "sửa xe", "maintenance", "bảo trì xe", "kiểm tra định kỳ".
+11. openAuditLogs() — mở Quản trị > tab **Nhật ký hệ thống**. Dùng khi user nói "nhật ký", "audit log", "lịch sử thao tác", "ai làm gì", "log hệ thống", "lịch sử chỉnh sửa".
 
 DATA QUERY TOOLS (đọc DB thật, dùng khi user HỎI thông tin — không phải ra lệnh):
-9. searchTrips(date?, driverName?, vehicleCode?, status?) — Tìm chuyến chạy. Dùng cho câu "ngày X tài xế Y đi chuyến nào", "chuyến hôm nay của xe Z", "chuyến đang chạy".
-10. searchOrders(date?, approvalStatus?, customerKeyword?) — Tìm đơn hàng. Dùng cho câu "đơn nào chưa duyệt", "đơn khách Vinamilk hôm nay".
+12. searchTrips(date?, driverName?, vehicleCode?, status?) — Tìm chuyến chạy. Dùng cho câu "ngày X tài xế Y đi chuyến nào", "chuyến hôm nay của xe Z", "chuyến đang chạy".
+13. searchOrders(date?, approvalStatus?, customerKeyword?) — Tìm đơn hàng. Dùng cho câu "đơn nào chưa duyệt", "đơn khách Vinamilk hôm nay".
 - Sau khi nhận data từ tool: TRÌNH BÀY lại bằng tiếng Việt dạng bullet hoặc bảng markdown ngắn. Nêu rõ tổng số + chi tiết từng item. Đừng chỉ trả "đã làm xong" — phải hiển thị data cho user thấy.
 - Nếu kết quả rỗng, nói rõ "Không tìm thấy ..." — không bịa.
+
+VÍ DỤ INTENT → TOOL (học theo các pattern này):
+- "tôi muốn xem bảng lương tài xế" → openPayroll()
+- "lương tài xế tháng này" → openPayroll()
+- "xem bảng lương" / "payroll" / "thanh toán tài xế" → openPayroll()
+- "xem lịch bảo dưỡng xe" → openMaintenance()
+- "có xe nào cần bảo dưỡng không" → openMaintenance()
+- "lên lịch bảo dưỡng xe" → openMaintenance()
+- "xem nhật ký hệ thống" / "audit log" → openAuditLogs()
+- "ai vừa sửa đơn hàng" / "lịch sử thao tác" → openAuditLogs()
+- "danh sách tài xế" / "tìm tài xế Nam" → openUsers()
+- "danh sách xe" / "xem xe tải" → openMasterData(tab="vehicles")
+- "tải báo cáo tháng" → downloadReport(period="month")
+- "đơn chờ duyệt hôm nay" → openOrders(approvalStatus="PENDING", dateFrom=today, dateTo=today)
+- "lập kế hoạch ngày mai" → createRoutePlan(date=tomorrow)
+- "xem kế hoạch ngày 14" → openPlanning(date="...-14")
+- "giám sát hành trình" / "xe đang ở đâu" → openMonitoring()
 
 NGUYÊN TẮC:
 - Phân tích lệnh user, chọn đúng 1 hoặc nhiều tool và gọi ngay.
 - **BẮT BUỘC trích xuất ngày** khi user nhắc ("ngày 14", "14/5", "hôm qua", "ngày mai") — luôn truyền YYYY-MM-DD vào tool, KHÔNG bỏ qua. VD "xem lộ trình ngày 14" → openPlanning(date="2026-05-14") (suy ra tháng/năm từ ngữ cảnh hôm nay).
 - **Phân biệt "xem" vs "tạo"**: "xem lộ trình ngày X" → openPlanning(date) (chỉ mở). "lập/tạo kế hoạch ngày X" → createRoutePlan(date) (mở + tạo + tối ưu).
+- **Phân biệt "tài xế" trong các ngữ cảnh**: "xem danh sách tài xế / thông tin tài xế" → openUsers(); "lương tài xế / bảng lương" → openPayroll(); "tài xế nào chạy chuyến X" → searchTrips(driverName=...).
 - Nếu lệnh mơ hồ ("tải báo cáo" không nói kỳ): hỏi lại 1 câu ngắn để xác nhận.
 - Nếu lệnh nằm ngoài phạm vi tool, trả lời ngắn: "Mình chưa biết làm việc này, bạn thử dùng menu trực tiếp nhé."
 - Sau khi gọi tool, trả lời ngắn 1 câu xác nhận đã làm gì (vd: "Đã chuyển sang trang Báo cáo và tải xuống báo cáo tháng này.").
@@ -122,14 +143,14 @@ const AGENT_TOOL = {
     },
     {
       name: "openMasterData",
-      description: "Mở Master Data và chuyển tới tab cụ thể (khách hàng, sản phẩm, phương tiện…).",
+      description: "Mở Master Data và chuyển tới tab cụ thể (khách hàng, sản phẩm, phương tiện, bảo dưỡng…).",
       parameters: {
         type: SchemaType.OBJECT,
         properties: {
           tab: {
             type: SchemaType.STRING,
             format: "enum",
-            enum: ["customers", "customer-groups", "product-categories", "products", "vehicles", "services"],
+            enum: ["customers", "customer-groups", "product-categories", "products", "vehicles", "services", "maintenance"],
             description: "Tab muốn mở"
           }
         },
@@ -173,6 +194,24 @@ const AGENT_TOOL = {
         },
         required: ["date"]
       }
+    },
+    {
+      name: "openPayroll",
+      description:
+        "Mở Báo cáo > tab Bảng lương tài xế. Dùng khi user nói 'bảng lương', 'lương tài xế', 'tiền lương', 'thanh toán tài xế', 'payroll', 'xem lương', 'công tài xế'.",
+      parameters: { type: SchemaType.OBJECT, properties: {} }
+    },
+    {
+      name: "openMaintenance",
+      description:
+        "Mở Master Data > tab Bảo dưỡng xe. Dùng khi user nói 'bảo dưỡng', 'lịch bảo dưỡng', 'sửa xe', 'maintenance', 'bảo trì xe', 'kiểm tra xe định kỳ'.",
+      parameters: { type: SchemaType.OBJECT, properties: {} }
+    },
+    {
+      name: "openAuditLogs",
+      description:
+        "Mở Quản trị > tab Nhật ký hệ thống. Dùng khi user nói 'nhật ký', 'audit log', 'lịch sử thao tác', 'ai làm gì', 'log hệ thống', 'lịch sử chỉnh sửa'.",
+      parameters: { type: SchemaType.OBJECT, properties: {} }
     },
     // === DATA QUERY TOOLS — backend execute, trả kết quả về Gemini để trả lời inline ===
     {
@@ -337,7 +376,8 @@ function functionCallToAction(call) {
         "product-categories": "Nhóm SP",
         "products": "Sản phẩm",
         "vehicles": "Phương tiện",
-        "services": "Dịch vụ 3PL"
+        "services": "Dịch vụ 3PL",
+        "maintenance": "Bảo dưỡng xe"
       }[tab] || "Master Data";
       return {
         type: "navigate",
@@ -345,6 +385,12 @@ function functionCallToAction(call) {
         label: `Master Data · ${tabLabel}`
       };
     }
+    case "openPayroll":
+      return { type: "navigate", path: "/reports?tab=payroll", label: "Báo cáo · Bảng lương tài xế" };
+    case "openMaintenance":
+      return { type: "navigate", path: "/master-data?tab=maintenance", label: "Master Data · Bảo dưỡng xe" };
+    case "openAuditLogs":
+      return { type: "navigate", path: "/admin?tab=audit-logs", label: "Quản trị · Nhật ký hệ thống" };
     case "openUsers":
       return { type: "navigate", path: "/admin?tab=users", label: "Người dùng" };
     case "openMonitoring": {
@@ -438,6 +484,30 @@ function parseCommandFallback(rawCommand) {
   if (!cmd) return null;
   const today = new Date().toISOString().slice(0, 10);
   const extractedDate = extractDate(cmd) ?? today;
+
+  // 0a) Bảng lương tài xế — match TRƯỚC "bao cao" và "tai xe" vì có chứa "luong"
+  if (/luong|payroll|tien\s*cong|thanh\s*toan\s*tai\s*xe|cong\s*tai\s*xe/.test(cmd)) {
+    return {
+      message: "Đã mở Bảng lương tài xế.",
+      actions: [{ type: "navigate", path: "/reports?tab=payroll", label: "Bảng lương tài xế" }]
+    };
+  }
+
+  // 0b) Bảo dưỡng xe — match TRƯỚC keyword "xe"
+  if (/bao\s*duong|bao\s*tri|sua\s*xe|maintenance|lich\s*bao|kiem\s*tra\s*xe/.test(cmd)) {
+    return {
+      message: "Đã mở Bảo dưỡng xe.",
+      actions: [{ type: "navigate", path: "/master-data?tab=maintenance", label: "Bảo dưỡng xe" }]
+    };
+  }
+
+  // 0c) Nhật ký hệ thống / Audit log
+  if (/nhat\s*ky|audit|lich\s*su\s*(thao\s*tac|chinh\s*sua|sua)|log\s*he\s*thong|ai\s*lam\s*gi|ai\s*vua\s*(sua|tao|xoa)/.test(cmd)) {
+    return {
+      message: "Đã mở Nhật ký hệ thống.",
+      actions: [{ type: "navigate", path: "/admin?tab=audit-logs", label: "Nhật ký hệ thống" }]
+    };
+  }
 
   // 1) Tải/Xuất báo cáo
   if (/(tai|xuat|download|export).*bao\s*cao|bao\s*cao.*(tai|xuat|download|export)/.test(cmd)) {
