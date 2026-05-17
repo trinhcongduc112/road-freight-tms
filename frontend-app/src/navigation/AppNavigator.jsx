@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuthStore } from "../store/authStore";
 import { authApi } from "../api/driver";
 import { gpsTracker } from "../services/gpsTracker";
+import { loadBaseUrl } from "../api/baseUrlStore";
 
 import LoginScreen       from "../screens/LoginScreen";
 import RouteListScreen   from "../screens/RouteListScreen";
@@ -23,8 +24,10 @@ const Stack = createNativeStackNavigator();
 export default function AppNavigator() {
   const { token, user, hydrated, hydrate, setUser } = useAuthStore();
 
-  // Khôi phục token từ SecureStore khi khởi động
-  useEffect(() => { hydrate(); }, []);
+  // Khôi phục token + URL backend đã cài từ SecureStore khi khởi động
+  useEffect(() => {
+    loadBaseUrl().finally(() => hydrate());
+  }, []);
 
   // Sau khi có token, fetch thông tin user
   useEffect(() => {

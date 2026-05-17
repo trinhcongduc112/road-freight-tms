@@ -4,12 +4,15 @@ NVM  := export NVM_DIR="$$HOME/.nvm" && . "$$NVM_DIR/nvm.sh" && nvm use 20 --sil
 LOG_BE     := /tmp/tms-backend.log
 LOG_FE     := /tmp/tms-frontend.log
 LOG_MOBILE := /tmp/tms-mobile.log
+LOG_DOCS   := /tmp/tms-docs.log
 ANDROID_AVD := Pixel_6
 
 LOG_SERVICES := backend frontend-web optimizer mongo
 
 .PHONY: help start stop mongo backend web dev seed logs \
-        install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop
+        install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop \
+        docs docs-install docs-build docs-deploy docs-stop api-docs api-docs-sync \
+        build-mobile-android build-mobile-ios
 
 help:
 	@echo ""
@@ -24,31 +27,76 @@ help:
 	@echo "  make mobile-android   — Expo trực tiếp trên Android emulator"
 	@echo "  make mobile-ios       — Expo trực tiếp trên iOS simulator (macOS)"
 	@echo "  make mobile-stop      — dừng Expo dev server"
+	@echo "  ── Build Mobile (APK/IPA file) ─────────────────────────────────"
+	@echo "  make build-mobile-android     — build APK local, xuất file trong frontend-app/"
+	@echo "  make build-mobile-ios         — build IPA local (chỉ chạy trên macOS + Xcode)"
 	@echo "  ── DB / Seed ───────────────────────────────────────────────────"
 	@echo "  make seed             — reset DB và seed dữ liệu mẫu"
 	@echo "  make db-ui            — Mongo Express tại http://localhost:8082"
 	@echo "  make db               — mở mongosh"
+	@echo "  ── Tài liệu (Docs) ─────────────────────────────────────────────"
+	@echo "  make docs             — chạy User Docs tại http://localhost:3000 (Docusaurus)"
+	@echo "  make docs-install     — cài deps cho docs-site (lần đầu)"
+	@echo "  make docs-build       — build production bundle vào docs-site/build"
+	@echo "  make docs-deploy      — deploy lên GitHub Pages thủ công"
+	@echo "  make docs-stop        — dừng Docusaurus dev server"
+	@echo "  make api-docs         — in URL Swagger UI (cần backend đang chạy)"
 	@echo "  ── Cài đặt ─────────────────────────────────────────────────────"
-	@echo "  make install          — cài npm dependencies (backend + web + mobile)"
+	@echo "  make install          — cài npm dependencies (backend + web + mobile + docs)"
 	@echo "  make clean            — xóa node_modules"
 	@echo ""
 
-start:
-	@docker start road-freight-mongo
+start: mongo
 	@$(NVM) && cd backend && npm run dev > $(LOG_BE) 2>&1 & \
 	$(NVM) && cd frontend-web && node_modules/.bin/vite --host 0.0.0.0 > $(LOG_FE) 2>&1 & \
-	sleep 3 && \
+	$(NVM) && cd docs-site && npm start -- --port 3000 > $(LOG_DOCS) 2>&1 & \
+	sleep 5 && \
 	echo "" && \
 	echo "  ✔ MongoDB   — Docker container" && \
 	echo "  ✔ Backend   — http://localhost:5000/api" && \
 	echo "  ✔ Frontend  — http://localhost:5173" && \
+	echo "  ✔ User Docs — http://localhost:3000" && \
+	echo "  ✔ API Docs  — http://localhost:5000/api-docs" && \
 	echo "" && \
 	echo "  Xem log: make logs   |   Dừng: make stop" && \
 	echo "" && \
-	tail -f $(LOG_BE) $(LOG_FE)
+	tail -f $(LOG_BE) $(LOG_FE) $(LOG_DOCS)
 
 stop:
-	@lsof -ti:5000,5173 | xargs -r kill && echo "Đã dừng backend + frontend" || echo "Không có process nào đang chạy"
+	@lsof -ti:5000,5173,3000 | xargs -r kill && echo "Đã dừng Backend + Frontend + Docs" || echo "Không có process nào đang chạy"
+
+docs:
+	@echo "Đang khởi động User Docs tại http://localhost:3000 ..."
+	$(NVM) && cd docs-site && npm start
+
+docs-install:
+	$(NVM) && cd docs-site && npm install
+
+docs-build:
+	$(NVM) && cd docs-site && npm run build
+
+docs-deploy:
+	@echo "Deploy User Docs lên GitHub Pages (branch gh-pages) ..."
+	@echo "Yêu cầu: đã cấu hình GitHub Pages Source = gh-pages branch"
+	$(NVM) && cd docs-site && GIT_USER=trinhcongduc112 npm run deploy
+
+docs-stop:
+	@lsof -ti:3000 | xargs -r kill 2>/dev/null && echo "Đã dừng User Docs" || echo "User Docs chưa chạy"
+
+api-docs:
+	@echo ""
+	@echo "  Swagger UI:   http://localhost:5000/api-docs"
+	@echo "  OpenAPI JSON: http://localhost:5000/api-docs.json"
+	@echo ""
+	@echo "  Trong User Docs site: http://localhost:3000/api"
+	@echo ""
+	@echo "  (Cần backend đang chạy — make backend hoặc make start)"
+	@echo ""
+
+api-docs-sync:
+	@echo "Tải snapshot OpenAPI từ backend vào docs-site/static/openapi.json ..."
+	@curl -sS http://localhost:5000/api-docs.json -o docs-site/static/openapi.json
+	@echo "OK — $$(wc -c < docs-site/static/openapi.json) bytes"
 
 mongo:
 	docker start road-freight-mongo
@@ -73,8 +121,9 @@ logs:
 	@files=""; \
 	[ -f "$(LOG_BE)" ] && files="$$files $(LOG_BE)"; \
 	[ -f "$(LOG_FE)" ] && files="$$files $(LOG_FE)"; \
+	[ -f "$(LOG_DOCS)" ] && files="$$files $(LOG_DOCS)"; \
 	if [ -n "$$files" ]; then \
-		echo "Đang xem log backend + web:$$files"; \
+		echo "Đang xem log:$$files"; \
 		tail -n 200 -f $$files; \
 	else \
 		echo "Chưa có log. Chạy 'make start' hoặc 'make dev' trước."; \
@@ -87,6 +136,7 @@ install:
 	$(NVM) && cd backend && npm install
 	$(NVM) && cd frontend-web && npm install
 	$(NVM) && cd frontend-app && npm install
+	$(NVM) && cd docs-site && npm install
 
 # ── Mobile App ──────────────────────────────────────────────────────────────
 
@@ -136,6 +186,45 @@ mobile-ios:
 mobile-stop:
 	@lsof -ti:8081,19000,19001,19002 | xargs -r kill 2>/dev/null && echo "Đã dừng Expo" || echo "Expo chưa chạy"
 
+# Chụp màn hình emulator (mở sẵn màn cần chụp rồi gọi: make screenshot-mobile NAME=app-login)
+screenshot-mobile:
+	@if [ -z "$(NAME)" ]; then \
+		echo "Cách dùng: make screenshot-mobile NAME=app-login"; \
+		echo "Mở emulator + Expo trước (make mobile-android), navigate tới màn rồi chạy."; \
+		exit 1; \
+	fi
+	@./scripts/screenshots/mobile.sh $(NAME)
+
+# ── Build Mobile App (LOCAL — không cần Expo cloud, không cần deploy gì) ──
+# APK/IPA xuất ra file ngay trong frontend-app/.
+# APK standalone — không cần WiFi chung. Lần đầu mở app, user bấm
+# "⚙️ Cấu hình kết nối" để nhập URL backend (giảng viên tự nhập).
+#
+# Yêu cầu Android: JDK 17, Android SDK đã cài
+# Yêu cầu iOS:     macOS + Xcode + cocoapods (Linux không build được iOS)
+
+build-mobile-android:
+	@echo ""
+	@echo "  📦 Build APK local → frontend-app/road-freight-driver.apk"
+	@echo "  ⚙ APK standalone — giảng viên cài xong nhập URL backend trong app"
+	@echo "  ⏱  Lần đầu ~5-15 phút (download Gradle), lần sau nhanh hơn"
+	@echo ""
+	$(NVM) && cd frontend-app && npx eas-cli@latest build --platform android --profile preview --local --non-interactive --output ./road-freight-driver.apk
+
+build-mobile-ios:
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo ""; \
+		echo "  ❌ Build iOS chỉ chạy được trên macOS có Xcode."; \
+		echo "  Hệ thống hiện tại: $$(uname). Bỏ qua iOS hoặc dùng máy Mac."; \
+		echo ""; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "  📦 Build IPA local → frontend-app/road-freight-driver.ipa"
+	@echo "  ⚙ IPA standalone — user nhập URL backend khi mở lần đầu"
+	@echo ""
+	$(NVM) && cd frontend-app && npx eas-cli@latest build --platform ios --profile preview --local --non-interactive --output ./road-freight-driver.ipa
+
 db-ui:
 	@echo "Khởi động Mongo Express tại http://localhost:8082 ..."
 	@MONGO_IP=$$(docker inspect road-freight-mongo --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}') && \
@@ -151,4 +240,5 @@ db:
 	docker exec -it road-freight-mongo mongosh road_freight
 
 clean:
-	rm -rf backend/node_modules frontend-web/node_modules frontend-app/node_modules
+	rm -rf backend/node_modules frontend-web/node_modules frontend-app/node_modules \
+	       docs-site/node_modules docs-site/build docs-site/.docusaurus
