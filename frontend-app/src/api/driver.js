@@ -17,6 +17,10 @@ export const driverApi = {
     apiClient.post(`/driver/trips/${id}/tasks/${stopIndex}/${payload.action ?? "complete"}`, payload),
   reportIncident: (id, payload) =>
     apiClient.post(`/driver/trips/${id}/incidents`, payload),
+  /* Giải trình lệch giờ > 20 phút sau khi hoàn thành 1 điểm.
+     payload: { expectedDelayMinutes, reason, note?, faultParty? } */
+  explainDeviation: (id, stopIndex, payload) =>
+    apiClient.post(`/driver/trips/${id}/tasks/${stopIndex}/explain-deviation`, payload),
   getMessages: () =>
     apiClient.get("/driver/messages"),
   getTripMessages: (id) =>

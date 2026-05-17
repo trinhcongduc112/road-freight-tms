@@ -48,8 +48,6 @@ Nếu thông tin chính xác, hệ thống sẽ chuyển sang **Trang chủ** t�
 
 Nếu quên mật khẩu, bấm liên kết **"Quên mật khẩu?"** dưới form đăng nhập.
 
-![Liên kết quên mật khẩu](/img/screenshots/forgot-password-link.png)
-
 ### Quy trình khôi phục
 
 1. Nhập email tài khoản
@@ -57,19 +55,13 @@ Nếu quên mật khẩu, bấm liên kết **"Quên mật khẩu?"** dưới fo
 3. Bấm liên kết trong email để đặt mật khẩu mới
 4. Liên kết có hiệu lực **30 phút**
 
-![Email khôi phục mật khẩu](/img/screenshots/reset-password-email.png)
-
 ## Đổi ngôn ngữ
 
 Bạn có thể chuyển giữa **Tiếng Việt** và **English** bằng nút ở góc dưới bên trái sidebar:
 
-![Nút đổi ngôn ngữ](/img/screenshots/language-toggle.png)
-
 ## Đăng xuất
 
 Bấm vào avatar góc trên bên phải → chọn **"Đăng xuất"** để kết thúc phiên làm việc.
-
-![Menu đăng xuất](/img/screenshots/logout-menu.png)
 
 :::tip Bảo mật
 Luôn đăng xuất khi sử dụng máy tính chung. Hệ thống sẽ tự động đăng xuất sau **8 giờ không hoạt động**.

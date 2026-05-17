@@ -27,8 +27,27 @@ const ACTION_COLORS = {
   LOGIN: "purple",
   LOGOUT: "default",
   EXPORT: "orange",
-  IMPORT: "cyan"
+  IMPORT: "cyan",
+  CREATE_PLAN: "green",
+  DELETE_PLAN: "red",
+  ADD_ROUTE: "geekblue",
+  REMOVE_ROUTE: "volcano",
+  ADD_ORDER: "cyan",
+  REMOVE_ORDER: "magenta",
+  FINALIZE: "gold",
+  LOCK: "orange",
+  UNLOCK: "lime",
+  OPTIMIZE: "blue",
+  DISPATCH: "purple",
+  ASSIGN: "processing",
+  MOVE_ORDER: "blue"
 };
+
+const ACTION_OPTIONS = [
+  "CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT", "EXPORT", "IMPORT",
+  "CREATE_PLAN", "DELETE_PLAN", "ADD_ROUTE", "REMOVE_ROUTE", "ADD_ORDER", "REMOVE_ORDER",
+  "OPTIMIZE", "DISPATCH", "ASSIGN", "MOVE_ORDER", "LOCK", "UNLOCK", "FINALIZE"
+];
 
 export default function AuditLogsTab() {
   const [action, setAction] = useState();
@@ -172,7 +191,7 @@ export default function AuditLogsTab() {
               style={{ width: 140 }}
               value={action}
               onChange={setAction}
-              options={["CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT", "EXPORT", "IMPORT"].map((v) => ({ value: v, label: v }))}
+              options={ACTION_OPTIONS.map((v) => ({ value: v, label: v }))}
             />
             <Select
               placeholder="Đối tượng"

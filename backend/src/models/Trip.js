@@ -30,11 +30,18 @@ const tripTaskSchema = new mongoose.Schema(
     PlannedArrivalTime: { type: String, default: "" },
     PlannedDepartureTime: { type: String, default: "" },
     PlannedServiceTime: { type: Number, default: 0, min: 0 },
+    /* OriginalPlannedArrivalTime: snapshot khung giờ kế hoạch ban đầu — KHÔNG đổi khi cascade.
+       PlannedArrivalTime có thể bị dịch (shift) bởi cascadeEta khi điểm trước lệch giờ.
+       Báo cáo cuối kỳ so sánh ActualArrivalTime ↔ OriginalPlannedArrivalTime. */
+    OriginalPlannedArrivalTime: { type: String, default: "" },
     OrderIDs: [{ type: mongoose.Schema.Types.ObjectId, ref: "SalesOrder" }],
     OrderCodes: [{ type: String, trim: true, uppercase: true }],
     CODAmount: { type: Number, default: 0, min: 0 },
     Status: { type: String, enum: Object.values(TripTaskStatus), default: TripTaskStatus.PENDING, index: true },
     ArrivedAt: { type: Date, default: null },
+    /* Mốc giờ thực tế hoàn thành điểm — dùng để tính độ lệch & feed back vào traffic model */
+    ActualArrivalTime: { type: String, default: "" },     // HH:mm theo giờ địa phương
+    DeviationMinutes:  { type: Number, default: 0 },      // actual - planned, có thể âm
     CompletedAt: { type: Date, default: null },
     FailedAt: { type: Date, default: null },
     FailureReason: { type: String, trim: true, default: "" },
@@ -105,6 +112,19 @@ const tripSchema = new mongoose.Schema(
     TotalCODCollected: { type: Number, default: 0, min: 0 },
     EstimatedCost: { type: Number, default: 0, min: 0 },
     Tasks: { type: [tripTaskSchema], default: [] },
+    /* Lịch sử mọi lần ETA bị dịch chuyển (rolling shift, không cộng dồn).
+       Mỗi entry = 1 lần cascade từ điểm thứ FromStopIndex trở đi, dịch ShiftMinutes phút.
+       Dùng cho audit + báo cáo "kế hoạch lệch như nào" + huấn luyện lại traffic factor. */
+    EtaHistory: {
+      type: [{
+        At:           { type: Date, default: Date.now },
+        FromStopIndex:{ type: Number, required: true },
+        ShiftMinutes: { type: Number, required: true },  // âm = sớm hơn, dương = trễ hơn
+        Reason:       { type: String, default: "" },     // "AUTO_SMALL", "TRAFFIC", "BREAKDOWN", ...
+        IncidentID:   { type: mongoose.Schema.Types.ObjectId, ref: "TripIncident", default: null }
+      }],
+      default: []
+    },
     Notes: { type: String, trim: true, default: "" }
   },
   { timestamps: true }

@@ -1496,8 +1496,16 @@ export async function optimizeRoutePlan(req, res) {
     algorithmLabel = r.label;
   } else {
     try {
+      /* Build traffic factor table cho org này (free, không gọi API ngoài).
+         Lấy từ DB TrafficFactor: hour/dow/zone buckets + crowdsource tạm. */
+      const { buildFactorTable } = await import("../services/trafficFactorService.js");
+      const trafficTable = await buildFactorTable(plan.OrganizationID);
+      const departMin = SHIFT_DEPART_MINUTES[plan.Shift] ?? SHIFT_DEPART_MINUTES.FULL_DAY;
+      const dowHint = new Date(plan.PlanDate).getUTCDay();
       const result = await callOptimizer({
-        depot, vehicles: vehicleInput, stops, algorithm, maxSeconds, seed: 42
+        depot, vehicles: vehicleInput, stops, algorithm, maxSeconds, seed: 42,
+        departMinutes: departMin,
+        traffic: { ...trafficTable, dowHint }
       });
       optimized = result.routes;
       optimizerStats = {

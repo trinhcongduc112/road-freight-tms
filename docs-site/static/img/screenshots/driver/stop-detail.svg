@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="840" viewBox="0 0 420 840" role="img" aria-label="Driver stop detail">
+  <rect width="420" height="840" rx="36" fill="#111827"/>
+  <rect x="18" y="18" width="384" height="804" rx="28" fill="#f4f7fb"/>
+  <rect x="18" y="18" width="384" height="112" rx="28" fill="#1677ff"/>
+  <text x="50" y="84" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#fff">Điểm giao #1</text>
+  <rect x="36" y="154" width="348" height="196" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <text x="58" y="195" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a">Demo • Winmart Tây Hồ</text>
+  <text x="58" y="226" font-family="Arial, sans-serif" font-size="16" fill="#64748b">Xuân La, Tây Hồ, Hà Nội</text>
+  <text x="58" y="260" font-family="Arial, sans-serif" font-size="16" fill="#334155">Đơn: DEMO-260513-006</text>
+  <text x="58" y="288" font-family="Arial, sans-serif" font-size="16" fill="#334155">COD: 0 đ • 3 kiện</text>
+  <rect x="58" y="308" width="132" height="42" rx="12" fill="#eaf4ff"/>
+  <text x="80" y="334" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#1677ff">🧭 Chỉ đường</text>
+  <rect x="204" y="308" width="132" height="42" rx="12" fill="#ecfdf5"/>
+  <text x="228" y="334" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#16a34a">☎ Gọi khách</text>
+  <rect x="36" y="374" width="348" height="88" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <text x="58" y="410" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#0f172a">Ghi chú</text>
+  <text x="58" y="438" font-family="Arial, sans-serif" font-size="15" fill="#64748b">Gọi khách trước 15 phút, giao tại cổng sau.</text>
+  <rect x="36" y="486" width="348" height="58" rx="14" fill="#1677ff"/>
+  <text x="124" y="523" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#fff">Tôi đã đến điểm giao</text>
+  <rect x="36" y="562" width="348" height="58" rx="14" fill="#22c55e"/>
+  <text x="103" y="599" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#fff">Xác nhận giao thành công</text>
+  <rect x="36" y="638" width="348" height="58" rx="14" fill="#fff" stroke="#ef4444"/>
+  <text x="128" y="675" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ef4444">Đánh dấu thất bại</text>
+</svg>

@@ -4,66 +4,65 @@ NVM  := export NVM_DIR="$$HOME/.nvm" && . "$$NVM_DIR/nvm.sh" && nvm use 20 --sil
 LOG_BE     := /tmp/tms-backend.log
 LOG_FE     := /tmp/tms-frontend.log
 LOG_MOBILE := /tmp/tms-mobile.log
-LOG_DOCS   := /tmp/tms-docs.log
 ANDROID_AVD := Pixel_6
-
-LOG_SERVICES := backend frontend-web optimizer mongo
 
 .PHONY: help start stop mongo backend web dev seed logs \
         install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop \
-        docs docs-install docs-build docs-deploy docs-stop api-docs api-docs-sync \
+        docs docs-install docs-build docs-local docs-deploy docs-stop api-docs api-docs-sync \
         build-mobile-android build-mobile-ios
 
 help:
 	@echo ""
-	@echo "  ── Server ──────────────────────────────────────────────────────"
-	@echo "  make start            — khởi động tất cả (MongoDB + backend + frontend)"
-	@echo "  make dev              — chạy web nền, không mở log"
+	@echo "  ── Web (Backend + Frontend) ────────────────────────────────────"
+	@echo "  make start            — chạy MongoDB + backend + frontend (kèm tail log)"
+	@echo "  make dev              — chạy nền, không mở log"
 	@echo "  make stop             — dừng backend + frontend"
 	@echo "  make logs             — xem log backend + frontend"
 	@echo "  ── Mobile App (Tài xế) ─────────────────────────────────────────"
-	@echo "  make mobile           — chạy app tài xế bằng Expo QR (--lan)"
-	@echo "  make mobile-localhost — Expo cho VM/emulator standalone (--localhost)"
-	@echo "  make mobile-android   — Expo trực tiếp trên Android emulator"
-	@echo "  make mobile-ios       — Expo trực tiếp trên iOS simulator (macOS)"
+	@echo "  make mobile           — Expo QR (--lan) cho điện thoại thật cùng WiFi"
+	@echo "  make mobile-localhost — Expo cho VM/emulator (--localhost)"
+	@echo "  make mobile-android   — Expo + Android emulator"
+	@echo "  make mobile-ios       — Expo + iOS simulator (macOS)"
 	@echo "  make mobile-stop      — dừng Expo dev server"
-	@echo "  ── Build Mobile (APK/IPA file) ─────────────────────────────────"
-	@echo "  make build-mobile-android     — build APK local, xuất file trong frontend-app/"
-	@echo "  make build-mobile-ios         — build IPA local (chỉ chạy trên macOS + Xcode)"
+	@echo "  ── Build Mobile (APK/IPA file gửi giảng viên) ──────────────────"
+	@echo "  make build-mobile-android — build APK local → frontend-app/road-freight-driver.apk"
+	@echo "  make build-mobile-ios     — build IPA local (macOS + Xcode)"
+	@echo "  ── Tài liệu User Docs (Docusaurus) ─────────────────────────────"
+	@echo "  make docs-local       — build + serve production tại http://localhost:3000  ★ recommended"
+	@echo "  make docs             — dev mode (live-reload, NHƯNG search + EN locale không chạy)"
+	@echo "  make docs-build       — build bundle vào docs-site/build"
+	@echo "  make docs-stop        — dừng docs server"
 	@echo "  ── DB / Seed ───────────────────────────────────────────────────"
 	@echo "  make seed             — reset DB và seed dữ liệu mẫu"
 	@echo "  make db-ui            — Mongo Express tại http://localhost:8082"
 	@echo "  make db               — mở mongosh"
-	@echo "  ── Tài liệu (Docs) ─────────────────────────────────────────────"
-	@echo "  make docs             — chạy User Docs tại http://localhost:3000 (Docusaurus)"
-	@echo "  make docs-install     — cài deps cho docs-site (lần đầu)"
-	@echo "  make docs-build       — build production bundle vào docs-site/build"
-	@echo "  make docs-deploy      — deploy lên GitHub Pages thủ công"
-	@echo "  make docs-stop        — dừng Docusaurus dev server"
-	@echo "  make api-docs         — in URL Swagger UI (cần backend đang chạy)"
 	@echo "  ── Cài đặt ─────────────────────────────────────────────────────"
-	@echo "  make install          — cài npm dependencies (backend + web + mobile + docs)"
+	@echo "  make install          — cài npm deps (backend + web + mobile + docs)"
+	@echo "  make docs-install     — chỉ cài deps cho docs-site"
 	@echo "  make clean            — xóa node_modules"
+	@echo "  ── Khác ────────────────────────────────────────────────────────"
+	@echo "  make api-docs         — in URL Swagger UI (cần backend đang chạy)"
+	@echo "  make api-docs-sync    — đồng bộ openapi.json từ backend (CẢNH BÁO ghi đè)"
+	@echo "  make docs-deploy      — deploy docs lên GitHub Pages (sau khi mở Student Pack)"
 	@echo ""
 
 start: mongo
 	@$(NVM) && cd backend && npm run dev > $(LOG_BE) 2>&1 & \
 	$(NVM) && cd frontend-web && node_modules/.bin/vite --host 0.0.0.0 > $(LOG_FE) 2>&1 & \
-	$(NVM) && cd docs-site && npm start -- --port 3000 > $(LOG_DOCS) 2>&1 & \
 	sleep 5 && \
 	echo "" && \
 	echo "  ✔ MongoDB   — Docker container" && \
 	echo "  ✔ Backend   — http://localhost:5000/api" && \
 	echo "  ✔ Frontend  — http://localhost:5173" && \
-	echo "  ✔ User Docs — http://localhost:3000" && \
 	echo "  ✔ API Docs  — http://localhost:5000/api-docs" && \
 	echo "" && \
-	echo "  Xem log: make logs   |   Dừng: make stop" && \
+	echo "  Docs riêng: make docs-local   (build + serve tại :3000)" && \
+	echo "  Xem log:    make logs         |   Dừng: make stop" && \
 	echo "" && \
-	tail -f $(LOG_BE) $(LOG_FE) $(LOG_DOCS)
+	tail -f $(LOG_BE) $(LOG_FE)
 
 stop:
-	@lsof -ti:5000,5173,3000 | xargs -r kill && echo "Đã dừng Backend + Frontend + Docs" || echo "Không có process nào đang chạy"
+	@lsof -ti:5000,5173 | xargs -r kill && echo "Đã dừng Backend + Frontend" || echo "Không có process nào đang chạy"
 
 docs:
 	@echo "Đang khởi động User Docs tại http://localhost:3000 ..."
@@ -74,6 +73,10 @@ docs-install:
 
 docs-build:
 	$(NVM) && cd docs-site && npm run build
+
+docs-local:
+	@echo "Build production rồi serve tại http://localhost:3000 (search hoạt động đầy đủ)..."
+	$(NVM) && cd docs-site && npm run build && npm run serve
 
 docs-deploy:
 	@echo "Deploy User Docs lên GitHub Pages (branch gh-pages) ..."
@@ -94,7 +97,10 @@ api-docs:
 	@echo ""
 
 api-docs-sync:
-	@echo "Tải snapshot OpenAPI từ backend vào docs-site/static/openapi.json ..."
+	@echo "⚠ Cảnh báo: lệnh này sẽ GHI ĐÈ docs-site/static/openapi.json bằng spec gốc từ backend."
+	@echo "   File hiện tại đang có description song ngữ VI/EN — sẽ bị mất nếu sync."
+	@echo "   Tiếp tục? (Ctrl+C để hủy, Enter để sync)"
+	@read _
 	@curl -sS http://localhost:5000/api-docs.json -o docs-site/static/openapi.json
 	@echo "OK — $$(wc -c < docs-site/static/openapi.json) bytes"
 
@@ -121,7 +127,6 @@ logs:
 	@files=""; \
 	[ -f "$(LOG_BE)" ] && files="$$files $(LOG_BE)"; \
 	[ -f "$(LOG_FE)" ] && files="$$files $(LOG_FE)"; \
-	[ -f "$(LOG_DOCS)" ] && files="$$files $(LOG_DOCS)"; \
 	if [ -n "$$files" ]; then \
 		echo "Đang xem log:$$files"; \
 		tail -n 200 -f $$files; \

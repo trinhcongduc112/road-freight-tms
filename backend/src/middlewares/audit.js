@@ -60,6 +60,22 @@ function methodToAction(method, path) {
   if (path.endsWith("/logout")) return "LOGOUT";
   if (path.includes("/export")) return "EXPORT";
   if (path.includes("/import")) return "IMPORT";
+
+  // Route plan lifecycle actions — phải match TRƯỚC khi rơi vào CREATE/UPDATE chung
+  if (method === "POST" && path === "/api/route-plans") return "CREATE_PLAN";
+  if (method === "DELETE" && /^\/api\/route-plans\/[^/]+$/.test(path)) return "DELETE_PLAN";
+  if (method === "POST" && /^\/api\/route-plans\/[^/]+\/routes$/.test(path)) return "ADD_ROUTE";
+  if (method === "DELETE" && /^\/api\/route-plans\/[^/]+\/routes\/[^/]+$/.test(path)) return "REMOVE_ROUTE";
+  if (method === "POST" && /^\/api\/route-plans\/[^/]+\/routes\/[^/]+\/stops$/.test(path)) return "ADD_ORDER";
+  if (method === "DELETE" && /^\/api\/route-plans\/[^/]+\/routes\/[^/]+\/orders\/[^/]+$/.test(path)) return "REMOVE_ORDER";
+  if (path.endsWith("/finalize")) return "FINALIZE";
+  if (path.endsWith("/lock")) return "LOCK";
+  if (path.endsWith("/unlock")) return "UNLOCK";
+  if (path.endsWith("/optimize") || path.endsWith("/benchmark")) return "OPTIMIZE";
+  if (path.endsWith("/auto-dispatch")) return "DISPATCH";
+  if (path.endsWith("/assignment")) return "ASSIGN";
+  if (path.endsWith("/move-order") || path.endsWith("/reorder-order")) return "MOVE_ORDER";
+
   // GET báo cáo / payroll / audit-logs → coi như EXPORT (user đang lấy data ra)
   if (method === "GET") return "EXPORT";
   switch (method) {
@@ -93,6 +109,25 @@ function summarizePayload(body) {
   return result;
 }
 
+function resourceIdFromReq(req) {
+  return req.params?.id
+    || req.params?.planId
+    || req.params?.routeId
+    || req.params?.orderId
+    || req.params?.code
+    || "";
+}
+
+function summarizeChanges(req) {
+  const body = summarizePayload(req.body);
+  const params = Object.fromEntries(
+    Object.entries(req.params ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+  if (Object.keys(params).length === 0) return body;
+  if (!body || Object.keys(body).length === 0) return { params };
+  return { ...body, params };
+}
+
 export function auditLogger() {
   return (req, res, next) => {
     const fullPath = req.originalUrl.split("?")[0];
@@ -117,11 +152,11 @@ export function auditLogger() {
         UserName: req.user?.FullName ?? "",
         Action: methodToAction(req.method, fullPath),
         Resource: resourceFromPath(fullPath),
-        ResourceID: req.params?.id || req.params?.code || "",
+        ResourceID: resourceIdFromReq(req),
         Method: req.method,
         Path: fullPath,
         StatusCode: res.statusCode,
-        Changes: summarizePayload(req.body),
+        Changes: summarizeChanges(req),
         IP: req.ip ?? req.connection?.remoteAddress ?? "",
         UserAgent: (req.get("user-agent") ?? "").slice(0, 200),
         DurationMs: Math.round(durationMs)

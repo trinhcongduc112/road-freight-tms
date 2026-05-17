@@ -29,7 +29,11 @@ const config = {
 
   i18n: {
     defaultLocale: "vi",
-    locales: ["vi"]
+    locales: ["vi", "en"],
+    localeConfigs: {
+      vi: { label: "Tiếng Việt" },
+      en: { label: "English" }
+    }
   },
 
   presets: [
@@ -66,6 +70,24 @@ const config = {
     ]
   ],
 
+  plugins: [
+    [
+      "@easyops-cn/docusaurus-search-local",
+      {
+        hashed: true,
+        language: ["en", "zh"],
+        highlightSearchTermsOnTargetPage: true,
+        searchBarShortcut: true,
+        searchBarShortcutHint: true,
+        docsRouteBasePath: "/",
+        indexBlog: false,
+        indexPages: true,
+        searchResultLimits: 12,
+        searchResultContextMaxLength: 80
+      }
+    ]
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -88,9 +110,13 @@ const config = {
             label: "📘 User Docs"
           },
           {
-            to: "/api/",
+            to: "/api",
             label: "🔌 API Docs",
             position: "left"
+          },
+          {
+            type: "localeDropdown",
+            position: "right"
           }
         ]
       },

@@ -21,7 +21,22 @@ const auditLogSchema = new mongoose.Schema(
       type: String,
       required: true,
       uppercase: true,
-      enum: ["CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT", "EXPORT", "IMPORT", "OTHER"],
+      enum: [
+        "CREATE", "UPDATE", "DELETE",
+        "LOGIN", "LOGOUT",
+        "EXPORT", "IMPORT",
+        // Route plan / Trip lifecycle actions — tách riêng để dễ truy vết
+        "CREATE_PLAN", "DELETE_PLAN",
+        "ADD_ROUTE", "REMOVE_ROUTE",
+        "ADD_ORDER", "REMOVE_ORDER",
+        "FINALIZE",       // chốt lộ trình
+        "LOCK", "UNLOCK", // khoá / mở khoá tuyến
+        "OPTIMIZE",       // chạy thuật toán CVRP
+        "DISPATCH",       // auto phân tài xế
+        "ASSIGN",         // gán tài xế / xe cho tuyến
+        "MOVE_ORDER",     // kéo đơn giữa các tuyến
+        "OTHER"
+      ],
       index: true
     },
     Resource: { type: String, trim: true, required: true, index: true }, // "Order", "Trip", "User"...

@@ -13,6 +13,7 @@ import { auditLogger } from "./middlewares/audit.js";
 import { apiRouter } from "./routes/index.js";
 import { logger } from "./utils/logger.js";
 import { initSocket } from "./socket.js";
+import { startTrafficFactorJob } from "./jobs/trafficFactorJob.js";
 import http from "http";
 
 async function bootstrap() {
@@ -51,6 +52,9 @@ async function bootstrap() {
   server.listen(env.port, () => {
     logger.info(`Server listening on http://localhost:${env.port}`);
   });
+
+  /* Background job: seed traffic factor defaults + recompute hằng ngày từ Trip history. */
+  startTrafficFactorJob();
 }
 
 bootstrap().catch((err) => {

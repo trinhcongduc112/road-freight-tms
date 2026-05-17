@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
+
+from .traffic import TrafficModel
 
 
 @dataclass
@@ -31,3 +33,5 @@ class Problem:
     vehicles: list[Vehicle]
     avg_speed_kmh: float = 40.0
     depart_minutes: int = 480
+    # Mô hình tắc đường — None = không áp dụng (đường lý tưởng).
+    traffic: Optional[TrafficModel] = None

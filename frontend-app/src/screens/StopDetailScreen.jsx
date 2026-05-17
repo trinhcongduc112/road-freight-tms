@@ -5,6 +5,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { driverApi } from "../api/driver";
 import StatusBadge from "../components/StatusBadge";
+import DeviationExplainModal from "../components/DeviationExplainModal";
 
 const ACTIONS = [
   { status: "EN_ROUTE", label: "🚀 Đang tới",  color: "#1677ff", action: "en-route" },
@@ -17,6 +18,8 @@ export default function StopDetailScreen({ route, navigation }) {
   const { routeId, stop: initStop, stopIndex } = route.params;
   const [stop,    setStop]    = useState(initStop);
   const [loading, setLoading] = useState(false);
+  /* deviationPrompt: { visible, deviationMin } — bật khi backend trả requiresExplanation */
+  const [deviationPrompt, setDeviationPrompt] = useState({ visible: false, deviationMin: 0 });
   const isClosed = ["COMPLETED", "FAILED"].includes(stop.Status);
 
   /* RouteDetailScreen tự gọi fetchDetail() trong useFocusEffect mỗi lần được
@@ -55,6 +58,22 @@ export default function StopDetailScreen({ route, navigation }) {
               // Tìm lại stop đã cập nhật từ response
               const updated = res.data.data?.Tasks?.find((s) => s.StopIndex === stopIndex);
               if (updated) setStop(updated);
+
+              /* Backend trả `eta` cho action "complete":
+                 - eta.autoCascaded = true  → ETA các điểm sau đã tự dịch, hiện toast.
+                 - eta.requiresExplanation = true → mở Modal bắt giải trình. */
+              const eta = res.data?.eta;
+              if (status === "COMPLETED" && eta) {
+                if (eta.requiresExplanation) {
+                  setDeviationPrompt({ visible: true, deviationMin: eta.deviationMin });
+                  return;
+                }
+                if (eta.autoCascaded && Math.abs(eta.deviationMin) > 0) {
+                  const sign = eta.deviationMin > 0 ? "trễ" : "sớm";
+                  Alert.alert("Đã cập nhật ETA", `Lệch ${sign} ${Math.abs(eta.deviationMin)} phút — đã tự dịch ETA ${eta.shifted ?? 0} điểm tiếp theo.`);
+                  return;
+                }
+              }
               Alert.alert("Thành công", `Đã cập nhật trạng thái: ${label}`);
             } catch (err) {
               const message = err.response?.data?.message === "Task already closed"
@@ -69,6 +88,24 @@ export default function StopDetailScreen({ route, navigation }) {
         },
       ]
     );
+  };
+
+  /* Gửi giải trình sau khi tài xế chọn lý do trong Modal. Backend sẽ tạo
+     TripIncident TIME_DEVIATION + cascade ETA xuống các điểm còn lại. */
+  const submitDeviation = async (payload) => {
+    try {
+      const res = await driverApi.explainDeviation(routeId, stopIndex, payload);
+      const shifted = res.data?.data?.shiftedStops ?? 0;
+      Alert.alert(
+        "Đã ghi nhận",
+        `Hệ thống đã dịch ETA của ${shifted} điểm tiếp theo theo lý do bạn chọn.`
+      );
+    } catch (err) {
+      Alert.alert("Lỗi", err.response?.data?.message ?? err.message ?? "Không gửi được giải trình");
+    } finally {
+      setDeviationPrompt({ visible: false, deviationMin: 0 });
+      refreshStop();
+    }
   };
 
   const orders = stop.Orders ?? stop.OrderCodes?.map((code) => ({ OrderCode: code })) ?? [];
@@ -132,6 +169,13 @@ export default function StopDetailScreen({ route, navigation }) {
           <Text style={[styles.actionBtnText, { color: a.color }]}>{a.label}</Text>
         </TouchableOpacity>
       ))}
+
+      <DeviationExplainModal
+        visible={deviationPrompt.visible}
+        deviationMin={deviationPrompt.deviationMin}
+        onSubmit={submitDeviation}
+        onCancel={() => setDeviationPrompt({ visible: false, deviationMin: 0 })}
+      />
     </ScrollView>
   );
 }

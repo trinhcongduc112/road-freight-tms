@@ -50,19 +50,21 @@ export async function callOptimizer({
   depot, vehicles, stops,
   algorithm = "hgs",
   maxSeconds = 15,
-  seed = null
+  seed = null,
+  departMinutes = 480,
+  traffic = null
 }) {
   if (!VALID_ALGORITHMS.has(algorithm)) {
     throw new ApiError(400, `Unknown algorithm "${algorithm}". Use one of: ${[...VALID_ALGORITHMS].join(", ")}`);
   }
   return postJson("/optimize", {
-    depot, vehicles, stops, algorithm, maxSeconds, seed
+    depot, vehicles, stops, algorithm, maxSeconds, seed, departMinutes, traffic
   }, env.optimizerTimeoutMs);
 }
 
 /** Run all 3 algorithms on the same input — used for benchmark/thesis comparison. */
-export async function callBenchmark({ depot, vehicles, stops, maxSeconds = 10, seed = 42 }) {
+export async function callBenchmark({ depot, vehicles, stops, maxSeconds = 10, seed = 42, departMinutes = 480, traffic = null }) {
   return postJson("/benchmark", {
-    depot, vehicles, stops, maxSeconds, seed
+    depot, vehicles, stops, maxSeconds, seed, departMinutes, traffic
   }, env.optimizerTimeoutMs);
 }

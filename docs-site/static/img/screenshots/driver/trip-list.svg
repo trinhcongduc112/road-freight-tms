@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="840" viewBox="0 0 420 840" role="img" aria-label="Driver trip list">
+  <rect width="420" height="840" rx="36" fill="#111827"/>
+  <rect x="18" y="18" width="384" height="804" rx="28" fill="#f4f7fb"/>
+  <rect x="18" y="18" width="384" height="112" rx="28" fill="#1677ff"/>
+  <text x="44" y="84" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#fff">Xin chào, Demo Driver</text>
+  <text x="44" y="165" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a">Chuyến hôm nay</text>
+  <rect x="36" y="196" width="348" height="156" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <text x="58" y="234" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">RP-20260513-002</text>
+  <rect x="250" y="211" width="108" height="30" rx="15" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="269" y="232" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#ea580c">LOCKED</text>
+  <text x="58" y="268" font-family="Arial, sans-serif" font-size="17" fill="#334155">🚚 DEMO-XE-001 • 9 điểm</text>
+  <text x="58" y="300" font-family="Arial, sans-serif" font-size="17" fill="#334155">08:00 - 16:39 • 49.7 km</text>
+  <rect x="58" y="316" width="280" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="58" y="316" width="90" height="16" rx="8" fill="#22c55e"/>
+  <rect x="36" y="374" width="348" height="136" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <text x="58" y="412" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">RP-20260513-003</text>
+  <rect x="250" y="389" width="108" height="30" rx="15" fill="#eef6ff" stroke="#93c5fd"/>
+  <text x="266" y="410" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#1677ff">ASSIGNED</text>
+  <text x="58" y="446" font-family="Arial, sans-serif" font-size="17" fill="#334155">🚚 DEMO-XE-002 • 3 điểm</text>
+  <text x="58" y="478" font-family="Arial, sans-serif" font-size="17" fill="#334155">08:00 - 14:35 • 68.6 km</text>
+</svg>

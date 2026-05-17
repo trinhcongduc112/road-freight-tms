@@ -31,6 +31,7 @@ driverRouter.post("/trips/:id/confirm", asyncHandler(ctrl.confirmTrip));
 driverRouter.post("/trips/:id/loading", asyncHandler(ctrl.startLoading));
 driverRouter.post("/trips/:id/start", asyncHandler(ctrl.startTrip));
 driverRouter.post("/trips/:id/return", asyncHandler(ctrl.returnTrip));
+driverRouter.post("/trips/:id/tasks/:stopIndex/explain-deviation", asyncHandler(ctrl.explainStopDeviation));
 driverRouter.post("/trips/:id/tasks/:stopIndex/:action", asyncHandler(ctrl.updateTask));
 driverRouter.post("/trips/:id/finish", asyncHandler(ctrl.finishTrip));
 driverRouter.post("/trips/:id/gps", asyncHandler(ctrl.postGps));

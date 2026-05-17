@@ -7,6 +7,7 @@ import { TripIncident, IncidentType, IncidentSeverity, IncidentStatus } from "..
 import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
 import { ApiError } from "../utils/apiError.js";
 import { ensureTripForRouteId, ensureTripsForPlanId } from "../services/tripService.js";
+import { handleStopCompletion, explainDeviation, DEVIATION_THRESHOLD_MIN } from "../services/etaService.js";
 import { getIO, checkDeviation } from "../socket.js";
 
 const doneStatuses = [TripTaskStatus.COMPLETED, TripTaskStatus.FAILED];
@@ -172,6 +173,10 @@ export async function updateTask(req, res) {
     task.SignatureImage = req.body?.signatureImage ?? task.SignatureImage;
     await SalesOrder.updateMany({ _id: { $in: task.OrderIDs ?? [] } }, { $set: { OrderStatus: OrderStatus.DELIVERED } });
 
+    /* Tính độ lệch giờ và quyết định cascade tự động hay yêu cầu giải trình.
+       Lưu kết quả vào res.locals để gắn vào response payload cuối hàm. */
+    res.locals.etaResult = handleStopCompletion(trip, stopIndex);
+
     /* Phát hiện "giao hàng sai tọa độ" — nếu GPS hiện tại của xe cách điểm
        dừng kế hoạch quá GEOFENCE_M thì tự tạo cảnh báo gửi dispatcher. */
     const GEOFENCE_M = 300;
@@ -222,7 +227,54 @@ export async function updateTask(req, res) {
   }
   await trip.save();
   emitTripUpdate(trip);
-  res.json({ success: true, data: trip });
+  res.json({
+    success: true,
+    data: trip,
+    eta: res.locals.etaResult ?? null
+  });
+}
+
+/**
+ * POST /api/driver/trips/:id/tasks/:stopIndex/explain-deviation
+ * Tài xế giải trình lệch giờ > 20 phút sau khi hoàn thành 1 điểm.
+ * Body: { expectedDelayMinutes, reason, note?, faultParty? }
+ * Reason ∈ {"TRAFFIC","BREAKDOWN","CUSTOMER_DELAY","WEATHER","POLICE","EARLY","OTHER"}
+ */
+export async function explainStopDeviation(req, res) {
+  const trip = await loadDriverTrip(req);
+  const stopIndex = Number(req.params.stopIndex);
+  const task = trip.Tasks.find((t) => t.StopIndex === stopIndex);
+  if (!task) throw new ApiError(404, "Task not found");
+
+  const expectedDelay = Number(req.body?.expectedDelayMinutes);
+  if (!Number.isFinite(expectedDelay)) throw new ApiError(400, "expectedDelayMinutes không hợp lệ");
+
+  const allowedReasons = ["TRAFFIC","BREAKDOWN","CUSTOMER_DELAY","WEATHER","POLICE","EARLY","OTHER"];
+  const reason = allowedReasons.includes(req.body?.reason) ? req.body.reason : "OTHER";
+  const allowedFaults = ["COMPANY","DRIVER","CUSTOMER","FORCE_MAJEURE","THIRD_PARTY"];
+  const faultParty = allowedFaults.includes(req.body?.faultParty) ? req.body.faultParty : "";
+
+  const { incident, shifted } = await explainDeviation(
+    { TripIncident, IncidentType },
+    {
+      trip,
+      stopIndex,
+      expectedDelayMinutes: expectedDelay,
+      reason,
+      note: String(req.body?.note ?? "").slice(0, 1000),
+      faultParty,
+      driverUserId: req.user._id,
+      driverName: trip.DriverName ?? req.user.FullName ?? ""
+    }
+  );
+
+  await trip.save();
+  try { getIO()?.to(`org_${trip.OrganizationID.toString()}`).emit("trip:incident", incident); } catch { /* */ }
+
+  res.status(201).json({
+    success: true,
+    data: { incident, shiftedStops: shifted, threshold: DEVIATION_THRESHOLD_MIN, trip }
+  });
 }
 
 export async function updateLegacyStopStatus(req, res) {
@@ -276,6 +328,24 @@ export async function reportIncident(req, res) {
     Longitude:      Number.isFinite(Number(longitude)) ? Number(longitude) : trip.LastLongitude ?? null,
     Photos:         Array.isArray(photos) ? photos.slice(0, 6) : []
   });
+
+  /* Crowdsource traffic: nếu tài xế báo TRAFFIC, tăng tạm factor vùng 2h.
+     Phân loại vùng theo khoảng cách từ depot (urban < 8km, suburban 8-25, highway > 25). */
+  if (incidentType === IncidentType.TRAFFIC && incident.Latitude != null && incident.Longitude != null
+      && Number.isFinite(Number(trip.DepotLatitude)) && Number.isFinite(Number(trip.DepotLongitude))) {
+    try {
+      const R = 6371;
+      const dLat = (incident.Latitude - trip.DepotLatitude) * Math.PI / 180;
+      const dLng = (incident.Longitude - trip.DepotLongitude) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2
+              + Math.cos(trip.DepotLatitude * Math.PI / 180) * Math.cos(incident.Latitude * Math.PI / 180)
+              * Math.sin(dLng / 2) ** 2;
+      const km = 2 * R * Math.asin(Math.sqrt(a));
+      const zoneType = km < 8 ? "urban" : km < 25 ? "suburban" : "highway";
+      const { addCrowdsourceTraffic } = await import("../services/trafficFactorService.js");
+      await addCrowdsourceTraffic({ orgId: trip.OrganizationID, zoneType, factor: 1.6, ttlMinutes: 120 });
+    } catch { /* không critical — chỉ tăng factor tạm */ }
+  }
 
   /* Realtime push to dispatchers in this org */
   try {

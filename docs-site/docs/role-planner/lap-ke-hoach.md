@@ -38,8 +38,6 @@ Sử dụng tính năng này khi:
 - **Kho lập kế hoạch**: là tổ chức con loại "kho", nơi xuất hàng
 - **Ngày chạy**: ngày dự kiến giao hàng
 
-![Chọn kho và ngày](/img/screenshots/planning-select-warehouse.png)
-
 :::warning Lưu ý
 Chỉ những kho thuộc phạm vi quyền của bạn mới xuất hiện. Nếu thiếu kho, liên hệ Admin để mở quyền.
 :::
@@ -47,8 +45,6 @@ Chỉ những kho thuộc phạm vi quyền của bạn mới xuất hiện. N�
 ## Bước 2 — Xem đơn chưa phân
 
 Cột bên phải hiển thị **danh sách đơn hàng đã duyệt** cho ngày đó nhưng chưa thuộc kế hoạch nào.
-
-![Danh sách đơn chưa phân](/img/screenshots/planning-unassigned-orders.png)
 
 Mỗi đơn cho biết:
 - Mã đơn + tên khách hàng
@@ -58,8 +54,6 @@ Mỗi đơn cho biết:
 ## Bước 3 — Tạo kế hoạch mới
 
 Bấm nút **"+ Tạo kế hoạch mới"** màu xanh để bắt đầu.
-
-![Nút tạo kế hoạch mới](/img/screenshots/planning-create-button.png)
 
 Hệ thống sẽ:
 1. Lấy toàn bộ đơn chưa phân của ngày
@@ -73,8 +67,6 @@ Quá trình mất khoảng **3-10 giây** tuỳ số lượng đơn.
 
 Sau khi chạy xong, hệ thống hiển thị:
 
-![Kết quả tối ưu](/img/screenshots/planning-optimized-result.png)
-
 Mỗi tuyến hiển thị:
 - **Mã xe** đảm nhiệm
 - **Số điểm dừng** + tổng km
@@ -84,8 +76,6 @@ Mỗi tuyến hiển thị:
 ## Bước 4 — Xem bản đồ tuyến
 
 Phần bản đồ ở giữa hiển thị **toàn bộ tuyến đường** với màu khác nhau:
-
-![Bản đồ các tuyến](/img/screenshots/planning-map-routes.png)
 
 - 🟢 **Xanh lá** = Tuyến đầu tiên
 - 🔵 **Xanh dương** = Tuyến thứ hai
@@ -102,8 +92,6 @@ Bấm nút **"Phóng to"** ở góc trên bản đồ để mở chế độ xem
 
 Trong mỗi card tuyến, bấm dropdown **"Chọn tài xế"** để gán người chạy.
 
-![Gán tài xế cho tuyến](/img/screenshots/planning-assign-driver.png)
-
 Danh sách chỉ hiện những tài xế:
 - Thuộc phạm vi quyền của bạn
 - Trạng thái **Active**
@@ -116,13 +104,9 @@ Bạn có thể:
 - **Xoá đơn** khỏi tuyến (đơn quay lại danh sách "chưa phân")
 - **Đổi thứ tự điểm dừng** trong tuyến
 
-![Kéo thả đơn giữa các tuyến](/img/screenshots/planning-drag-drop.png)
-
 ## Bước 6 — Chốt kế hoạch
 
 Khi đã ưng ý, bấm nút **"Chốt lộ trình"** màu đỏ ở cuối trang.
-
-![Nút chốt lộ trình](/img/screenshots/planning-finalize-button.png)
 
 ### Điều gì xảy ra sau khi chốt?
 
@@ -136,11 +120,11 @@ Khi đã ưng ý, bấm nút **"Chốt lộ trình"** màu đỏ ở cuối tran
 Sau khi chốt, để sửa kế hoạch bạn phải **mở khóa** (cần quyền Admin) — hành động này sẽ ghi vào Audit Log.
 :::
 
-## AI Agent — Lập kế hoạch bằng giọng nói
+## AI Agent — Lập kế hoạch bằng câu lệnh 
 
 Bạn có thể bỏ qua các bước trên bằng cách **ra lệnh cho AI Agent**:
 
-![AI Agent lập kế hoạch](/img/screenshots/planning-ai-agent.png)
+Tham khảo [agent-panel.png](/img/screenshots/agent-panel.png) để biết giao diện AI Agent.
 
 Ví dụ các lệnh:
 - *"Lập kế hoạch ngày mai"*
