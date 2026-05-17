@@ -33,16 +33,20 @@ beforeAll(async () => {
   // Tạo org + user + vehicle để test
   await clearTestDb();
   const org = await Organization.create({
-    OrganizationCode: "ORG001",
-    XName: "Test Org"
+    XCode: "ORG001",
+    XName: "Test Org",
+    Path: []
   });
   orgId = org._id;
   const user = await User.create({
+    UserName: "vehicletester",
     Email: "vehicle@test.com",
-    Password: "hashed",
+    PasswordHash: "hashed-placeholder",
     FullName: "Vehicle Tester",
     OrganizationIDs: [orgId],
-    IsSuperAdmin: false
+    IsSuperAdmin: false,
+    IsActive: true,
+    Status: "ACTIVE"
   });
   const vehicle = await Vehicle.create({
     VehicleCode: "29A-99999",

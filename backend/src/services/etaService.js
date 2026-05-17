@@ -19,7 +19,16 @@
 import { Trip, TripTaskStatus } from "../models/Trip.js";
 import { getIO } from "../socket.js";
 
-export const DEVIATION_THRESHOLD_MIN = 20;
+/* Ngưỡng asymmetric: trễ và sớm có rủi ro khác nhau.
+   - Trễ là chi phí (khách không nhận, SLA) → ngưỡng nhỏ để bắt giải trình sớm.
+   - Sớm là cơ hội (làm thêm đơn) → ngưỡng lớn hơn, chỉ flag khi bất thường
+     (có thể bỏ điểm, đồng hồ sai). */
+export const DEVIATION_THRESHOLD_MIN = 20;        // back-compat (legacy import)
+export const LATE_THRESHOLD_MIN     = 20;
+export const EARLY_THRESHOLD_MIN    = 60;
+/* Cảnh báo sanity: lệch > 4h gần như chắc chắn là lỗi dữ liệu (test ban đêm
+   với plan ban sáng, đồng hồ máy sai...) — không cascade, không bật Modal. */
+export const SANITY_LIMIT_MIN       = 240;
 
 const HHMM_RE = /^(\d{1,2}):(\d{2})$/;
 
@@ -132,26 +141,68 @@ export function handleStopCompletion(trip, stopIndex) {
 
   const actualDate = task.CompletedAt instanceof Date ? task.CompletedAt : new Date();
   const actualHhmm = dateToLocalHhmm(actualDate);
-  const actualMin = hhmmToMinutes(actualHhmm);
   if (!task.OriginalPlannedArrivalTime) task.OriginalPlannedArrivalTime = task.PlannedArrivalTime;
   task.ActualArrivalTime = actualHhmm;
 
-  /* Wrap-around: nếu lệch quá lớn (e.g. plan 23:50, actual 00:10) thì chuẩn về khoảng [-720, +720] */
-  let dev = actualMin - plannedMin;
-  if (dev >  720) dev -= 1440;
-  if (dev < -720) dev += 1440;
+  /* TEST MODE: nếu PlanDate khác ngày actualDate, có khả năng cao là user đang
+     test plan của ngày khác → ghi nhận hoàn thành nhưng KHÔNG cascade ETA,
+     KHÔNG bật Modal giải trình, KHÔNG alert lỗi. Đây là hành vi mong muốn
+     vì plan ngày khác có cùng giờ HH:mm nên dev sẽ luôn bất thường. */
+  if (isDifferentPlanDay(trip, actualDate)) {
+    task.DeviationMinutes = 0;
+    return { autoCascaded: false, requiresExplanation: false, deviationMin: 0, shifted: 0, testMode: true };
+  }
+
+  /* Tính độ lệch bằng full datetime — chỉ có ý nghĩa khi cùng ngày. */
+  const dev = computeDeviationMinutes(trip, plannedMin, actualDate);
+
+  /* Sanity: lệch > 4 tiếng trong cùng ngày = gần như chắc chắn dữ liệu sai */
+  if (Math.abs(dev) > SANITY_LIMIT_MIN) {
+    task.DeviationMinutes = 0;
+    return { autoCascaded: false, requiresExplanation: false, deviationMin: dev, shifted: 0, sanitySkipped: true };
+  }
+
   task.DeviationMinutes = dev;
 
-  if (Math.abs(dev) <= DEVIATION_THRESHOLD_MIN) {
+  /* Ngưỡng asymmetric: trễ ≤20 hoặc sớm ≤60 → auto cascade, không hỏi tài xế */
+  const inAutoBand = dev >= -EARLY_THRESHOLD_MIN && dev <= LATE_THRESHOLD_MIN;
+  if (inAutoBand) {
     const { shifted } = cascadeEta(trip, {
       fromStopIndex: stopIndex,
       shiftMinutes: dev,
-      reason: "AUTO_SMALL"
+      reason: dev < 0 ? "AUTO_EARLY" : "AUTO_SMALL"
     });
     return { autoCascaded: true, requiresExplanation: false, deviationMin: dev, shifted };
   }
 
+  /* Ngoài band: bắt giải trình (cả late > 20 và early > 60) */
   return { autoCascaded: false, requiresExplanation: true, deviationMin: dev, shifted: 0 };
+}
+
+/** True nếu PlanDate của trip khác ngày địa phương VN với actualDate.
+ *  Dùng để detect "test mode" — user lập plan hôm khác, test hôm nay. */
+function isDifferentPlanDay(trip, actualDate, tzOffsetMin = 7 * 60) {
+  if (!trip?.PlanDate) return false;
+  const planDate = trip.PlanDate instanceof Date ? trip.PlanDate : new Date(trip.PlanDate);
+  const planDay = Math.floor((planDate.getTime() + tzOffsetMin * 60_000) / 86_400_000);
+  const actualDay = Math.floor((actualDate.getTime() + tzOffsetMin * 60_000) / 86_400_000);
+  return planDay !== actualDay;
+}
+
+/** Tính độ lệch (phút) dùng full datetime. Tránh wrap-around sai khi
+ *  giờ kế hoạch và giờ hoàn thành cách nhau quá nửa ngày. */
+function computeDeviationMinutes(trip, plannedMin, actualDate, tzOffsetMin = 7 * 60) {
+  /* Lấy ngày của plan (UTC), build full datetime planned trong múi giờ VN */
+  const planDate = trip.PlanDate instanceof Date ? trip.PlanDate : new Date(trip.PlanDate ?? actualDate);
+  const localActualMs = actualDate.getTime() + tzOffsetMin * 60_000;
+  const localActualDay = Math.floor(localActualMs / 86_400_000);
+  const planLocalMs = planDate.getTime() + tzOffsetMin * 60_000;
+  const planDay = Math.floor(planLocalMs / 86_400_000);
+  /* Nếu PlanDate khác ngày actualDate (vd kế hoạch hôm qua, làm hôm nay) thì
+     dùng ngày của actualDate làm gốc — coi planned giờ trong cùng ngày. */
+  const baseDay = (planDay === localActualDay) ? planDay : localActualDay;
+  const plannedLocalMs = baseDay * 86_400_000 + plannedMin * 60_000;
+  return Math.round((localActualMs - plannedLocalMs) / 60_000);
 }
 
 /**

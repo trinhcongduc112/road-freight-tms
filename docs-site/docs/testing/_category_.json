@@ -1,0 +1,8 @@
+{
+  "label": "Kiểm thử (Testing)",
+  "position": 9,
+  "link": {
+    "type": "generated-index",
+    "description": "Tài liệu kiểm thử hệ thống: manual test cases, automation, coverage report."
+  }
+}

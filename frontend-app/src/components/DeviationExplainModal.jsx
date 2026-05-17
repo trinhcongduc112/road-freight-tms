@@ -8,20 +8,28 @@
 import React, { useState } from "react";
 import { Modal, View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from "react-native";
 
-const REASONS = [
+/* Reasons cho TRỄ */
+const LATE_REASONS = [
   { value: "TRAFFIC",         label: "🚦 Tắc đường",       fault: "FORCE_MAJEURE" },
   { value: "BREAKDOWN",       label: "🔧 Hỏng xe",         fault: "COMPANY" },
   { value: "CUSTOMER_DELAY",  label: "👤 Khách chậm nhận", fault: "CUSTOMER" },
   { value: "WEATHER",         label: "🌧 Thời tiết xấu",   fault: "FORCE_MAJEURE" },
   { value: "POLICE",          label: "🚓 Bị CSGT kiểm tra", fault: "DRIVER" },
-  { value: "EARLY",           label: "⏩ Đến sớm bất thường", fault: "" },
   { value: "OTHER",           label: "❓ Khác",            fault: "" },
+];
+
+/* Reasons cho SỚM bất thường (>60p) — case hiếm, thường là vấn đề kiểm soát */
+const EARLY_REASONS = [
+  { value: "EARLY",           label: "⏩ Đường rất thoáng / kế hoạch quá rộng", fault: "" },
+  { value: "CUSTOMER_DELAY",  label: "👤 Bỏ qua điểm này (khách hẹn lại)",     fault: "CUSTOMER" },
+  { value: "OTHER",           label: "❓ Khác (ghi chú rõ)",                    fault: "" },
 ];
 
 export default function DeviationExplainModal({ visible, deviationMin = 0, onSubmit, onCancel }) {
   const isEarly = deviationMin < 0;
   const absDev = Math.abs(deviationMin);
-  const [reason, setReason] = useState(isEarly ? "EARLY" : "TRAFFIC");
+  const REASONS = isEarly ? EARLY_REASONS : LATE_REASONS;
+  const [reason, setReason] = useState(REASONS[0].value);
   const [delayMin, setDelayMin] = useState(String(Math.round(deviationMin)));
   const [note, setNote] = useState("");
 
@@ -42,10 +50,12 @@ export default function DeviationExplainModal({ visible, deviationMin = 0, onSub
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.title}>
-            {isEarly ? "⏩ Bạn đã đến sớm" : "⏰ Bạn đã đến trễ"} {absDev} phút
+            {isEarly ? "⏩ Đến sớm bất thường" : "⏰ Đến trễ"} {absDev} phút
           </Text>
           <Text style={styles.subtitle}>
-            Lệch ngoài ngưỡng 20 phút. Vui lòng chọn lý do để hệ thống cập nhật ETA các điểm sau.
+            {isEarly
+              ? "Sớm hơn 60 phút — vui lòng xác nhận để hệ thống cập nhật ETA hoặc cảnh báo điều phối nếu cần."
+              : "Trễ hơn 20 phút — chọn lý do để hệ thống cập nhật ETA các điểm sau."}
           </Text>
 
           <ScrollView style={{ maxHeight: 250 }}>

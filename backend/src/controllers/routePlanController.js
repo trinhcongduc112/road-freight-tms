@@ -162,11 +162,33 @@ function loadingMinutes(vehicle) {
   return Math.min(vehicle?.LoadingTime ?? vehicle?.loadingTime ?? DEFAULT_LOADING_MINUTES, MAX_LOADING_MINUTES);
 }
 
+/** Lookup traffic factor cho 1 cạnh tại giờ + vùng cho trước.
+ *  trafficTable shape: { hourBuckets: [{start,end,factor}], dow: {n:f}, zones: [{fromKm,toKm,factor}], dowHint: n }
+ *  Trả 1.0 nếu table empty → an toàn cho path chưa truyền traffic. */
+function lookupTrafficFactor(trafficTable, departMin, legKm) {
+  if (!trafficTable) return 1.0;
+  const h = Math.floor(((departMin % 1440) + 1440) % 1440 / 60);
+  let hourF = 1.0, dowF = 1.0, zoneF = 1.0;
+  for (const b of trafficTable.hourBuckets ?? []) {
+    if (b.start <= h && h < b.end) { hourF = b.factor; break; }
+  }
+  if (trafficTable.dowHint != null && trafficTable.dowHint >= 0) {
+    dowF = trafficTable.dow?.[trafficTable.dowHint] ?? 1.0;
+  }
+  for (const z of trafficTable.zones ?? []) {
+    if (z.fromKm <= legKm && legKm < z.toKm) { zoneF = z.factor; break; }
+  }
+  return hourF * dowF * zoneF;
+}
+
 /** Walk route stops in order, recompute PlannedArrivalTime + TotalDistance.
  *  Uses vehicle.AvgSpeedKmh, vehicle.LoadingTime (at depot), vehicle.UnloadingTimePerStop.
  *  departMinutes defaults to MORNING shift (08:00) when not provided.
- */
-function recomputeRouteTimings(route, vehicle, depotLatLng, departMinutes) {
+ *
+ *  trafficTable (optional): bảng hệ số tắc đường empirical. Khi truyền vào,
+ *  thời gian di chuyển từng cạnh được nhân với factor(hour, dow, zone). Không
+ *  truyền → giữ hành vi cũ (factor 1.0) để các path khác không bị ảnh hưởng. */
+function recomputeRouteTimings(route, vehicle, depotLatLng, departMinutes, trafficTable = null) {
   if (departMinutes == null) {
     departMinutes = SHIFT_DEPART_MINUTES[route?.Shift] ?? SHIFT_DEPART_MINUTES.MORNING;
   }
@@ -188,7 +210,9 @@ function recomputeRouteTimings(route, vehicle, depotLatLng, departMinutes) {
       : prev;
     const leg = haversineKm(prev[0], prev[1], next[0], next[1]);
     dist += leg;
-    t = addWorkMinutes(t, (leg * ROAD_TIME_FACTOR / speed) * 60, route?.Shift);
+    const baseTravel = (leg * ROAD_TIME_FACTOR / speed) * 60;
+    const trafficF = lookupTrafficFactor(trafficTable, t, leg);
+    t = addWorkMinutes(t, baseTravel * trafficF, route?.Shift);
     stop.PlannedArrivalTime = minutesToHHMM(t);
     stop.PlannedServiceTime = stopServiceMinutes(vehicle, stop);
     t = addWorkMinutes(t, stop.PlannedServiceTime, route?.Shift);
@@ -1541,6 +1565,16 @@ export async function optimizeRoutePlan(req, res) {
   const usedDriverIdsForOptimize = new Set(lockedRoutes.map((r) => String(r.DriverID ?? "")).filter(Boolean));
   const availableDriversForOptimize = await Driver.find({ OrganizationID: { $in: orgSubtreeIds }, Status: "Active" }).sort({ DriverCode: 1 }).lean();
 
+  /* Load traffic factor table 1 lần dùng chung cho recomputeRouteTimings của mọi
+     route trong plan này — đảm bảo ETA cuối cùng phản ánh tắc đường, kể cả khi
+     dùng full-day packer (không qua Python optimizer). */
+  let recomputeTrafficTable = null;
+  try {
+    const { buildFactorTable } = await import("../services/trafficFactorService.js");
+    const tbl = await buildFactorTable(plan.OrganizationID);
+    recomputeTrafficTable = { ...tbl, dowHint: new Date(plan.PlanDate).getUTCDay() };
+  } catch { /* fail open — không có traffic vẫn lưu được plan */ }
+
   for (const route of optimized) {
     const routeStops = route.stops.map((s) => ({
       StopIndex:           s.stopIndex,
@@ -1573,9 +1607,10 @@ export async function optimizeRoutePlan(req, res) {
       TotalWeight:    route.totalWeight,
       TotalVolume:    route.totalVolume
     });
-    /* Recompute arrivals so each route's stops respect its own Shift depart time */
+    /* Recompute arrivals so each route's stops respect its own Shift depart time.
+       Traffic factor (nếu có) → ETA phản ánh giờ rush + vùng nội đô. */
     const veh = await Vehicle.findById(route.vehicleID).lean();
-    recomputeRouteTimings(dr, veh, [depot.lat, depot.lng]);
+    recomputeRouteTimings(dr, veh, [depot.lat, depot.lng], undefined, recomputeTrafficTable);
     await recomputeEstimatedCost(dr);
     await dr.save();
 

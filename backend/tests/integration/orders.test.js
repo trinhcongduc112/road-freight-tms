@@ -10,6 +10,8 @@ let SalesOrder, OrderStatus, PlanningStatus, ApprovalStatus;
 beforeAll(async () => {
   await setupTestDb();
   ({ SalesOrder, OrderStatus, PlanningStatus, ApprovalStatus } = await import("../../src/models/SalesOrder.js"));
+  // Force-create indexes (unique compound) — mongodb-memory-server không auto-index khi model load trước
+  await SalesOrder.syncIndexes();
 });
 
 afterAll(async () => {

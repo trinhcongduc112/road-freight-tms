@@ -7,7 +7,8 @@ import { TripIncident, IncidentType, IncidentSeverity, IncidentStatus } from "..
 import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
 import { ApiError } from "../utils/apiError.js";
 import { ensureTripForRouteId, ensureTripsForPlanId } from "../services/tripService.js";
-import { handleStopCompletion, explainDeviation, DEVIATION_THRESHOLD_MIN } from "../services/etaService.js";
+import { handleStopCompletion, explainDeviation, cascadeEta, DEVIATION_THRESHOLD_MIN } from "../services/etaService.js";
+import { addCrowdsourceTraffic } from "../services/trafficFactorService.js";
 import { getIO, checkDeviation } from "../socket.js";
 
 const doneStatuses = [TripTaskStatus.COMPLETED, TripTaskStatus.FAILED];
@@ -307,12 +308,19 @@ export async function finishTrip(req, res) {
   res.json({ success: true, data: trip });
 }
 
-/** POST /api/driver/trips/:id/incidents — tài xế báo sự cố trên chuyến */
+/** POST /api/driver/trips/:id/incidents — tài xế báo sự cố trên chuyến.
+ *  Body có thể kèm `expectedDelayMinutes` (>0 = xin lùi thời gian X phút). Nếu có,
+ *  hệ thống tự cascade ETA xuống các điểm chưa giao + lưu vào EtaHistory. */
 export async function reportIncident(req, res) {
   const trip = await loadDriverTrip(req);
-  const { type, severity, description, latitude, longitude, photos } = req.body ?? {};
+  const { type, severity, description, latitude, longitude, photos, expectedDelayMinutes } = req.body ?? {};
   const incidentType = Object.values(IncidentType).includes(type) ? type : IncidentType.OTHER;
   const incidentSeverity = Object.values(IncidentSeverity).includes(severity) ? severity : IncidentSeverity.MEDIUM;
+
+  /* Parse số phút xin lùi. Bounded [0, 480] = tối đa 8 giờ — quá ngưỡng coi như
+     sự cố cần huỷ chuyến, không nên cascade tự động. */
+  const requestedDelay = Number(expectedDelayMinutes);
+  const delayMin = Number.isFinite(requestedDelay) ? Math.max(0, Math.min(480, Math.round(requestedDelay))) : 0;
 
   const incident = await TripIncident.create({
     OrganizationID: trip.OrganizationID,
@@ -326,8 +334,30 @@ export async function reportIncident(req, res) {
     Description:    String(description ?? "").trim().slice(0, 1000),
     Latitude:       Number.isFinite(Number(latitude))  ? Number(latitude)  : trip.LastLatitude  ?? null,
     Longitude:      Number.isFinite(Number(longitude)) ? Number(longitude) : trip.LastLongitude ?? null,
-    Photos:         Array.isArray(photos) ? photos.slice(0, 6) : []
+    Photos:         Array.isArray(photos) ? photos.slice(0, 6) : [],
+    ExpectedDelayMinutes: delayMin,
+    DeviationReason: incidentType === IncidentType.TRAFFIC ? "TRAFFIC"
+                     : incidentType === IncidentType.BREAKDOWN ? "BREAKDOWN"
+                     : incidentType === IncidentType.WEATHER ? "WEATHER"
+                     : incidentType === IncidentType.CUSTOMER ? "CUSTOMER_DELAY"
+                     : incidentType === IncidentType.POLICE ? "POLICE" : "OTHER"
   });
+
+  /* Nếu tài xế xin lùi → cascade ETA xuống các điểm chưa giao bắt đầu từ điểm hiện tại.
+     CurrentTaskIndex = điểm sắp/đang đi. Cascade từ index-1 trở đi để dịch luôn
+     điểm này và mọi điểm sau (sự cố xảy ra TRƯỚC khi tới điểm hiện tại). */
+  let shifted = 0;
+  if (delayMin > 0) {
+    const fromIdx = Math.max(0, (trip.CurrentTaskIndex ?? 1) - 1);
+    const r = cascadeEta(trip, {
+      fromStopIndex: fromIdx,
+      shiftMinutes:  delayMin,
+      reason:        incidentType,
+      incidentId:    incident._id
+    });
+    shifted = r.shifted;
+    await trip.save();
+  }
 
   /* Crowdsource traffic: nếu tài xế báo TRAFFIC, tăng tạm factor vùng 2h.
      Phân loại vùng theo khoảng cách từ depot (urban < 8km, suburban 8-25, highway > 25). */
@@ -342,7 +372,6 @@ export async function reportIncident(req, res) {
               * Math.sin(dLng / 2) ** 2;
       const km = 2 * R * Math.asin(Math.sqrt(a));
       const zoneType = km < 8 ? "urban" : km < 25 ? "suburban" : "highway";
-      const { addCrowdsourceTraffic } = await import("../services/trafficFactorService.js");
       await addCrowdsourceTraffic({ orgId: trip.OrganizationID, zoneType, factor: 1.6, ttlMinutes: 120 });
     } catch { /* không critical — chỉ tăng factor tạm */ }
   }
@@ -352,7 +381,7 @@ export async function reportIncident(req, res) {
     getIO().to(`org_${trip.OrganizationID.toString()}`).emit("trip:incident", incident);
   } catch { /* socket not initialised in tests */ }
 
-  res.status(201).json({ success: true, data: incident });
+  res.status(201).json({ success: true, data: incident, shiftedStops: shifted, delayApplied: delayMin });
 }
 
 /** GET /api/trips/incidents — dispatcher feed (org-scoped) */

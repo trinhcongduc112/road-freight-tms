@@ -397,13 +397,25 @@ export default function MonitoringPage() {
   });
   const trips = tripsQ.data?.data ?? [];
 
-  /* Realtime incidents (poll every 4s — could swap to socket later) */
-  const incidentsQ = useQuery({
-    queryKey: ["live-incidents"],
+  /* Realtime incidents — lấy cả OPEN và ACKNOWLEDGED.
+     OPEN = chưa ai xem (highlight đỏ).
+     ACKNOWLEDGED = đã có dispatcher tiếp nhận, đang xử lý (highlight vàng, vẫn theo dõi).
+     RESOLVED/DISMISSED bị filter ra ở backend nên không phải bận tâm. */
+  const incidentsOpenQ = useQuery({
+    queryKey: ["live-incidents", "OPEN"],
     queryFn: () => tripApi.listIncidents({ status: "OPEN" }),
     refetchInterval: 4000
   });
-  const incidents = incidentsQ.data?.data ?? [];
+  const incidentsAckQ = useQuery({
+    queryKey: ["live-incidents", "ACKNOWLEDGED"],
+    queryFn: () => tripApi.listIncidents({ status: "ACKNOWLEDGED" }),
+    refetchInterval: 4000
+  });
+  const incidents = useMemo(
+    () => [...(incidentsOpenQ.data?.data ?? []), ...(incidentsAckQ.data?.data ?? [])]
+            .sort((a, b) => new Date(b.ReportedAt) - new Date(a.ReportedAt)),
+    [incidentsOpenQ.data, incidentsAckQ.data]
+  );
 
   /* Tin nhắn chưa đọc từ tài xế (poll mỗi 3s). Khi tổng tin chưa đọc tăng so
      với lần check trước → kêu beep + show notification toast cho dispatcher. */
@@ -614,19 +626,22 @@ export default function MonitoringPage() {
                 {incidents.length} cảnh báo / sự cố đang mở
               </Text>
               <Text type="secondary" style={{ fontSize: 11 }}>
-                · Tự cập nhật mỗi 4 giây · click "Tiếp nhận" hoặc "Đã xử lý" để xóa khỏi danh sách
+                · Tự cập nhật mỗi 4 giây · "Tiếp nhận" = đang xử lý (vẫn theo dõi) · "Đã xử lý" = đóng card
               </Text>
             </Space>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
-              {incidents.map((inc) => (
+              {incidents.map((inc) => {
+                const isAck = inc.Status === "ACKNOWLEDGED";
+                return (
                 <div
                   key={inc._id}
                   style={{
-                    background: "#fff",
-                    border: `1px solid ${inc.Severity === "CRITICAL" ? "#dc2626" : "#fecaca"}`,
-                    borderLeft: `4px solid ${inc.Severity === "CRITICAL" ? "#7c2d12" : inc.Severity === "HIGH" ? "#dc2626" : inc.Severity === "MEDIUM" ? "#f59e0b" : "#10b981"}`,
+                    background: isAck ? "#fefce8" : "#fff",
+                    border: `1px solid ${isAck ? "#fde68a" : inc.Severity === "CRITICAL" ? "#dc2626" : "#fecaca"}`,
+                    borderLeft: `4px solid ${isAck ? "#f59e0b" : inc.Severity === "CRITICAL" ? "#7c2d12" : inc.Severity === "HIGH" ? "#dc2626" : inc.Severity === "MEDIUM" ? "#f59e0b" : "#10b981"}`,
                     borderRadius: 6,
-                    padding: "8px 10px"
+                    padding: "8px 10px",
+                    opacity: isAck ? 0.95 : 1
                   }}
                 >
                   <Space style={{ width: "100%", justifyContent: "space-between" }} size={4}>
@@ -673,12 +688,20 @@ export default function MonitoringPage() {
                         </a>
                       ) : null;
                     })()}
-                    <Tooltip title="Đã thấy, đang xử lý">
-                      <Button size="small" type="primary" ghost loading={ackM.isPending}
-                        onClick={() => ackM.mutate({ id: inc._id, status: "ACKNOWLEDGED" })}>
-                        Tiếp nhận
-                      </Button>
-                    </Tooltip>
+                    {!isAck && (
+                      <Tooltip title="Đã thấy, đang xử lý">
+                        <Button size="small" type="primary" ghost loading={ackM.isPending}
+                          onClick={() => ackM.mutate({ id: inc._id, status: "ACKNOWLEDGED" })}>
+                          Tiếp nhận
+                        </Button>
+                      </Tooltip>
+                    )}
+                    {isAck && (
+                      <Tag color="gold" style={{ fontSize: 11, margin: 0 }}>
+                        ⏳ Đang xử lý
+                        {inc.AcknowledgedAt && ` · ${new Date(inc.AcknowledgedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`}
+                      </Tag>
+                    )}
                     <Popconfirm title="Đánh dấu đã xử lý xong?" onConfirm={() => ackM.mutate({ id: inc._id, status: "RESOLVED" })}>
                       <Button size="small" style={{ color: "#16a34a", borderColor: "#86efac" }}>Đã xử lý</Button>
                     </Popconfirm>
@@ -687,7 +710,8 @@ export default function MonitoringPage() {
                     </Popconfirm>
                   </Space>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </Space>
         </Card>

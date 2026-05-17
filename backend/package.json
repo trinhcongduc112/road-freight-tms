@@ -49,8 +49,14 @@
     "testEnvironment": "node",
     "testMatch": ["**/tests/**/*.test.js"],
     "transform": {},
-    "moduleNameMapper": {},
-    "setupFilesAfterEach": ["<rootDir>/tests/setup.js"],
-    "testTimeout": 30000
+    "testTimeout": 30000,
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!src/seed/**",
+      "!src/swagger/**"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "text-summary", "lcov", "html"]
   }
 }

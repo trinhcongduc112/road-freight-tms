@@ -438,7 +438,7 @@ function functionCallToAction(call) {
  * Hiểu: "hôm nay", "hôm qua", "ngày mai", "ngày kia",
  *      "ngày 14", "ngày 14/5", "14/5", "14/05/2026", "ngày 1 tháng 6".
  */
-function extractDate(cmd) {
+export function extractDate(cmd) {
   const now = new Date();
   const fmt = (d) => d.toISOString().slice(0, 10);
   const addDays = (n) => { const d = new Date(now); d.setUTCDate(d.getUTCDate() + n); return d; };

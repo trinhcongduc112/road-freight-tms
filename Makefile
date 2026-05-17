@@ -9,7 +9,9 @@ ANDROID_AVD := Pixel_6
 .PHONY: help start stop mongo backend web dev seed logs \
         install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop \
         docs docs-install docs-build docs-local docs-deploy docs-stop api-docs api-docs-sync \
-        build-mobile-android build-mobile-ios
+        build-mobile-android build-mobile-ios \
+        test test-backend test-web test-optimizer test-coverage test-report \
+        test-e2e test-e2e-ui test-e2e-headed test-e2e-report
 
 help:
 	@echo ""
@@ -40,6 +42,17 @@ help:
 	@echo "  make install          — cài npm deps (backend + web + mobile + docs)"
 	@echo "  make docs-install     — chỉ cài deps cho docs-site"
 	@echo "  make clean            — xóa node_modules"
+	@echo "  ── Test ────────────────────────────────────────────────────────"
+	@echo "  make test             — chạy hết test 3 service (backend + web + optimizer)"
+	@echo "  make test-backend     — Jest + Supertest + mongodb-memory-server"
+	@echo "  make test-web         — Vitest + React Testing Library"
+	@echo "  make test-optimizer   — pytest + pytest-cov (Python HGS)"
+	@echo "  make test-coverage    — chạy + sinh báo cáo coverage + auto-mở 3 HTML report"
+	@echo "  make test-report      — chỉ mở 3 HTML report đã build (không chạy lại test)"
+	@echo "  make test-e2e         — Playwright E2E (cần backend+frontend chạy + seed data)"
+	@echo "  make test-e2e-ui      — Playwright UI mode (debug step-by-step)"
+	@echo "  make test-e2e-headed  — Playwright với browser hiện ra (xem hành động)"
+	@echo "  make test-e2e-report  — mở HTML report của lần E2E gần nhất"
 	@echo "  ── Khác ────────────────────────────────────────────────────────"
 	@echo "  make api-docs         — in URL Swagger UI (cần backend đang chạy)"
 	@echo "  make api-docs-sync    — đồng bộ openapi.json từ backend (CẢNH BÁO ghi đè)"
@@ -247,3 +260,79 @@ db:
 clean:
 	rm -rf backend/node_modules frontend-web/node_modules frontend-app/node_modules \
 	       docs-site/node_modules docs-site/build docs-site/.docusaurus
+
+# ── Test ──────────────────────────────────────────────────────────────────
+
+test: test-backend test-web test-optimizer
+	@echo ""
+	@echo "  ✔ Tất cả test pass (backend + frontend + optimizer)"
+	@echo ""
+
+test-backend:
+	@echo "  ▶ Backend (Jest + Supertest + mongodb-memory-server)"
+	$(NVM) && cd backend && npm test
+
+test-web:
+	@echo "  ▶ Frontend Web (Vitest + React Testing Library)"
+	$(NVM) && cd frontend-web && npm test
+
+test-optimizer:
+	@echo "  ▶ Optimizer (pytest)"
+	@if [ -d optimizer-service/.venv ]; then \
+		cd optimizer-service && .venv/bin/pytest tests/ -v; \
+	else \
+		cd optimizer-service && pytest tests/ -v; \
+	fi
+
+test-coverage:
+	@echo ""
+	@echo "  📊 Backend coverage"
+	@echo ""
+	$(NVM) && cd backend && npm run test:coverage
+	@echo ""
+	@echo "  📊 Frontend coverage"
+	@echo ""
+	$(NVM) && cd frontend-web && npm run test:coverage
+	@echo ""
+	@echo "  📊 Optimizer coverage"
+	@echo ""
+	@if [ -d optimizer-service/.venv ]; then \
+		cd optimizer-service && .venv/bin/pytest tests/ --cov=hgs --cov=app --cov-report=term --cov-report=html; \
+	else \
+		cd optimizer-service && pytest tests/ --cov=hgs --cov=app --cov-report=term --cov-report=html; \
+	fi
+	@echo ""
+	@echo "  HTML reports — đang mở trong trình duyệt..."
+	@echo "    backend   → backend/coverage/lcov-report/index.html"
+	@echo "    frontend  → frontend-web/coverage/index.html"
+	@echo "    optimizer → optimizer-service/htmlcov/index.html"
+	@echo ""
+	@xdg-open backend/coverage/lcov-report/index.html >/dev/null 2>&1 &
+	@xdg-open frontend-web/coverage/index.html >/dev/null 2>&1 &
+	@xdg-open optimizer-service/htmlcov/index.html >/dev/null 2>&1 &
+
+test-report:
+	@echo "  Mở 3 báo cáo coverage đã build (chạy 'make test-coverage' trước nếu chưa có)..."
+	@xdg-open backend/coverage/lcov-report/index.html >/dev/null 2>&1 &
+	@xdg-open frontend-web/coverage/index.html >/dev/null 2>&1 &
+	@xdg-open optimizer-service/htmlcov/index.html >/dev/null 2>&1 &
+
+# ── E2E (Playwright) ─────────────────────────────────────────────────────
+
+test-e2e:
+	@echo "  ▶ Playwright E2E — yêu cầu backend + frontend đang chạy"
+	@echo "    Nếu chưa chạy: mở terminal khác, gõ 'make start'"
+	@echo ""
+	$(NVM) && cd e2e && npx playwright test
+
+test-e2e-ui:
+	@echo "  ▶ Playwright UI mode (debug interactive)"
+	$(NVM) && cd e2e && npx playwright test --ui
+
+test-e2e-headed:
+	@echo "  ▶ Playwright headed (xem browser thật chạy)"
+	$(NVM) && cd e2e && npx playwright test --headed
+
+test-e2e-report:
+	@echo "  Mở Playwright HTML report (có screenshot + video lỗi)"
+	$(NVM) && cd e2e && npx playwright show-report

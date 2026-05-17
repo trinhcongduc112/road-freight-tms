@@ -25,6 +25,16 @@ const SEVERITY_OPTS = [
   { value: "CRITICAL", label: "Khẩn cấp", color: "#7c2d12" }
 ];
 
+/* Preset xin lùi thời gian — tài xế bấm 1 tap, không cần gõ. */
+const DELAY_PRESETS = [
+  { value: 0,   label: "Không xin lùi" },
+  { value: 15,  label: "15 phút" },
+  { value: 30,  label: "30 phút" },
+  { value: 60,  label: "1 giờ" },
+  { value: 120, label: "2 giờ" },
+  { value: 240, label: "4 giờ" }
+];
+
 export default function IncidentReportScreen({ route, navigation }) {
   const { routeId, tripCode } = route.params;
   const [type, setType] = useState("BREAKDOWN");
@@ -32,6 +42,11 @@ export default function IncidentReportScreen({ route, navigation }) {
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  /* Hiển thị tài xế đang ở bước nào: "Đang lấy vị trí" / "Đang gửi" */
+  const [submitStage, setSubmitStage] = useState("");
+  /* Số phút xin lùi thời gian — sẽ cascade ETA xuống các điểm chưa giao */
+  const [delayMin, setDelayMin] = useState(30);     // mặc định 30p (phổ biến nhất)
+  const [customDelay, setCustomDelay] = useState(""); // ô gõ tay tuỳ chọn
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -39,9 +54,13 @@ export default function IncidentReportScreen({ route, navigation }) {
       Alert.alert("Cần quyền", "Hãy bật quyền camera trong Cài đặt.");
       return;
     }
+    /* quality 0.3 + allowsEditing để Expo tự resize → ảnh ~150-300KB thay vì 1-2MB.
+       Đủ để dispatcher xem hiện trường, giảm 5-10× thời gian upload. */
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.6,
+      quality: 0.3,
+      allowsEditing: true,
+      aspect: [4, 3],
       base64: true
     });
     if (!result.canceled && result.assets?.[0]?.base64) {
@@ -56,33 +75,52 @@ export default function IncidentReportScreen({ route, navigation }) {
       return;
     }
     setSubmitting(true);
+    setSubmitStage(photos.length > 0 ? "Đang gửi ảnh..." : "Đang gửi...");
     try {
-      /* Try to grab current GPS so dispatcher sees where on the route this happened */
+      /* GPS strategy: ưu tiên vị trí cached (instant) thay vì chờ GPS mới (5-10s).
+         Nếu không có cache → race với timeout 2s, không có thì gửi luôn không kèm GPS. */
       let latitude = null, longitude = null;
       try {
         const perm = await Location.getForegroundPermissionsAsync();
         if (perm.granted) {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          latitude = loc.coords.latitude;
-          longitude = loc.coords.longitude;
+          let loc = await Location.getLastKnownPositionAsync({ maxAge: 60_000 });
+          if (!loc) {
+            setSubmitStage("Đang lấy vị trí...");
+            loc = await Promise.race([
+              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+              new Promise((resolve) => setTimeout(() => resolve(null), 2_000))
+            ]);
+            setSubmitStage(photos.length > 0 ? "Đang gửi ảnh..." : "Đang gửi...");
+          }
+          if (loc?.coords) {
+            latitude = loc.coords.latitude;
+            longitude = loc.coords.longitude;
+          }
         }
       } catch { /* not critical */ }
 
-      await driverApi.reportIncident(routeId, {
+      /* Ưu tiên ô gõ tay nếu có giá trị hợp lệ > 0, không thì lấy preset đã chọn. */
+      const customN = Number(customDelay);
+      const finalDelay = Number.isFinite(customN) && customN > 0 ? customN : delayMin;
+
+      const res = await driverApi.reportIncident(routeId, {
         type, severity,
         description: description.trim(),
         latitude, longitude,
-        photos
+        photos,
+        expectedDelayMinutes: finalDelay
       });
-      Alert.alert(
-        "Đã báo sự cố",
-        "Bộ phận điều phối đã nhận được thông báo. Bạn có thể tiếp tục công việc.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
+      const shifted = res.data?.shiftedStops ?? 0;
+      const applied = res.data?.delayApplied ?? 0;
+      const msg = applied > 0
+        ? `Bộ phận điều phối đã nhận được thông báo.\nETA của ${shifted} điểm tiếp theo đã được lùi ${applied} phút.`
+        : "Bộ phận điều phối đã nhận được thông báo. Bạn có thể tiếp tục công việc.";
+      Alert.alert("✅ Đã báo sự cố", msg, [{ text: "OK", onPress: () => navigation.goBack() }]);
     } catch (err) {
       Alert.alert("Lỗi", err.response?.data?.message ?? err.message);
     } finally {
       setSubmitting(false);
+      setSubmitStage("");
     }
   };
 
@@ -120,6 +158,32 @@ export default function IncidentReportScreen({ route, navigation }) {
         ))}
       </View>
 
+      <Text style={styles.sectionLabel}>Xin lùi thời gian (cascade ETA các điểm sau)</Text>
+      <View style={styles.delayGrid}>
+        {DELAY_PRESETS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.delayBtn, delayMin === opt.value && !customDelay && styles.delayBtnActive]}
+            onPress={() => { setDelayMin(opt.value); setCustomDelay(""); }}
+          >
+            <Text style={[styles.delayBtnText, delayMin === opt.value && !customDelay && styles.delayBtnTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={styles.customDelayRow}>
+        <Text style={styles.customDelayLabel}>Hoặc nhập số phút:</Text>
+        <TextInput
+          style={styles.customDelayInput}
+          placeholder="VD: 45"
+          keyboardType="number-pad"
+          value={customDelay}
+          onChangeText={setCustomDelay}
+        />
+        <Text style={styles.customDelaySuffix}>phút</Text>
+      </View>
+
       <Text style={styles.sectionLabel}>Mô tả chi tiết</Text>
       <TextInput
         style={styles.textArea}
@@ -153,7 +217,10 @@ export default function IncidentReportScreen({ route, navigation }) {
         disabled={submitting}
       >
         {submitting
-          ? <ActivityIndicator color="#fff" />
+          ? <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <ActivityIndicator color="#fff" />
+              <Text style={styles.submitText}>{submitStage || "Đang gửi..."}</Text>
+            </View>
           : <Text style={styles.submitText}>📨 Gửi báo cáo</Text>
         }
       </TouchableOpacity>
@@ -179,6 +246,16 @@ const styles = StyleSheet.create({
   severityRow:  { flexDirection: "row", gap: 8, paddingHorizontal: 12 },
   sevBtn:       { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1.5, alignItems: "center", minHeight: 44, justifyContent: "center" },
   sevText:      { fontWeight: "700", fontSize: 13 },
+
+  delayGrid:    { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 12 },
+  delayBtn:     { flexBasis: "31%", flexGrow: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1.5, borderColor: "#e5e7eb", alignItems: "center", backgroundColor: "#fff" },
+  delayBtnActive:{ borderColor: "#1677ff", backgroundColor: "#eff6ff" },
+  delayBtnText: { fontSize: 13, fontWeight: "600", color: "#475569" },
+  delayBtnTextActive: { color: "#1677ff" },
+  customDelayRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, marginTop: 10, gap: 8 },
+  customDelayLabel: { fontSize: 12, color: "#64748b" },
+  customDelayInput: { flex: 1, backgroundColor: "#fff", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, borderWidth: 1, borderColor: "#d9d9d9" },
+  customDelaySuffix: { fontSize: 12, color: "#64748b" },
 
   textArea:     { backgroundColor: "#fff", marginHorizontal: 12, borderRadius: 10, padding: 12, minHeight: 96, fontSize: 14, color: "#222", textAlignVertical: "top", elevation: 1 },
 

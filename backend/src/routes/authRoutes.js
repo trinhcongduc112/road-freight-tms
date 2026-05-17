@@ -19,12 +19,13 @@ export const authRouter = Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [Email, Password, FullName, OrganizationName]
+ *             required: [Email, Password, FullName, CompanyName, Phone]
  *             properties:
  *               Email: { type: string, format: email }
- *               Password: { type: string, minLength: 8 }
+ *               Password: { type: string, minLength: 8, description: "Cần chữ hoa + chữ thường + số + ký tự đặc biệt" }
  *               FullName: { type: string }
- *               OrganizationName: { type: string }
+ *               CompanyName: { type: string }
+ *               Phone: { type: string }
  *     responses:
  *       201: { description: Tạo tổ chức + user thành công }
  *       400: { description: Validation lỗi }

@@ -60,21 +60,32 @@ export default function StopDetailScreen({ route, navigation }) {
               if (updated) setStop(updated);
 
               /* Backend trả `eta` cho action "complete":
-                 - eta.autoCascaded = true  → ETA các điểm sau đã tự dịch, hiện toast.
-                 - eta.requiresExplanation = true → mở Modal bắt giải trình. */
+                 - eta.testMode      → plan khác ngày actual → ghi nhận êm, không alert noise.
+                 - eta.sanitySkipped → lệch >4h cùng ngày → ghi nhận, alert cảnh báo nhẹ.
+                 - eta.autoCascaded  → trong band (trễ ≤20 hoặc sớm ≤60), tự dịch ETA.
+                 - eta.requiresExplanation → ngoài band → mở Modal bắt giải trình.
+                 ✓ Mọi trường hợp: stop ĐÃ được ghi nhận thành công (status COMPLETED). */
               const eta = res.data?.eta;
               if (status === "COMPLETED" && eta) {
+                if (eta.testMode) {
+                  Alert.alert("✅ Đã ghi nhận hoàn thành", "Plan thuộc ngày khác — bỏ qua cập nhật ETA (chế độ test).");
+                  return;
+                }
+                if (eta.sanitySkipped) {
+                  Alert.alert("✅ Đã ghi nhận hoàn thành", `Lệch giờ ${Math.round(eta.deviationMin)} phút vượt 4 tiếng — ETA các điểm sau giữ nguyên.`);
+                  return;
+                }
                 if (eta.requiresExplanation) {
                   setDeviationPrompt({ visible: true, deviationMin: eta.deviationMin });
                   return;
                 }
                 if (eta.autoCascaded && Math.abs(eta.deviationMin) > 0) {
                   const sign = eta.deviationMin > 0 ? "trễ" : "sớm";
-                  Alert.alert("Đã cập nhật ETA", `Lệch ${sign} ${Math.abs(eta.deviationMin)} phút — đã tự dịch ETA ${eta.shifted ?? 0} điểm tiếp theo.`);
+                  Alert.alert("✅ Đã ghi nhận hoàn thành", `Lệch ${sign} ${Math.abs(eta.deviationMin)} phút — đã tự dịch ETA ${eta.shifted ?? 0} điểm tiếp theo.`);
                   return;
                 }
               }
-              Alert.alert("Thành công", `Đã cập nhật trạng thái: ${label}`);
+              Alert.alert("✅ Thành công", `Đã cập nhật trạng thái: ${label}`);
             } catch (err) {
               const message = err.response?.data?.message === "Task already closed"
                 ? "Điểm dừng này đã được xử lý trước đó. Tôi đã tải lại trạng thái mới nhất."

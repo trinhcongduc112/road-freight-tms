@@ -73,6 +73,9 @@ export async function register(req, res) {
   if (!CompanyName || !Email || !Password) {
     throw new ApiError(400, "CompanyName, Email và Password là bắt buộc");
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(Email)) {
+    throw new ApiError(400, "Email không đúng định dạng");
+  }
   if (Password.length < 8) {
     throw new ApiError(400, "Mật khẩu phải có ít nhất 8 ký tự");
   }
