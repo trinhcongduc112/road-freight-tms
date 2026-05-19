@@ -2,6 +2,7 @@
   "name": "tms-e2e",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Playwright E2E tests for Road Freight TMS",
   "scripts": {
     "test": "playwright test",

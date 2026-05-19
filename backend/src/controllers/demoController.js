@@ -12,7 +12,7 @@ import { User, UserStatus, FunctionRole } from "../models/User.js";
 import { ApiError } from "../utils/apiError.js";
 import {
   DELIVERER_TEMPLATE_PERMISSIONS,
-  DISPATCHER_TEMPLATE_PERMISSIONS,
+  PLANNER_DISPATCHER_TEMPLATE_PERMISSIONS,
   p,
   Modules,
   Actions
@@ -163,7 +163,7 @@ export async function seedDemo(req, res) {
       XCode: `${DEMO_PREFIX}RG-PLANNER-DISPATCHER`,
       XName: "Demo · Planner & Dispatcher",
       Kind: RoleGroupKind.NORMAL,
-      Permissions: [...DISPATCHER_TEMPLATE_PERMISSIONS],
+      Permissions: [...PLANNER_DISPATCHER_TEMPLATE_PERMISSIONS],
       OrganizationID: dataOrgId,
       Configurations: { SeeChildren: true }
     },

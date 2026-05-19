@@ -11,7 +11,7 @@ import { ProductCategory } from "../models/ProductCategory.js";
 import { Organization } from "../models/Organization.js";
 import { ApiError } from "../utils/apiError.js";
 import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
-import { hasPermission, Modules, RoutePlanActions, p } from "../config/permissions.js";
+import { hasPermission, Modules, Actions, RoutePlanActions, p } from "../config/permissions.js";
 import { optimizeRoutes } from "../utils/routeOptimizer.js";
 import { callOptimizer, callBenchmark } from "../utils/optimizerClient.js";
 import { cancelTripForRouteId, ensureTripForRouteId } from "../services/tripService.js";
@@ -151,6 +151,9 @@ function addWorkMinutes(startMinutes, durationMinutes, shift) {
 }
 
 function stopServiceMinutes(vehicle, stop) {
+  // Ưu tiên 1: cấu hình trên xe (Vehicle.UnloadingTimePerStop) — user-defined override.
+  if (vehicle?.UnloadingTimePerStop) return vehicle.UnloadingTimePerStop;
+  // Ưu tiên 2: rule tự động dựa trên độ "nặng" của stop (heavy vs light).
   const caseCount = stop?.CaseCount ?? stop?.caseCount ?? 0;
   const orderCount = stop?.OrderIDs?.length ?? stop?.orders?.length ?? 1;
   return caseCount >= HEAVY_STOP_CASE_THRESHOLD || orderCount > 1
@@ -340,6 +343,8 @@ async function refreshRouteMetrics(route, planOrgId) {
     ? await Customer.find({ OrganizationID: { $in: orgSubtreeIds }, CustomerCode: { $in: customerCodes } }).lean()
     : [];
   const customerByCode = Object.fromEntries(customers.map((customer) => [customer.CustomerCode, customer]));
+  // Load vehicle TRƯỚC khi tính service time để áp Vehicle.UnloadingTimePerStop override.
+  const vehicle = route.VehicleID ? await Vehicle.findById(route.VehicleID).lean() : null;
   for (const stop of route.Stops) {
     const customer = customerByCode[stop.CustomerCode];
     if (customer) {
@@ -348,12 +353,11 @@ async function refreshRouteMetrics(route, planOrgId) {
       stop.Longitude = customer.Longitude ?? stop.Longitude ?? null;
     }
     stop.CaseCount = caseCountByCustomer.get(stop.CustomerCode) ?? stop.CaseCount ?? 0;
-    stop.PlannedServiceTime = stopServiceMinutes(null, stop);
+    stop.PlannedServiceTime = stopServiceMinutes(vehicle, stop);
   }
 
   const depotOrg = await resolveDepotForOrg(planOrgId);
   const depot = depotOrg ? [depotOrg.Latitude, depotOrg.Longitude] : null;
-  const vehicle = await Vehicle.findById(route.VehicleID).lean();
   recomputeRouteTimings(route, vehicle, depot);
   await recomputeEstimatedCost(route);
 }
@@ -1180,7 +1184,7 @@ export async function reorderOrder(req, res) {
  *  Auto-computes EstimatedCost from Vehicle.CostPerKm/FixedCost or Service pricing.
  */
 export async function assignRoute(req, res) {
-  checkRoutePlanPermission(req, RoutePlanActions.UPDATE ?? "UPDATE");
+  checkRoutePlanPermission(req, Actions.UPDATE);
   const plan = await RoutePlan.findById(req.params.planId);
   if (!plan) throw new ApiError(404, "Route Plan not found");
   assertOrgInScope(req.orgScope, plan.OrganizationID);
