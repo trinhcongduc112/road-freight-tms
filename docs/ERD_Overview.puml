@@ -1,0 +1,154 @@
+@startuml TMS_ER_Overview
+!theme plain
+
+skinparam backgroundColor     #FFFFFF
+skinparam defaultFontName     Arial
+skinparam defaultFontSize     12
+skinparam PackageBorderColor  #000000
+skinparam PackageBackgroundColor #F8F8F8
+skinparam PackageFontStyle    bold
+skinparam PackageFontSize     13
+
+skinparam entity {
+  BackgroundColor  #FFFFFF
+  BorderColor      #000000
+  BorderThickness  2
+  FontColor        #000000
+  FontStyle        bold
+  FontSize         12
+}
+
+skinparam ArrowColor     #000000
+skinparam ArrowThickness 1.5
+skinparam linetype       ortho
+skinparam nodesep        50
+skinparam ranksep        60
+
+hide empty members
+hide circle
+
+title "TMS — Entity Relationship Overview\n(Road Freight Transportation Management System)"
+
+' ============================================================
+'  PACKAGE 1 — CORE: AUTH & ORGANIZATION
+' ============================================================
+package "Core: Auth & Organization" {
+  entity Organization
+  entity User
+  entity RoleGroup
+  entity TokenBlacklist
+}
+
+' ============================================================
+'  PACKAGE 2 — OPERATIONAL RESOURCES
+' ============================================================
+package "Operational Resources" {
+  entity Vehicle
+  entity Driver
+  entity Customer
+  entity CustomerGroup
+  entity ProductCategory
+  entity Product
+  entity Service
+}
+
+' ============================================================
+'  PACKAGE 3 — ORDERS
+' ============================================================
+package "Orders" {
+  entity SalesOrder
+  entity OrderTripAllocation
+}
+
+' ============================================================
+'  PACKAGE 4 — PLANNING
+' ============================================================
+package "Route Planning" {
+  entity RoutePlan
+  entity DeliveryRoute
+  entity TrafficFactor
+  entity PayrollConfig
+}
+
+' ============================================================
+'  PACKAGE 5 — TRIP EXECUTION
+' ============================================================
+package "Trip Execution" {
+  entity Trip
+  entity GpsLog
+  entity VehicleMaintenance
+}
+
+' ============================================================
+'  PACKAGE 6 — MONITORING & COMMUNICATION
+' ============================================================
+package "Monitoring & Communication" {
+  entity TripIncident
+  entity DriverMessage
+  entity Notification
+  entity ChatSession
+  entity SupportArticle
+  entity AuditLog
+}
+
+' ============================================================
+'  RELATIONSHIPS
+' ============================================================
+
+' --- Organization hierarchy ---
+Organization ||--o{ Organization      : "Parent"
+
+' --- Auth & Roles ---
+Organization ||--o{ RoleGroup         : "defines"
+Organization ||--o{ User              : "belongs to"
+RoleGroup    ||--o{ User              : "assigned to"
+User         ||--o{ TokenBlacklist    : "revokes"
+User         }o--o| User              : "InvitedBy"
+
+' --- Operational Resources ---
+Organization ||--o{ Vehicle           : "owns"
+Organization ||--o{ Driver            : "employs"
+Organization ||--o{ Customer          : "serves"
+Organization ||--o{ CustomerGroup     : "groups"
+Organization ||--o{ ProductCategory   : "categorizes"
+Organization ||--o{ Product           : "sells"
+Organization ||--o{ Service           : "offers"
+Organization ||--o{ PayrollConfig     : "configures"
+Organization ||--o{ TrafficFactor     : "uses"
+
+ProductCategory ||--o{ Product        : "categorizes"
+CustomerGroup   ||--o{ Customer       : "groups"
+Driver          }o--o| User           : "linked to"
+
+' --- Orders ---
+Organization ||--o{ SalesOrder        : "places"
+
+' --- Route Planning ---
+Organization ||--o{ RoutePlan         : "plans"
+RoutePlan    ||--o{ DeliveryRoute     : "generates"
+DeliveryRoute }o--|| Vehicle          : "assigns"
+DeliveryRoute }o--|| Driver           : "assigns"
+DeliveryRoute }o--|| Service          : "uses"
+
+' --- Trip Execution ---
+RoutePlan    ||--o{ Trip              : "executes"
+DeliveryRoute ||--o{ Trip             : "creates"
+Vehicle      ||--o{ Trip              : "used in"
+Driver       ||--o{ Trip              : "drives"
+Service      ||--o{ Trip              : "applies"
+SalesOrder   ||--o{ OrderTripAllocation : "allocated via"
+Trip         ||--o{ GpsLog            : "generates"
+Driver       ||--o{ GpsLog            : "records"
+Vehicle      ||--o{ VehicleMaintenance : "maintained by"
+Driver       ||--o{ VehicleMaintenance : "performs"
+
+' --- Monitoring & Communication ---
+Trip         ||--o{ TripIncident      : "reports"
+User         ||--o{ TripIncident      : "handles"
+Trip         ||--o{ DriverMessage     : "communicates"
+Driver       ||--o{ DriverMessage     : "sends"
+User         ||--o{ Notification      : "receives"
+User         ||--o{ ChatSession       : "opens"
+User         ||--o{ AuditLog          : "audited"
+
+@enduml

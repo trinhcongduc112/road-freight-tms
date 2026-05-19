@@ -131,9 +131,9 @@ export const SUPPORT_KNOWLEDGE = [
     keywords: [
       "ràng buộc", "rang buoc", "constraint", "điều kiện tối ưu", "dieu kien toi uu",
       "khung giờ", "khung gio", "time window", "tương thích", "tuong thich",
-      "vrp", "or-tools"
+      "vrp", "hgs", "hgs-cvrp", "lns", "nn2opt"
     ],
-    answer: "Tối ưu (OR-Tools VRP) tôn trọng: tải trọng/thể tích xe, khung giờ giao của khách, tương thích hàng hóa (vd hàng đông lạnh chỉ lên xe đông lạnh), khoảng cách từ kho gốc, thời gian phục vụ tại mỗi điểm. Bấm **Tối ưu tuyến** trong kế hoạch để chạy."
+    answer: "Tối ưu CVRP (HGS-CVRP — Hybrid Genetic Search, kèm baseline LNS-SA và NN+2opt để benchmark) tôn trọng: tải trọng/thể tích xe, khung giờ giao của khách, tương thích hàng hóa (vd hàng đông lạnh chỉ lên xe đông lạnh), khoảng cách từ kho gốc, thời gian phục vụ tại mỗi điểm. Áp dụng hệ số tắc đường empirical 4 lớp (giờ × thứ × vùng × crowdsource). Bấm **Tối ưu tuyến** trong kế hoạch để chạy."
   },
   {
     title: "Khóa và mở khóa tuyến giao",

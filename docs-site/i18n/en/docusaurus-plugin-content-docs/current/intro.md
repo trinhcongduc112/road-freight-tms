@@ -42,7 +42,7 @@ Backend API (Express.js)
         ↓
 MongoDB (Mongoose)
         ↓
-Optimizer Service (Python + OR-Tools)
+Optimizer Service (Python — HGS-CVRP + LNS-SA + NN+2opt)
 ```
 
 ## Start here

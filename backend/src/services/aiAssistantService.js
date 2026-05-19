@@ -35,7 +35,7 @@ PHONG CÁCH TRẢ LỜI:
 
 PHẠM VI HỖ TRỢ:
 - Đơn hàng (SalesOrder), khách hàng, sản phẩm.
-- Lập kế hoạch & tối ưu lộ trình (OR-Tools VRP), kế hoạch tuyến (RoutePlan, DeliveryRoute).
+- Lập kế hoạch & tối ưu lộ trình (HGS-CVRP + baseline LNS-SA / NN+2opt), kế hoạch tuyến (RoutePlan, DeliveryRoute).
 - Xe, tài xế, dịch vụ 3PL (xe thuê ngoài).
 - Chuyến chạy (Trip), giám sát hành trình GPS, sự cố (TripIncident).
 - Báo cáo, chi phí, dữ liệu mẫu, master data.

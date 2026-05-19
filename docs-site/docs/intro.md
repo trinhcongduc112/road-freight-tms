@@ -58,7 +58,7 @@ Hệ thống phục vụ **5 vai trò chính** trong doanh nghiệp vận tải:
                         │
             ┌───────────▼───────────┐
             │   Optimizer Service   │
-            │   (Python + OR-Tools) │
+            │   (Python — HGS-CVRP) │
             └───────────────────────┘
 ```
 

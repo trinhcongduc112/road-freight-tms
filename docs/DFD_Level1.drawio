@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="DFD Level 1 — TMS" id="dfd_level1_tms">
+    <mxGraphModel dx="2400" dy="1500" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ====================================================== -->
+        <!--  TITLE                                                  -->
+        <!-- ====================================================== -->
+        <mxCell id="title" value="&lt;b&gt;DFD Level 1 — Main Processes of TMS&lt;/b&gt;&lt;br&gt;&lt;i&gt;Biểu đồ luồng dữ liệu mức đỉnh&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=16;fontStyle=0;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ====================================================== -->
+        <!--  LEGEND / CHÚ THÍCH (top-right corner)                  -->
+        <!-- ====================================================== -->
+        <mxCell id="lg_box" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F8F8F8;strokeColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="60" width="300" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="lg_title" value="&lt;b&gt;LEGEND / Chú thích&lt;/b&gt;" style="text;html=1;align=center;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1310" y="65" width="280" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg_ext" value="External Entity&#10;(Tác nhân ngoài)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=9;fontStyle=1;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="95" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lg_proc" value="Process&#10;(Tiến trình)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=9;fontStyle=1;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1460" y="95" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lg_store" value="D. Data Store&#10;(Kho dữ liệu)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=9;fontStyle=1;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="150" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lg_flow" value="Data Flow&#10;(Luồng dữ liệu)" style="text;html=1;align=center;fontSize=9;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1460" y="150" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lg_arrow" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.4;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1470" y="200" as="sourcePoint" />
+            <mxPoint x="1570" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ====================================================== -->
+        <!--  EXTERNAL ENTITIES (top row)                            -->
+        <!-- ====================================================== -->
+        <mxCell id="ADMIN" value="Admin / Dispatcher&#10;(Quản trị / Điều phối)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="DRIVER" value="Driver&#10;(Tài xế)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="210" y="80" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="CUST" value="Customer&#10;(Khách hàng)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="360" y="80" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SUPP" value="Support Agent&#10;(Tư vấn viên)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="510" y="80" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OPT" value="OR-Tools&#10;Optimizer" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="660" y="80" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="GEM" value="Gemini API" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="810" y="80" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SMTP" value="SMTP Email" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="960" y="80" width="130" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ====================================================== -->
+        <!--  PROCESSES (two rows in middle)                          -->
+        <!-- ====================================================== -->
+        <!-- Row 1: P1 - P6 -->
+        <mxCell id="P1" value="1.0&#10;Authentication&#10;&amp; Authorization&#10;(Xác thực &amp; Phân quyền)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P2" value="2.0&#10;Organization&#10;&amp; User Mgmt&#10;(Tổ chức &amp; Người dùng)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="230" y="220" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P3" value="3.0&#10;Master Data Mgmt&#10;(Quản lý danh mục)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="220" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P4" value="4.0&#10;Sales Order Mgmt&#10;(Quản lý đơn hàng)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="610" y="220" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P5" value="5.0&#10;Route Planning&#10;&amp; Optimization&#10;(Lập KH &amp; Tối ưu)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="800" y="220" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P6" value="6.0&#10;Trip Execution&#10;&amp; Monitoring&#10;(Điều hành &amp; Giám sát)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="990" y="220" width="170" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Row 2: P7 - P11 -->
+        <mxCell id="P7" value="7.0&#10;Vehicle Maintenance&#10;(Bảo dưỡng phương tiện)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="370" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P8" value="8.0&#10;Driver Payroll&#10;(Tính lương tài xế)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="230" y="370" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P9" value="9.0&#10;Reporting&#10;&amp; Accounting&#10;(Báo cáo &amp; Kế toán)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="370" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P10" value="10.0&#10;AI Assistant&#10;(Trợ lý AI)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="610" y="370" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="P11" value="11.0&#10;Customer Support&#10;(Hỗ trợ khách hàng)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="800" y="370" width="170" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ====================================================== -->
+        <!--  DATA STORES (bottom rows)                              -->
+        <!-- ====================================================== -->
+        <mxCell id="D1" value="D1. Users &amp; RoleGroup&#10;(Người dùng &amp; Vai trò)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="520" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D2" value="D2. Organization&#10;(Tổ chức)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="220" y="520" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D3" value="D3. Master Data&#10;(KH/SP/Xe/Tài xế/Dịch vụ)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="400" y="520" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D4" value="D4. SalesOrder&#10;(Đơn hàng)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="600" y="520" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D5" value="D5. RoutePlan &amp;&#10;DeliveryRoute" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="780" y="520" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D6" value="D6. Trip &amp;&#10;OrderTripAllocation" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="960" y="520" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D7" value="D7. GpsLog&#10;(Nhật ký GPS)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="520" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D8" value="D8. TripIncident&#10;(Sự cố chuyến)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="600" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D9" value="D9. VehicleMaintenance&#10;(Bảo dưỡng xe)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="220" y="600" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D10" value="D10. PayrollConfig&#10;(Cấu hình lương)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="600" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D11" value="D11. AuditLog&#10;(Nhật ký kiểm toán)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="600" y="600" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D12" value="D12. Notification, DriverMessage,&#10;ChatSession" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="780" y="600" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="D13" value="D13. SupportArticle&#10;(KB)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#000000;fontSize=10;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="600" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ====================================================== -->
+        <!--  DATA FLOWS (edges)                                      -->
+        <!-- ====================================================== -->
+
+        <!-- ===== 1.0 Authentication ===== -->
+        <mxCell id="f_admin_p1" value="Credentials" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p1_admin" value="JWT + user info" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P1" target="ADMIN"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_driver_p1" value="Credentials" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="DRIVER" target="P1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p1_driver" value="JWT + user info" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P1" target="DRIVER"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_supp_p1" value="Magic-link token" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="SUPP" target="P1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p1_d1" value="R/W user, blacklist" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P1" target="D1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p1_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P1" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 2.0 Organization & User ===== -->
+        <mxCell id="f_admin_p2" value="Manage org tree, users, roles" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p2_d1" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P2" target="D1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p2_d2" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P2" target="D2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p2_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P2" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 3.0 Master Data ===== -->
+        <mxCell id="f_admin_p3" value="CRUD master data" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p3_d3" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P3" target="D3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p3_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P3" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 4.0 Sales Order ===== -->
+        <mxCell id="f_admin_p4" value="Create / approve / cancel" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p4_admin" value="Order list" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P4" target="ADMIN"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_cust_p4" value="Tracking code" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="CUST" target="P4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p4_cust" value="Order status" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P4" target="CUST"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p4_d4" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P4" target="D4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p4_d3" value="Read KH, SP" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P4" target="D3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p4_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P4" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 5.0 Route Planning ===== -->
+        <mxCell id="f_admin_p5" value="Plan, optimize, lock" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p5_opt" value="VRP payload" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P5" target="OPT"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_opt_p5" value="Optimized route" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="OPT" target="P5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p5_d5" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P5" target="D5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p5_d4" value="Read / lock orders" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P5" target="D4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p5_d3" value="Read vehicle, driver" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P5" target="D3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p5_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P5" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 6.0 Trip Execution ===== -->
+        <mxCell id="f_p5_p6" value="Finalized plan => Trip" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P5" target="P6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_driver_p6" value="GPS, ePOD, incident" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="DRIVER" target="P6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_driver" value="Trip, notifications" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="DRIVER"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_admin_p6" value="Live dispatch" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_d6" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="D6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_d7" value="GPS R/W" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="D7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_d8" value="Incident R/W" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="D8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_d4" value="DELIVERED" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="D4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_d12" value="Notification" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="D12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_smtp" value="ePOD email" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="SMTP"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p6_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P6" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 7.0 Vehicle Maintenance ===== -->
+        <mxCell id="f_admin_p7" value="Schedule / alerts" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_driver_p7" value="Confirm completion" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="DRIVER" target="P7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p7_driver" value="Maintenance notif" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P7" target="DRIVER"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p7_d9" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P7" target="D9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p7_d3" value="Read vehicle" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P7" target="D3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p7_d12" value="Notification" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P7" target="D12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p7_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P7" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 8.0 Payroll ===== -->
+        <mxCell id="f_admin_p8" value="Payroll config / view" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p8_d10" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P8" target="D10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p8_d6" value="Read completed trips" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P8" target="D6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p8_d3" value="Read driver" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P8" target="D3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p8_d11" value="Audit" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P8" target="D11"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 9.0 Reporting ===== -->
+        <mxCell id="f_admin_p9" value="Report request" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p9_d4" value="Read orders" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P9" target="D4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p9_d6" value="Read trips" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P9" target="D6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p9_d5" value="Read plans" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P9" target="D5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p9_d3" value="Read master data" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P9" target="D3"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 10.0 AI Assistant ===== -->
+        <mxCell id="f_admin_p10" value="NL command" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="ADMIN" target="P10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_cust_p10" value="Chatbot Q" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="CUST" target="P10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p10_gem" value="Prompt / answer" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P10" target="GEM"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p10_smtp" value="Hand-off email" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P10" target="SMTP"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_smtp_supp" value="Magic-link email" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="SMTP" target="SUPP"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p10_d12" value="ChatSession R/W" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P10" target="D12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p10_d13" value="KB lookup" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P10" target="D13"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p10_p4" value="Func call (order)" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;dashed=1;" edge="1" parent="1" source="P10" target="P4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p10_p5" value="Func call (plan)" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;dashed=1;" edge="1" parent="1" source="P10" target="P5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p10_p9" value="Func call (report)" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;dashed=1;" edge="1" parent="1" source="P10" target="P9"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== 11.0 Customer Support ===== -->
+        <mxCell id="f_cust_p11" value="Contact form" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="CUST" target="P11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p11_smtp" value="Admin notification" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P11" target="SMTP"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p11_d13" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P11" target="D13"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_supp_p11" value="Ticket reply" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="SUPP" target="P11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f_p11_cust" value="Reply email" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontSize=9;" edge="1" parent="1" source="P11" target="CUST"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

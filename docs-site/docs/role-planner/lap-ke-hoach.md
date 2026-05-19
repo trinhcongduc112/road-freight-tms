@@ -58,7 +58,7 @@ Bấm nút **"+ Tạo kế hoạch mới"** màu xanh để bắt đầu.
 Hệ thống sẽ:
 1. Lấy toàn bộ đơn chưa phân của ngày
 2. Lấy danh sách xe sẵn sàng của kho
-3. Gọi **OR-Tools CVRP** để giải bài toán định tuyến
+3. Gọi **HGS-CVRP** (Hybrid Genetic Search — Vidal 2022) để giải bài toán định tuyến, kèm baseline LNS-SA và NN+2opt để so sánh
 4. Tạo các tuyến tối ưu (mỗi tuyến = 1 xe)
 
 Quá trình mất khoảng **3-10 giây** tuỳ số lượng đơn.

@@ -58,7 +58,7 @@ Click the blue **"+ Create new plan"** button to start.
 The system will:
 1. Take all unassigned orders for the day
 2. Take the available vehicles of the depot
-3. Call **OR-Tools CVRP** to solve the routing problem
+3. Call **HGS-CVRP** (Hybrid Genetic Search — Vidal 2022) to solve the routing problem, with LNS-SA and NN+2opt as benchmark baselines
 4. Generate optimal routes (one route = one vehicle)
 
 Takes about **3-10 seconds** depending on order count.

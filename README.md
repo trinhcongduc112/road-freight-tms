@@ -8,7 +8,7 @@ Hệ thống quản lý vận tải đường bộ đa khách (multi-tenant) cho
 - **Quản trị đa cấp** — Cây Organization (chi nhánh / kho / phòng ban) + RBAC + DAC scope filter theo cây.
 - **Master Data** — Khách hàng, Sản phẩm, Phương tiện, Tài xế, Dịch vụ 3PL.
 - **Đơn hàng** — Approval workflow (PENDING → APPROVED → REJECTED), Planning workflow (PENDING → PLANNED → LOCKED → FINALIZED), import Excel.
-- **Lập kế hoạch + Tối ưu lộ trình** — OR-Tools VRP qua microservice Python (`optimizer-service`), tôn trọng tải trọng / thể tích / khung giờ / tương thích hàng hóa.
+- **Lập kế hoạch + Tối ưu lộ trình** — Tự implement **HGS-CVRP** (Hybrid Genetic Search, Vidal 2022) + 2 baseline **LNS+SA** và **NN+2opt** để benchmark, qua microservice Python (`optimizer-service`). Tôn trọng tải trọng / thể tích / khung giờ / tương thích hàng hóa. Áp dụng mô hình tắc đường empirical 4 lớp tự học (theo giờ × thứ × vùng + crowdsource từ tài xế).
 - **Giám sát Live Dispatch** — Bản đồ Leaflet realtime, GPS tài xế, timeline điểm giao, ePOD photo/signature, incident handling.
 - **App tài xế (React Native + Expo)** — Workflow Nhận chuyến → Soạn hàng → Xuất kho → ePOD từng điểm → Về kho → Kết thúc.
 - **Báo cáo & Kế toán** — Doanh thu, chi phí, COD, lãi gộp; xuất Excel đa sheet.
@@ -22,7 +22,7 @@ Hệ thống quản lý vận tải đường bộ đa khách (multi-tenant) cho
 |---|---|
 | Backend | Node.js 20, Express, Mongoose 8, Socket.IO, jsonwebtoken, bcrypt, helmet, express-rate-limit |
 | Database | MongoDB 7 |
-| Optimizer | Python + Google OR-Tools (microservice) |
+| Optimizer | Python (FastAPI), tự implement HGS-CVRP + LNS-SA + NN+2opt (microservice) |
 | AI | Google Gemini API (`gemini-2.5-flash-lite` default) |
 | Web | React 19, Vite 5, Ant Design 5, TanStack Query 5, Zustand, React Router 7, Leaflet, Recharts, xlsx |
 | Mobile | React Native (Expo SDK 54), React Navigation 7, expo-location, expo-image-picker, expo-secure-store |
@@ -54,7 +54,7 @@ TMS/
 │       └── i18n.jsx          VI/EN dictionaries
 ├── frontend-app/             React Native + Expo (App tài xế)
 │   └── src/{api,screens,navigation,components,store}
-├── optimizer-service/        Python OR-Tools VRP microservice
+├── optimizer-service/        Python HGS-CVRP + baselines microservice (FastAPI)
 ├── docs/                     BA notes, ERD, deployment guides
 ├── docker-compose.yml        mongo + backend + frontend-web
 ├── Makefile                  install / dev / mobile / db

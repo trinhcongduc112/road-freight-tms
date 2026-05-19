@@ -23,7 +23,7 @@ const options = {
       { name: "Auth", description: "Đăng nhập / refresh / đổi mật khẩu" },
       { name: "Master Data", description: "Khách hàng / Sản phẩm / Phương tiện / Tài xế / Kho" },
       { name: "Orders", description: "Quản lý đơn hàng (SalesOrder lifecycle)" },
-      { name: "Route Planning", description: "Lập kế hoạch + tối ưu tuyến (VRP OR-Tools)" },
+      { name: "Route Planning", description: "Lập kế hoạch + tối ưu tuyến (HGS-CVRP + baseline LNS-SA / NN+2opt)" },
       { name: "Trips", description: "Chuyến đi: phân công, GPS, ePOD, hoàn tất" },
       { name: "Driver", description: "API riêng cho app tài xế (mobile)" },
       { name: "Reports", description: "Báo cáo: tổng hợp / hoa hồng / bảo trì xe" },

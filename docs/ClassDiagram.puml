@@ -1,0 +1,356 @@
+@startuml TMS_ClassDiagram
+' =====================================================================
+'  CLASS DIAGRAM (Domain Model) — Road Freight TMS
+'  Graduation thesis — Trinh Cong Duc
+'  Scope: 15 core domain classes — attributes + key business methods
+'         + UML relationships (composition / association / aggregation)
+' =====================================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam dpi 200
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam ArrowColor #000000
+skinparam ArrowThickness 1.1
+skinparam linetype ortho
+skinparam ranksep 60
+skinparam nodesep 35
+
+skinparam class {
+  BackgroundColor      #FFFFFF
+  BorderColor          #1B4F72
+  BorderThickness      1.3
+  HeaderBackgroundColor #2874A6
+  FontColor            #000000
+  AttributeFontColor   #1B2631
+  AttributeFontSize    10
+  AttributeIconSize    10
+  FontStyle            bold
+  FontSize             12
+}
+skinparam package {
+  BackgroundColor #F8F9F9
+  BorderColor     #5D6D7E
+  FontStyle       bold
+  FontSize        12
+}
+
+title <b>Domain Class Diagram</b> — Road Freight TMS\n<i>Sơ đồ lớp miền nghiệp vụ — 15 core classes</i>
+
+hide circle
+
+' =====================================================================
+'  PACKAGE 1: IDENTITY & ORGANIZATION
+' =====================================================================
+package "Identity & Organization\n(Định danh & Tổ chức)" as PKG_ID {
+
+  class User {
+    - id : ObjectId
+    - userName : String
+    - email : String
+    - passwordHash : String
+    - fullName : String
+    - phone : String
+    - status : UserStatus
+    - lastLoginAt : Date
+    --
+    + login(password) : JwtToken
+    + logout() : void
+    + changePassword(old, new) : void
+    + assignRole(role : RoleGroup) : void
+    + updateProfile(data) : void
+    + hasPermission(perm) : Boolean
+  }
+
+  class Organization {
+    - id : ObjectId
+    - code : String
+    - name : String
+    - orgType : OrgType
+    - address : String
+    - latitude : Number
+    - longitude : Number
+    --
+    + addChild(child : Organization) : void
+    + getDescendants() : List<Organization>
+    + getPath() : List<Organization>
+    + isAncestorOf(org) : Boolean
+  }
+
+  class RoleGroup {
+    - id : ObjectId
+    - name : String
+    - description : String
+    - permissions : List<String>
+    --
+    + hasPermission(perm) : Boolean
+    + addPermission(perm) : void
+    + removePermission(perm) : void
+  }
+}
+
+' =====================================================================
+'  PACKAGE 2: MASTER DATA
+' =====================================================================
+package "Master Data\n(Danh mục)" as PKG_MD {
+
+  class Customer {
+    - id : ObjectId
+    - code : String
+    - name : String
+    - phone : String
+    - address : String
+    - latitude : Number
+    - longitude : Number
+    - timeWindow : String
+    --
+    + getActiveContacts() : List
+    + getOrdersInPeriod(from, to) : List<SalesOrder>
+  }
+
+  class Product {
+    - id : ObjectId
+    - code : String
+    - name : String
+    - unit : String
+    - weight : Number
+    - volume : Number
+    - price : Number
+    --
+    + calculateTotalWeight(qty) : Number
+    + calculateTotalVolume(qty) : Number
+  }
+
+  class Vehicle {
+    - id : ObjectId
+    - code : String
+    - plate : String
+    - vehicleType : String
+    - maxWeight : Number
+    - maxVolume : Number
+    - status : VehicleStatus
+    --
+    + isAvailable(date : Date) : Boolean
+    + getNextMaintenance() : Date
+    + getCurrentTrip() : Trip
+  }
+
+  class Driver {
+    - id : ObjectId
+    - code : String
+    - fullName : String
+    - phone : String
+    - licenseNumber : String
+    - userId : ObjectId
+    - status : DriverStatus
+    --
+    + getCurrentTrip() : Trip
+    + calculateWorkload(period) : Number
+    + getCompletionRate() : Number
+  }
+}
+
+' =====================================================================
+'  PACKAGE 3: ORDER MANAGEMENT
+' =====================================================================
+package "Order Management\n(Quản lý đơn hàng)" as PKG_ORDER {
+
+  class SalesOrder {
+    - id : ObjectId
+    - orderCode : String
+    - orderDate : Date
+    - timeWindow : String
+    - items : List<OrderItem>
+    - totalPrice : Number
+    - approvalStatus : ApprovalStatus
+    - planningStatus : PlanningStatus
+    - fulfillmentStatus : String
+    - source : OrderSource
+    --
+    + approve(by : User) : void
+    + reject(by : User, reason) : void
+    + cancel(by : User) : void
+    + changePlanningStatus(status) : void
+    + getTotalWeight() : Number
+    + getTotalVolume() : Number
+    + isAllocatable() : Boolean
+  }
+}
+
+' =====================================================================
+'  PACKAGE 4: PLANNING
+' =====================================================================
+package "Route Planning & Optimization\n(Lập kế hoạch & Tối ưu)" as PKG_PLAN {
+
+  class RoutePlan {
+    - id : ObjectId
+    - planCode : String
+    - planDate : Date
+    - status : PlanStatus
+    - createdBy : ObjectId
+    --
+    + addRoute(route : DeliveryRoute) : void
+    + removeRoute(route) : void
+    + optimize() : OptimizationResult
+    + benchmark() : ComparisonReport
+    + autoDispatch() : DispatchReport
+    + finalize() : void
+  }
+
+  class DeliveryRoute {
+    - id : ObjectId
+    - routeCode : String
+    - sequence : Number
+    - stops : List<Stop>
+    - vehicleId : ObjectId
+    - driverId : ObjectId
+    - serviceId : ObjectId
+    - estimatedDistance : Number
+    - estimatedDuration : Number
+    - status : RouteStatus
+    --
+    + addStop(order : SalesOrder) : void
+    + removeStop(order) : void
+    + reorderStops(from, to) : void
+    + moveStopTo(route : DeliveryRoute) : void
+    + assignDriver(driver : Driver) : void
+    + assignVehicle(vehicle : Vehicle) : void
+    + lock() : void
+    + unlock() : void
+    + finalize() : void
+    + validateConstraints() : List<Violation>
+  }
+}
+
+' =====================================================================
+'  PACKAGE 5: TRIP EXECUTION
+' =====================================================================
+package "Trip Execution & Monitoring\n(Vận chuyển & Giám sát)" as PKG_TRIP {
+
+  class Trip {
+    - id : ObjectId
+    - tripCode : String
+    - planDate : Date
+    - status : TripStatus
+    - tasks : List<TripTask>
+    - confirmedAt : Date
+    - startedAt : Date
+    - completedAt : Date
+    - startOdometer : Number
+    - returnOdometer : Number
+    - lastLatitude : Number
+    - lastLongitude : Number
+    - lastGpsAt : Date
+    - totalDistance : Number
+    --
+    + confirm() : void
+    + startLoading() : void
+    + startTrip(odometer) : void
+    + updateGps(lat, lng, speed) : void
+    + updateTask(stopIdx, action, ePOD) : void
+    + explainDeviation(stopIdx, reason) : void
+    + returnTrip(odometer) : void
+    + finishTrip(actualCost) : void
+    + reportIncident(type, desc, photo) : TripIncident
+  }
+
+  class OrderTripAllocation {
+    - id : ObjectId
+    - allocatedQuantity : Number
+    - status : AllocationStatus
+    --
+    + getProgress() : Number
+    + markDelivered() : void
+  }
+
+  class TripIncident {
+    - id : ObjectId
+    - incidentType : IncidentType
+    - description : String
+    - photos : List<String>
+    - reportedAt : Date
+    - resolvedAt : Date
+    - resolution : String
+    - status : IncidentStatus
+    --
+    + resolve(by, resolution) : void
+    + escalate() : void
+    + addPhoto(url) : void
+  }
+
+  class GpsLog {
+    - id : ObjectId
+    - latitude : Number
+    - longitude : Number
+    - speed : Number
+    - heading : Number
+    - timestamp : Date
+    --
+    + append(loc) : void
+  }
+}
+
+' =====================================================================
+'  PACKAGE 6: VEHICLE OPERATIONS
+' =====================================================================
+package "Vehicle Operations\n(Vận hành phương tiện)" as PKG_OPS {
+
+  class VehicleMaintenance {
+    - id : ObjectId
+    - maintenanceType : String
+    - scheduledDate : Date
+    - completedDate : Date
+    - cost : Number
+    - description : String
+    - status : MaintenanceStatus
+    --
+    + schedule(date) : void
+    + acknowledge(by : Driver) : void
+    + complete(actualDate, cost) : void
+    + isOverdue() : Boolean
+  }
+}
+
+' =====================================================================
+'  RELATIONSHIPS (UML notation)
+'    *--  composition    (life-time dependent)
+'    o--  aggregation    (shared ownership)
+'    -->  association    (uses / references)
+'    --|> generalization (inherits)
+' =====================================================================
+
+' --- Identity & Org ---
+User "1..N" -[#1B4F72]-> "1" RoleGroup            : has role\n<i>(thuộc nhóm vai trò)</i>
+User "N" -[#1B4F72]-> "1..N" Organization         : works at\n<i>(làm việc tại)</i>
+Organization "1" o-[#1B4F72]- "0..N" Organization : parent / children\n<i>(cha — con, cây tổ chức)</i>
+
+' --- Master Data ownership ---
+Driver "N" -[#1B4F72]-> "0..1" User : linked account\n<i>(tài khoản app)</i>
+
+' --- Order ---
+SalesOrder "N" -[#1B4F72]-> "1" Customer       : ordered by
+SalesOrder "N" -[#1B4F72]-> "1" Organization   : owned by
+SalesOrder "N" --> "1..N" Product : contains\n<i>(qua Items[])</i>
+
+' --- Planning ---
+RoutePlan "1" *-[#1B4F72]- "1..N" DeliveryRoute : composed of\n<i>(gồm các tuyến)</i>
+DeliveryRoute "N" -[#1B4F72]-> "0..1" Vehicle  : assigned vehicle
+DeliveryRoute "N" -[#1B4F72]-> "0..1" Driver   : assigned driver
+DeliveryRoute "N" --> "0..N" SalesOrder : stops cover\n<i>(qua Stops[])</i>
+
+' --- Trip Execution ---
+Trip "N" -[#1B4F72]-> "1" DeliveryRoute        : created from
+Trip "N" -[#1B4F72]-> "1" Vehicle              : uses
+Trip "N" -[#1B4F72]-> "1" Driver               : performed by
+Trip "1" *-[#1B4F72]- "0..N" OrderTripAllocation : allocates orders
+Trip "1" *-[#1B4F72]- "0..N" TripIncident       : reports
+Trip "1" *-[#1B4F72]- "0..N" GpsLog             : tracks
+OrderTripAllocation "N" -[#1B4F72]-> "1" SalesOrder : refers to
+
+' --- Operations ---
+VehicleMaintenance "N" -[#1B4F72]-> "1" Vehicle : for
+VehicleMaintenance "N" -[#1B4F72]-> "0..1" Driver : assigned to
+
+@enduml

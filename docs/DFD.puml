@@ -1,0 +1,718 @@
+' =====================================================================
+'  DATA FLOW DIAGRAM (DFD) — Road Freight TMS
+'  Graduation thesis — Trinh Cong Duc
+'
+'  Convention (Vietnamese academic standard / Gane-Sarson adapted):
+'    - External entity : sharp-cornered rectangle
+'    - Process         : ELLIPSE / OVAL  (PlantUML usecase shape)
+'    - Data store      : flat rectangle  (with D# prefix)
+'    - Data flow       : straight / orthogonal arrow with label
+'
+'  Diagrams in this file:
+'    1) Context Diagram (Level 0)            — Sơ đồ ngữ cảnh
+'    2) Level 1                                — Mức đỉnh
+'    3) Level 2 — P4. Sales Order Management
+'    4) Level 2 — P5. Route Planning & Optimization
+'    5) Level 2 — P6. Trip Execution & Monitoring
+'    6) Level 2 — P10. AI Assistant
+' =====================================================================
+
+
+' =====================================================================
+'  1) DFD CONTEXT (LEVEL 0)
+' =====================================================================
+@startuml DFD_Context
+title <b>DFD Context Diagram (Level 0)</b>\n<i>Sơ đồ ngữ cảnh — Hệ thống quản lý vận tải đường bộ</i>
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam dpi 200
+skinparam defaultFontName "Times New Roman"
+skinparam defaultFontSize 12
+skinparam ArrowColor #000000
+skinparam ArrowThickness 1.1
+skinparam ArrowFontColor #000000
+skinparam ArrowFontSize 11
+skinparam ranksep 60
+skinparam nodesep 45
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor     #000000
+  BorderThickness 1.3
+  FontStyle       bold
+  FontSize        12
+  RoundCorner     0
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor     #000000
+  BorderThickness 1.3
+  FontStyle       bold
+  FontSize        13
+}
+
+' --- External entities (Tác nhân ngoài) ---
+rectangle "Administrator / Dispatcher\n(Quản trị / Điều phối)"   as ADMIN
+rectangle "Driver\n(Tài xế — Mobile App)"                        as DRIVER
+rectangle "Customer / Consignee\n(Khách hàng / Người nhận)"      as CUSTOMER
+rectangle "Support Agent\n(Tư vấn viên hỗ trợ)"                   as SUPPORT
+rectangle "Optimizer Service\n(OR-Tools VRP)"                    as OPTIMIZER
+rectangle "Gemini API\n(Google AI)"                              as GEMINI
+rectangle "SMTP / Email Server\n(Gmail)"                          as SMTP
+
+' --- Central process (Tiến trình trung tâm) ---
+usecase "0\nRoad Freight TMS\n(Hệ thống quản lý\nvận tải đường bộ)" as TMS
+
+' --- Layout hints: 3 entities on left, 4 on right ---
+ADMIN     -[hidden]down- DRIVER
+DRIVER    -[hidden]down- CUSTOMER
+SUPPORT   -[hidden]down- OPTIMIZER
+OPTIMIZER -[hidden]down- GEMINI
+GEMINI    -[hidden]down- SMTP
+
+' --- Data flows (Luồng dữ liệu) ---
+ADMIN     --> TMS : Login, CRUD master data,\norders, plans, optimization\n(Đăng nhập, CRUD đơn / KH)
+TMS       --> ADMIN : Dashboard, lists, Excel reports\n(Dashboard, danh sách, báo cáo)
+
+DRIVER    --> TMS : GPS, ePOD, signature, trip status,\nincident (GPS, ePOD, trạng thái)
+TMS       --> DRIVER : Assigned trip, route, notifications\n(Chuyến giao, lộ trình, thông báo)
+
+CUSTOMER  --> TMS : Tracking code, chatbot Q,\ncontact info (Mã đơn, câu hỏi)
+TMS       --> CUSTOMER : Order status, chatbot reply,\nconfirmation email (Trạng thái, email)
+
+TMS       --> SUPPORT : Hand-off email + chat history\n(Email bàn giao + lịch sử)
+SUPPORT   --> TMS : Reply via magic-link\n(Trả lời ticket)
+
+TMS       --> OPTIMIZER : VRP request — orders, vehicles,\ndepot, constraints (Yêu cầu tối ưu VRP)
+OPTIMIZER --> TMS : Optimized routes + KPIs\n(Lộ trình tối ưu)
+
+TMS       --> GEMINI : Prompt + function declarations\n(Lệnh + khai báo function)
+GEMINI    --> TMS : Function call / text answer\n(Function call / câu trả lời)
+
+TMS       --> SMTP : Notification email, magic-link\n(Email thông báo)
+SMTP      --> TMS : Delivery status\n(Trạng thái gửi)
+
+@enduml
+
+
+' =====================================================================
+'  2) DFD LEVEL 1 — System decomposition
+' =====================================================================
+@startuml DFD_Level1
+title <b>DFD Level 1 — Main Processes of TMS</b>\n<i>Biểu đồ luồng dữ liệu mức đỉnh</i>
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam dpi 200
+skinparam defaultFontName "Times New Roman"
+skinparam defaultFontSize 11
+skinparam ArrowColor #000000
+skinparam ArrowThickness 1
+skinparam ArrowFontColor #000000
+skinparam ArrowFontSize 10
+skinparam ranksep 55
+skinparam nodesep 35
+
+skinparam rectangle {
+  BackgroundColor<<external>>  #FFFFFF
+  BorderColor<<external>>      #000000
+  BorderThickness<<external>>  1.2
+  FontStyle<<external>>        bold
+  RoundCorner<<external>>      0
+
+  BackgroundColor<<store>>     #FFFFFF
+  BorderColor<<store>>         #000000
+  BorderThickness<<store>>     1.2
+  FontStyle<<store>>           bold
+  RoundCorner<<store>>         0
+}
+skinparam usecase {
+  BackgroundColor<<process>>   #FFFFFF
+  BorderColor<<process>>       #000000
+  BorderThickness<<process>>   1.2
+  FontStyle<<process>>         bold
+}
+
+' --- External entities ---
+rectangle "Admin / Dispatcher\n(Quản trị / Điều phối)"   as ADMIN  <<external>>
+rectangle "Driver\n(Tài xế)"                              as DRIVER <<external>>
+rectangle "Customer\n(Khách hàng)"                        as CUST   <<external>>
+rectangle "Support Agent\n(Tư vấn viên)"                  as SUPP   <<external>>
+rectangle "OR-Tools Optimizer"                            as OPT    <<external>>
+rectangle "Gemini API"                                    as GEM    <<external>>
+rectangle "SMTP Email"                                    as SMTP   <<external>>
+
+' --- Processes (ellipses) — 10 processes, khớp với 10 nhóm BFD ---
+usecase "1.0\nSystem Administration\n(Quản trị hệ thống —\nAuth, Org, User, Role,\nAudit, Config)"     as P1  <<process>>
+usecase "2.0\nMaster Data\nManagement\n(Quản lý danh mục)"                                              as P2  <<process>>
+usecase "3.0\nSales Order\nManagement\n(Quản lý đơn hàng)"                                              as P3  <<process>>
+usecase "4.0\nRoute Planning\n& Optimization\n(Lập kế hoạch & Tối ưu)"                                  as P4  <<process>>
+usecase "5.0\nTrip Execution\n& Monitoring\n(Điều hành & Giám sát chuyến)"                              as P5  <<process>>
+usecase "6.0\nVehicle\nMaintenance\n(Bảo dưỡng phương tiện)"                                            as P6  <<process>>
+usecase "7.0\nDriver Payroll\n(Tính lương tài xế)"                                                       as P7  <<process>>
+usecase "8.0\nReporting\n& Accounting\n(Báo cáo & Kế toán)"                                             as P8  <<process>>
+usecase "9.0\nAI Assistant\n(Trợ lý AI)"                                                                 as P9  <<process>>
+usecase "10.0\nCustomer Support\n(Hỗ trợ khách hàng)"                                                    as P10 <<process>>
+
+' --- Data stores (flat rectangles) ---
+rectangle "D1. Users & RoleGroup\n(Người dùng & Vai trò)"               as D1  <<store>>
+rectangle "D2. Organization\n(Tổ chức)"                                  as D2  <<store>>
+rectangle "D3. Master Data\n(Customer/Product/Vehicle/Driver/Service)" as D3  <<store>>
+rectangle "D4. SalesOrder\n(Đơn hàng)"                                  as D4  <<store>>
+rectangle "D5. RoutePlan & DeliveryRoute\n(Kế hoạch & Tuyến giao)"      as D5  <<store>>
+rectangle "D6. Trip & OrderTripAllocation\n(Chuyến & Phân bổ đơn)"      as D6  <<store>>
+rectangle "D7. GpsLog\n(Nhật ký GPS)"                                    as D7  <<store>>
+rectangle "D8. TripIncident\n(Sự cố chuyến)"                            as D8  <<store>>
+rectangle "D9. VehicleMaintenance\n(Bảo dưỡng xe)"                      as D9  <<store>>
+rectangle "D10. PayrollConfig\n(Cấu hình lương)"                         as D10 <<store>>
+rectangle "D11. AuditLog\n(Nhật ký kiểm toán)"                           as D11 <<store>>
+rectangle "D12. Notification, DriverMessage,\nChatSession (Thông báo, Tin nhắn, Chat)" as D12 <<store>>
+rectangle "D13. SupportArticle\n(Bài viết hỗ trợ — KB)"                  as D13 <<store>>
+
+' =========================================================
+'  DATA FLOWS (Luồng dữ liệu)
+' =========================================================
+
+' --- 1.0 System Administration (Auth + Org + User + Role + Audit + Config) ---
+ADMIN  --> P1 : Credentials, manage org tree,\nusers, roles, config\n(Đăng nhập, quản trị hệ thống)
+DRIVER --> P1 : Credentials (Tài khoản)
+SUPP   --> P1 : Magic-link token
+P1 --> ADMIN  : JWT, dashboard quản trị
+P1 --> DRIVER : JWT + user info
+P1 <--> D1    : R/W users & roles\n(Đọc/ghi user & vai trò)
+P1 <--> D2    : R/W organization tree\n(Cây tổ chức)
+P1 <--> D11   : R/W audit log\n(Nhật ký kiểm toán)
+
+' --- 2.0 Master Data ---
+ADMIN <--> P2 : CRUD Customer/Product/Vehicle/\nDriver/Service (CRUD danh mục)
+P2 <--> D3
+P2 --> D11 : Audit log
+
+' --- 3.0 Sales Order ---
+ADMIN --> P3 : Create / approve / cancel,\nimport Excel (Tạo / duyệt / hủy)
+P3 --> ADMIN : Order list (Danh sách đơn)
+CUST  --> P3 : Tracking code (Mã đơn)
+P3 --> CUST  : Order status (Trạng thái)
+P3 <--> D4
+P3 -->  D3   : Read customer, product (Đọc danh mục)
+P3 --> D11   : Audit log
+
+' --- 4.0 Route Planning & Optimization ---
+ADMIN <--> P4 : Plan, assign, optimize, lock\n(Lập kế hoạch & Tối ưu)
+P4 --> OPT    : Orders + vehicles + constraints\n(Đầu vào VRP)
+OPT --> P4    : Optimized route (Lộ trình tối ưu)
+P4 <--> D5
+P4 -->  D4    : Read / lock orders (Đọc / khóa đơn)
+P4 -->  D3    : Read vehicle, driver (Đọc xe, tài xế)
+P4 --> D11    : Audit log
+
+' --- 5.0 Trip Execution & Monitoring ---
+P4 --> P5     : Finalized plan => Trip (Plan => Trip)
+DRIVER --> P5 : Confirm, GPS, ePOD, incident,\nmessages (Cập nhật chuyến)
+P5 --> DRIVER : Assigned trip, notifications\n(Chuyến giao, thông báo)
+ADMIN <--> P5 : Live dispatch, incident handling\n(Realtime, xử lý sự cố)
+P5 <--> D6
+P5 <--> D7    : GPS read/write
+P5 <--> D8    : Incident read/write
+P5 -->  D4    : Order status = DELIVERED
+P5 -->  D12   : Notification & message
+P5 -->  SMTP  : ePOD email (Email cho khách)
+P5 --> D11    : Audit log
+
+' --- 6.0 Vehicle Maintenance ---
+ADMIN <--> P6 : Schedule / alerts (Lên lịch / cảnh báo)
+DRIVER --> P6 : Confirm completion (Xác nhận hoàn tất)
+P6 --> DRIVER : Maintenance notification
+P6 <--> D9
+P6 -->  D3    : Read vehicle
+P6 -->  D12   : Notification
+P6 --> D11    : Audit log
+
+' --- 7.0 Payroll ---
+ADMIN <--> P7 : Payroll config / view (Cấu hình / xem)
+P7 <--> D10
+P7 -->  D6    : Read completed trips
+P7 -->  D3    : Read driver
+P7 --> D11    : Audit log
+
+' --- 8.0 Reporting ---
+ADMIN <--> P8 : Report request, Excel file
+P8 -->  D4    : Read orders
+P8 -->  D6    : Read trips
+P8 -->  D5    : Read plans
+P8 -->  D3    : Read master data
+
+' --- 9.0 AI Assistant ---
+ADMIN <--> P9 : NL command / question\n(Câu lệnh / câu hỏi)
+CUST  <--> P9 : Chatbot question
+P9 <--> GEM   : Prompt + function / answer
+P9 -->  SMTP  : Hand-off email
+SMTP -->  SUPP : Magic-link email
+P9 <--> D12   : ChatSession R/W
+P9 -->  D13   : KB lookup (Tra cứu KB)
+P9 -->  P3    : Function call (order)
+P9 -->  P4    : Function call (plan)
+P9 -->  P8    : Function call (report)
+
+' --- 10.0 Customer Support ---
+CUST   --> P10 : Contact form
+P10 --> SMTP   : Admin notification
+P10 <--> D13
+SUPP   --> P10 : Ticket reply
+P10 --> CUST   : Reply email
+
+@enduml
+
+
+' =====================================================================
+'  3) DFD LEVEL 2 — P3. SALES ORDER MANAGEMENT
+' =====================================================================
+@startuml DFD_Level2_P3_Order
+title <b>DFD Level 2 — P3.0 Sales Order Management</b>\n<i>Biểu đồ DFD "Quản lý Đơn hàng" mức 2</i>
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam dpi 200
+skinparam defaultFontName "Times New Roman"
+skinparam defaultFontSize 11
+skinparam ArrowColor #000000
+skinparam ArrowThickness 1
+skinparam ArrowFontColor #000000
+skinparam ArrowFontSize 10
+skinparam ranksep 50
+skinparam nodesep 35
+
+skinparam rectangle {
+  BackgroundColor<<external>>  #FFFFFF
+  BorderColor<<external>>      #000000
+  BorderThickness<<external>>  1.2
+  FontStyle<<external>>        bold
+  RoundCorner<<external>>      0
+
+  BackgroundColor<<store>>     #FFFFFF
+  BorderColor<<store>>         #000000
+  BorderThickness<<store>>     1.2
+  FontStyle<<store>>           bold
+  RoundCorner<<store>>         0
+}
+skinparam usecase {
+  BackgroundColor<<process>>   #FFFFFF
+  BorderColor<<process>>       #000000
+  BorderThickness<<process>>   1.2
+  FontStyle<<process>>         bold
+}
+
+rectangle "Data Entry Staff\n(Nhân viên nhập liệu)"        as STAFF <<external>>
+rectangle "Manager / Approver\n(Trưởng phòng / Phê duyệt)" as APPR  <<external>>
+rectangle "Dispatcher\n(Điều phối)"                        as DISP  <<external>>
+rectangle "Customer (public)\n(Khách hàng)"                as CUST  <<external>>
+rectangle "AI Agent (9.0)\n(Trợ lý AI)"                    as AI    <<external>>
+rectangle "Process 4.0\nRoute Planning"                    as P5EXT <<external>>
+rectangle "Process 5.0\nTrip Execution"                    as P6EXT <<external>>
+
+usecase "3.1\nOrder Entry\n(Manual / Mobile)\n(Nhập đơn)"           as P41 <<process>>
+usecase "3.2\nExcel Import\n(Import Excel)"                         as P42 <<process>>
+usecase "3.3\nOrder Approval\n(Duyệt đơn)"                          as P43 <<process>>
+usecase "3.4\nUpdate / Cancel\n(Cập nhật / Hủy)"                    as P44 <<process>>
+usecase "3.5\nChange Planning Status\n(Đổi trạng thái Planning)"    as P45 <<process>>
+usecase "3.6\nAllocate Order to Trip\n(Phân bổ vào Trip)"           as P46 <<process>>
+usecase "3.7\nPublic Tracking\n(Tra cứu công khai)"                 as P47 <<process>>
+
+rectangle "D3. Master Data\n(Customer, Product)" as D3  <<store>>
+rectangle "D4. SalesOrder\n(Đơn hàng)"           as D4  <<store>>
+rectangle "D6. Trip &\nOrderTripAllocation"     as D6  <<store>>
+rectangle "D11. AuditLog"                       as D11 <<store>>
+
+STAFF --> P41 : Order info — customer, product,\nstop, time (Thông tin đơn)
+P41 -->  D3   : Validate KH, SP
+P41 -->  D4   : Write SalesOrder (PENDING)
+P41 -->  D11
+
+STAFF --> P42 : Excel file
+P42 -->  D3   : Map mã KH / SP
+P42 -->  D4   : Bulk insert
+P42 --> STAFF : Success / error report (Báo cáo lỗi)
+P42 -->  D11
+
+APPR  --> P43 : Approve / reject + reason\n(Quyết định + lý do)
+P43 -->  D4   : APPROVED / REJECTED
+P43 -->  D11
+
+DISP  --> P44 : Edit / cancel (Sửa / hủy)
+AI    --> P44 : Function call (update / cancel)
+P44 -->  D4   : Update / soft-delete
+P44 --> P5EXT : Cancelled => remove from plan
+P44 -->  D11
+
+P5EXT --> P45 : PLANNED / LOCKED / FINALIZED
+P6EXT --> P45 : DELIVERED (after ePOD)
+P45 -->  D4   : Update planningStatus
+
+P5EXT --> P46 : Allocation request
+P46 -->  D6   : Write OrderTripAllocation
+P46 -->  D4   : Read order
+
+CUST  --> P47 : Tracking code (Mã đơn)
+P47 -->  D4   : Read status
+P47 -->  D6   : Read trip
+P47 --> CUST  : Status + ETA + driver + map
+
+@enduml
+
+
+' =====================================================================
+'  4) DFD LEVEL 2 — P4. ROUTE PLANNING & OPTIMIZATION
+' =====================================================================
+@startuml DFD_Level2_P4_Planning
+title <b>DFD Level 2 — P4.0 Route Planning & Optimization</b>\n<i>Biểu đồ DFD "Lập kế hoạch & Tối ưu lộ trình" mức 2</i>
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam dpi 200
+skinparam defaultFontName "Times New Roman"
+skinparam defaultFontSize 11
+skinparam ArrowColor #000000
+skinparam ArrowThickness 1
+skinparam ArrowFontColor #000000
+skinparam ArrowFontSize 10
+skinparam ranksep 50
+skinparam nodesep 35
+
+skinparam rectangle {
+  BackgroundColor<<external>>  #FFFFFF
+  BorderColor<<external>>      #000000
+  BorderThickness<<external>>  1.2
+  FontStyle<<external>>        bold
+  RoundCorner<<external>>      0
+
+  BackgroundColor<<store>>     #FFFFFF
+  BorderColor<<store>>         #000000
+  BorderThickness<<store>>     1.2
+  FontStyle<<store>>           bold
+  RoundCorner<<store>>         0
+}
+skinparam usecase {
+  BackgroundColor<<process>>   #FFFFFF
+  BorderColor<<process>>       #000000
+  BorderThickness<<process>>   1.2
+  FontStyle<<process>>         bold
+}
+
+rectangle "Dispatcher / Manager\n(Điều phối / Quản lý)" as DISP  <<external>>
+rectangle "OR-Tools\nOptimizer Service"                 as OPT   <<external>>
+rectangle "AI Agent (9.0)"                              as AI    <<external>>
+rectangle "Process 3.0\nSales Order"                    as P4EXT <<external>>
+rectangle "Process 5.0\nTrip Execution"                 as P6EXT <<external>>
+
+usecase "4.1\nCreate / Edit /\nDelete RoutePlan\n(Tạo / Sửa / Xoá)" as P51 <<process>>
+usecase "4.2\nManage DeliveryRoute\n(Quản lý tuyến)"                 as P52 <<process>>
+usecase "4.3\nAssign / Move / Reorder\nOrders in Route\n(Gán / Di chuyển)" as P53 <<process>>
+usecase "4.4\nAssign Driver / Vehicle /\n3PL / Cost\n(Gán Tài xế / Xe)" as P54 <<process>>
+usecase "4.5\nVRP Optimization\n(OR-Tools)\n(Tối ưu VRP)"           as P55 <<process>>
+usecase "4.6\nAuto-Dispatch Driver\n(Tự động điều phối)"            as P56 <<process>>
+usecase "4.7\nLock / Unlock /\nFinalize Route\n(Khóa / Hoàn thiện)" as P57 <<process>>
+usecase "4.8\nSync Plan => Create Trip\n(Sync Plan => Tạo Trip)"    as P58 <<process>>
+usecase "4.9\nBenchmark Result\n(So sánh tối ưu)"                    as P59 <<process>>
+
+rectangle "D3. Master Data\n(Vehicle, Driver, Service)" as D3  <<store>>
+rectangle "D4. SalesOrder"                              as D4  <<store>>
+rectangle "D5. RoutePlan &\nDeliveryRoute"              as D5  <<store>>
+rectangle "D6. Trip"                                    as D6  <<store>>
+rectangle "D11. AuditLog"                               as D11 <<store>>
+
+DISP --> P51 : Plan by date / region\n(Theo ngày / vùng)
+AI   --> P51 : Function call (create)
+P51 <--> D5
+P51 --> D11
+
+DISP --> P52 : Add / remove route\n(Thêm / xoá tuyến)
+P52 <--> D5
+P52 --> D11
+
+DISP --> P53 : Drag-drop order (Kéo thả đơn)
+P53 -->  D4  : Read weight / volume\n(Đọc tải)
+P53 <--> D5
+P53 --> DISP : Constraint violation\n(Cảnh báo vi phạm)
+P53 --> D11
+
+DISP --> P54 : Pick vehicle / driver / 3PL /\ncost (Chọn xe / tài xế)
+P54 -->  D3  : Read available
+P54 <--> D5
+P54 --> D11
+
+DISP --> P55 : Optimize request + params\n(Yêu cầu tối ưu)
+P55 -->  D4  : Read unplanned orders
+P55 -->  D3  : Read vehicle / driver
+P55 -->  OPT : VRP payload
+OPT  --> P55 : Optimized route + KPI
+P55 <--> D5  : Save optimized routes
+P55 --> P59  : Trigger benchmark
+P55 --> D11
+
+DISP --> P56 : Auto-dispatch request
+P56 -->  D3  : Read driver + workload
+P56 -->  D6  : Read trip history
+P56 <--> D5  : Assign driver
+P56 --> DISP : Assigned / skipped report
+P56 --> D11
+
+DISP --> P57 : Lock / Unlock / Finalize
+P57 <--> D5  : Update route status
+P57 -->  D4  : Update planning status
+P57 --> P58  : Trigger on FINALIZED
+P57 --> D11
+
+P58 -->  D5  : Read finalized routes
+P58 -->  D4  : Read orders in route
+P58 <--> D6  : Create Trip + allocations
+P58 --> P6EXT : Hand over Trip
+P58 --> D11
+
+P59 -->  D5  : Read optimized routes
+P59 --> DISP : Comparison table\n(Bảng so sánh)
+
+P4EXT --> P53 : APPROVED orders\nwithout route
+P4EXT --> P55 : APPROVED orders\nfor VRP input
+
+@enduml
+
+
+' =====================================================================
+'  5) DFD LEVEL 2 — P5. TRIP EXECUTION & MONITORING
+' =====================================================================
+@startuml DFD_Level2_P5_Trip
+title <b>DFD Level 2 — P5.0 Trip Execution & Monitoring</b>\n<i>Biểu đồ DFD "Điều hành & Giám sát chuyến" mức 2</i>
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam dpi 200
+skinparam defaultFontName "Times New Roman"
+skinparam defaultFontSize 11
+skinparam ArrowColor #000000
+skinparam ArrowThickness 1
+skinparam ArrowFontColor #000000
+skinparam ArrowFontSize 10
+skinparam ranksep 50
+skinparam nodesep 35
+
+skinparam rectangle {
+  BackgroundColor<<external>>  #FFFFFF
+  BorderColor<<external>>      #000000
+  BorderThickness<<external>>  1.2
+  FontStyle<<external>>        bold
+  RoundCorner<<external>>      0
+
+  BackgroundColor<<store>>     #FFFFFF
+  BorderColor<<store>>         #000000
+  BorderThickness<<store>>     1.2
+  FontStyle<<store>>           bold
+  RoundCorner<<store>>         0
+}
+skinparam usecase {
+  BackgroundColor<<process>>   #FFFFFF
+  BorderColor<<process>>       #000000
+  BorderThickness<<process>>   1.2
+  FontStyle<<process>>         bold
+}
+
+rectangle "Driver\n(Mobile App — Tài xế)" as DRIVER  <<external>>
+rectangle "Dispatcher (Web)\n(Điều phối)"  as DISP    <<external>>
+rectangle "Customer\n(ePOD email — KH)"    as CUST    <<external>>
+rectangle "Gemini API"                     as GEM     <<external>>
+rectangle "SMTP Email"                     as SMTP    <<external>>
+rectangle "Process 4.0\nRoute Planning"    as P5EXT   <<external>>
+rectangle "Process 3.0\nSales Order"        as P4EXT   <<external>>
+rectangle "Process 7.0\nPayroll"            as P8EXT   <<external>>
+
+usecase "5.1\nConfirm Trip\n(Nhận chuyến)"               as P61  <<process>>
+usecase "5.2\nLoading\n(Soạn hàng)"                       as P62  <<process>>
+usecase "5.3\nStart Trip\n(Bắt đầu chuyến)"               as P63  <<process>>
+usecase "5.4\nReal-time GPS\n(Ghi GPS)"                   as P64  <<process>>
+usecase "5.5\nUpdate Stop + ePOD\n(Cập nhật + ePOD)"      as P65  <<process>>
+usecase "5.6\nExplain Deviation (AI)\n(Giải thích lệch)"  as P66  <<process>>
+usecase "5.7\nReturn to Depot\n(Về kho)"                   as P67  <<process>>
+usecase "5.8\nFinish Trip\n(Kết thúc chuyến)"             as P68  <<process>>
+usecase "5.9\nIncident Reporting\n(Báo cáo sự cố)"        as P69  <<process>>
+usecase "5.10\nDriver Messaging\n(Tin nhắn)"               as P610 <<process>>
+usecase "5.11\nLive Dispatch Map\n(Bản đồ realtime)"      as P611 <<process>>
+usecase "5.12\nHandle Incident\n(Xử lý sự cố)"             as P612 <<process>>
+
+rectangle "D4. SalesOrder"                       as D4  <<store>>
+rectangle "D6. Trip &\nOrderTripAllocation"     as D6  <<store>>
+rectangle "D7. GpsLog"                           as D7  <<store>>
+rectangle "D8. TripIncident"                     as D8  <<store>>
+rectangle "D12. Notification &\nDriverMessage"  as D12 <<store>>
+rectangle "D11. AuditLog"                        as D11 <<store>>
+
+P5EXT  --> P61 : New trip created
+P61 -->  D6   : Status = CONFIRMED
+P61 -->  D12  : Notification dispatcher
+P61 -->  D11
+
+DRIVER --> P62 : Start loading
+P62 -->  D6   : Status = LOADING
+P62 --> DRIVER : Picking list (Danh sách kiện)
+P62 -->  D11
+
+DRIVER --> P63 : Pickup / start trip
+P63 -->  D6   : Status = IN_TRANSIT
+P63 -->  D4   : Order = IN_TRANSIT
+P63 -->  D12  : Notification (KH + DP)
+P63 --> SMTP  : "In delivery" email
+P63 -->  D11
+
+DRIVER --> P64 : (lat, lng, speed, ts)
+P64 -->  D7   : Append GPS log
+P64 -->  P611 : Socket.IO stream
+
+DRIVER --> P65 : arrive / deliver / failed +\nphoto + signature
+P65 -->  D6   : Task by stopIndex
+P65 -->  D4   : DELIVERED / FAILED
+P65 --> SMTP  : ePOD email
+SMTP  --> CUST : ePOD email
+P65 --> P66   : If deviation (Nếu lệch)
+P65 -->  D11
+
+DRIVER --> P66 : Reason + evidence
+P66 <--> GEM  : Analysis + suggest
+P66 -->  D6   : Save deviation note
+P66 --> DISP  : Deviation alert
+
+DRIVER --> P67 : Returned (Đã về kho)
+P67 -->  D6   : Status = RETURNING
+P67 -->  D11
+
+DRIVER --> P68 : Final odometer,\nactual cost
+P68 -->  D6   : COMPLETED + actuals
+P68 --> P8EXT : Payroll trigger
+P68 --> P4EXT : Close remaining orders
+P68 -->  D11
+
+DRIVER --> P69 : Type + description + photo
+P69 -->  D8   : Write TripIncident
+P69 -->  D12  : Urgent notification
+P69 --> P612
+
+DRIVER <--> P610 : Send / read messages
+DISP   <--> P610 : Send / read messages
+P610 <-->  D12  : DriverMessage R/W
+
+DISP <--> P611 : Real-time map +\ntrip progress
+P611 -->  D6  : Read trip
+P611 -->  D7  : Read latest GPS
+P611 -->  D8  : Read open incidents
+
+DISP --> P612 : Resolve / close incident
+P612 <--> D8  : Update incident
+P612 -->  D12 : Notification to driver
+P612 -->  D11
+
+@enduml
+
+
+' =====================================================================
+'  6) DFD LEVEL 2 — P9. AI ASSISTANT (Agent + Chatbot)
+' =====================================================================
+@startuml DFD_Level2_P9_AI
+title <b>DFD Level 2 — P9.0 AI Assistant</b>\n<i>Biểu đồ DFD "Trợ lý AI" mức 2</i>
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam dpi 200
+skinparam defaultFontName "Times New Roman"
+skinparam defaultFontSize 11
+skinparam ArrowColor #000000
+skinparam ArrowThickness 1
+skinparam ArrowFontColor #000000
+skinparam ArrowFontSize 10
+skinparam ranksep 50
+skinparam nodesep 35
+
+skinparam rectangle {
+  BackgroundColor<<external>>  #FFFFFF
+  BorderColor<<external>>      #000000
+  BorderThickness<<external>>  1.2
+  FontStyle<<external>>        bold
+  RoundCorner<<external>>      0
+
+  BackgroundColor<<store>>     #FFFFFF
+  BorderColor<<store>>         #000000
+  BorderThickness<<store>>     1.2
+  FontStyle<<store>>           bold
+  RoundCorner<<store>>         0
+}
+skinparam usecase {
+  BackgroundColor<<process>>   #FFFFFF
+  BorderColor<<process>>       #000000
+  BorderThickness<<process>>   1.2
+  FontStyle<<process>>         bold
+}
+
+rectangle "Internal User\n(Admin / Dispatcher)\n(Người dùng nội bộ)" as USER  <<external>>
+rectangle "Visitor / Customer\n(public Q&A — Khách)"                 as CUST  <<external>>
+rectangle "Support Agent\n(Tư vấn viên)"                              as SUPP  <<external>>
+rectangle "Gemini API\n(Google AI)"                                  as GEM   <<external>>
+rectangle "SMTP Email"                                               as SMTP  <<external>>
+rectangle "Business Processes\n(P2-P8)"                              as BIZ   <<external>>
+
+usecase "9.1\nReceive NL Command\n(Nhận lệnh)"            as P101 <<process>>
+usecase "9.2\nCall Gemini +\nFunction Declarations"      as P102 <<process>>
+usecase "9.3\nRoute Function Call\n(Định tuyến)"           as P103 <<process>>
+usecase "9.4\nDeep-link Navigate\n(Điều hướng URL)"        as P104 <<process>>
+usecase "9.5\nReturn Result\n(Trả kết quả)"                 as P105 <<process>>
+usecase "9.6\nManage Chat Session\n(Quản lý phiên chat)"   as P106 <<process>>
+usecase "9.7\nChatbot Answer\n(RAG + Gemini)"             as P107 <<process>>
+usecase "9.8\nDetect Hand-off\n(Phát hiện bàn giao)"        as P108 <<process>>
+usecase "9.9\nSend Magic-link Email\n(Gửi email)"           as P109 <<process>>
+usecase "9.10\nReceive Support Reply\n(Nhận trả lời TV)"    as P1010 <<process>>
+usecase "9.11\nResume Bot\n(Tiếp tục bot)"                  as P1011 <<process>>
+
+rectangle "D12. ChatSession &\nSupportThread"   as D12 <<store>>
+rectangle "D13. SupportArticle\n(Knowledge Base)" as D13 <<store>>
+rectangle "D11. AuditLog"                        as D11 <<store>>
+
+' ===== AI Agent branch =====
+USER --> P101 : NL command (Câu lệnh)
+P101 --> P102 : Normalized prompt + context
+P102 <--> GEM : Prompt + function declarations
+P102 --> P103 : Function call + args
+P103 --> BIZ  : Call internal API
+BIZ  --> P103 : JSON result
+P103 --> P104 : Target URL
+P104 --> USER : Deep-link
+P103 --> P105 : Summarized result
+P105 --> USER : Answer + UI
+P101 --> D11
+P103 --> D11
+
+' ===== Chatbot Q&A branch =====
+CUST --> P106 : Open session
+USER --> P106 : Open session
+P106 <--> D12 : Create / read session
+
+CUST --> P107 : Question
+USER --> P107 : Question
+P107 -->  D13 : KB lookup
+P107 <--> GEM : Prompt + KB context
+P107 -->  D12 : Save message
+P107 --> CUST : Answer
+P107 --> USER : Answer
+
+P107 --> P108 : "cannot answer" /\nuser requests human
+P108 -->  D12 : needs_human = true
+P108 --> P109
+
+P109 --> SMTP : Magic-link + context
+SMTP --> SUPP : Email
+SUPP --> P1010 : Open link + reply
+P1010 -->  D12 : Save reply
+P1010 --> CUST : Display in chat
+P1010 --> USER : Display in chat
+
+USER --> P1011 : Resume bot
+CUST --> P1011 : Resume bot
+P1011 -->  D12 : needs_human = false
+P1011 --> P107 : Resume automated answers
+
+@enduml
