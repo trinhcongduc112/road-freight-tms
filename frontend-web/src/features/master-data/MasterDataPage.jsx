@@ -31,6 +31,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   customerApi,
   customerGroupApi,
+  driverApi,
   productApi,
   productCategoryApi,
   serviceApi,
@@ -329,14 +330,26 @@ export default function MasterDataPage() {
   const canCustomer = isSuper || can(Permissions.CUSTOMER_MANAGE);
   const canProduct  = isSuper || can(Permissions.PRODUCT_MANAGE);
   const canVehicle  = isSuper || can(Permissions.VEHICLE_MANAGE);
+  const canDriver   = isSuper || can(Permissions.DRIVER_MANAGE);
   const canService  = isSuper || can(Permissions.SERVICE_MANAGE);
 
-  const orgsQ   = useQuery({ queryKey: ["organizations"],     queryFn: organizationApi.list });
-  const groupsQ = useQuery({ queryKey: ["customer-groups"],   queryFn: customerGroupApi.list });
-  const catsQ   = useQuery({ queryKey: ["product-categories"], queryFn: () => productCategoryApi.list({ limit: 500 }) });
-  const orgs   = orgsQ.data?.data ?? [];
-  const groups = groupsQ.data?.data ?? [];
-  const cats   = catsQ.data?.data  ?? [];
+  const orgsQ      = useQuery({ queryKey: ["organizations"],     queryFn: organizationApi.list });
+  const groupsQ    = useQuery({ queryKey: ["customer-groups"],   queryFn: customerGroupApi.list });
+  const catsQ      = useQuery({ queryKey: ["product-categories"], queryFn: () => productCategoryApi.list({ limit: 500 }) });
+  const servicesQ  = useQuery({ queryKey: ["services-3pl-lookup"], queryFn: () => serviceApi.list({ limit: 500, status: "Active" }) });
+  const orgs       = orgsQ.data?.data ?? [];
+  const groups     = groupsQ.data?.data ?? [];
+  const cats       = catsQ.data?.data  ?? [];
+  const services3pl = servicesQ.data?.data ?? [];
+  // Options cho EmploymentType + ServiceID, dùng chung cho cả Driver và Vehicle
+  const employmentOptions = [
+    { value: "IN_HOUSE",   label: "Nội bộ (in-house)" },
+    { value: "OUTSOURCED", label: "Thuê ngoài (3PL)" }
+  ];
+  const serviceOptions = services3pl.map((s) => ({
+    value: s._id,
+    label: `${s.ServiceCode} — ${s.XName}${s.Carrier ? ` · ${s.Carrier}` : ""}`
+  }));
   const groupByCode = Object.fromEntries(groups.map((g) => [g.GroupCode, g]));
 
   const statusCol = { title: "Trạng thái", dataIndex: "Status", width: 100, render: (v) => <Tag color={STATUS_COLOR[v] ?? "default"}>{v}</Tag> };
@@ -548,6 +561,12 @@ export default function MasterDataPage() {
             { title: "Biển số", dataIndex: "LicensePlate", width: 120 },
             { title: "Loại", dataIndex: "VehicleType", width: 80 },
             { title: "Tải(kg)", dataIndex: "MaxWeight", width: 90 },
+            {
+              title: "Nguồn", dataIndex: "EmploymentType", width: 110,
+              render: (v) => v === "OUTSOURCED"
+                ? <Tag color="orange">3PL</Tag>
+                : <Tag color="blue">Nội bộ</Tag>
+            },
             statusCol
           ]}
           formFields={
@@ -560,6 +579,25 @@ export default function MasterDataPage() {
                   { value: "TRAILER",    label: "Trailer — Xe rơ-moóc" },
                   { value: "BIKE",       label: "Bike — Xe máy" }
                 ]} />
+              </Form.Item>
+              <Form.Item name="EmploymentType" label="Nguồn xe" initialValue="IN_HOUSE" tooltip="Xe nội bộ tham gia lịch bảo dưỡng; xe 3PL tính chi phí qua bảng giá Service">
+                <Select options={employmentOptions} />
+              </Form.Item>
+              <Form.Item
+                noStyle
+                shouldUpdate={(prev, cur) => prev.EmploymentType !== cur.EmploymentType}
+              >
+                {({ getFieldValue }) =>
+                  getFieldValue("EmploymentType") === "OUTSOURCED" ? (
+                    <Form.Item
+                      name="ServiceID"
+                      label="Hãng 3PL sở hữu xe"
+                      rules={[{ required: true, message: "Chọn hãng 3PL cho xe thuê ngoài" }]}
+                    >
+                      <Select options={serviceOptions} placeholder="Chọn dịch vụ 3PL..." showSearch optionFilterProp="label" />
+                    </Form.Item>
+                  ) : null
+                }
               </Form.Item>
               <Form.Item name="MaxWeight" label="Tải trọng tối đa (kg)" initialValue={0}>
                 <InputNumber min={0} style={{ width: "100%" }} />
@@ -584,6 +622,72 @@ export default function MasterDataPage() {
               </Form.Item>
               <Form.Item name="UnloadingTimePerStop" label="Thời gian dỡ hàng tại mỗi điểm (phút)" initialValue={15} tooltip="Thời gian giao hàng & ký xác nhận tại 1 khách">
                 <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </>
+          }
+        />
+      )
+    },
+    {
+      key: "drivers", label: "Tài xế",
+      children: (
+        <CrudTab
+          queryKey="drivers" listFn={driverApi.list} createFn={driverApi.create}
+          updateFn={driverApi.update} removeFn={driverApi.remove}
+          codeField="DriverCode" codeLabel="Mã tài xế" canWrite={canDriver} orgs={orgs}
+          exportFields={[
+            { label: "Mã tài xế", key: "DriverCode" }, { label: "Họ tên", key: "XName" },
+            { label: "SĐT", key: "Phone" }, { label: "Email", key: "Email" },
+            { label: "Loại xe lái", key: "VehicleType" },
+            { label: "Nguồn nhân sự", key: "EmploymentType" },
+            { label: "Trạng thái", key: "Status" }
+          ]}
+          exportFilename="drivers.xlsx"
+          importFn={driverApi.import}
+          importTemplateFields={["DriverCode","XName","Phone","Email","VehicleType","EmploymentType"]}
+          columns={[
+            { title: "Mã TX", dataIndex: "DriverCode", width: 100, render: (v) => <Tag color="purple">{v}</Tag> },
+            { title: "Họ tên", dataIndex: "XName" },
+            { title: "SĐT", dataIndex: "Phone", width: 120 },
+            { title: "Loại xe", dataIndex: "VehicleType", width: 100 },
+            {
+              title: "Nguồn", dataIndex: "EmploymentType", width: 110,
+              render: (v) => v === "OUTSOURCED"
+                ? <Tag color="orange">Thuê ngoài</Tag>
+                : <Tag color="blue">Nội bộ</Tag>
+            },
+            statusCol
+          ]}
+          formFields={
+            <>
+              <Form.Item name="Phone" label="Số điện thoại"><Input placeholder="0901234567" /></Form.Item>
+              <Form.Item name="Email" label="Email"><Input type="email" placeholder="driver@example.com" /></Form.Item>
+              <Form.Item name="VehicleType" label="Loại xe được phép lái">
+                <Select allowClear options={[
+                  { value: "TRUCK",      label: "Truck — Xe tải" },
+                  { value: "SEMI_TRUCK", label: "Semi-truck" },
+                  { value: "TRAILER",    label: "Trailer" },
+                  { value: "BIKE",       label: "Bike — Xe máy" }
+                ]} placeholder="(bỏ trống = không giới hạn)" />
+              </Form.Item>
+              <Form.Item name="EmploymentType" label="Nguồn nhân sự" initialValue="IN_HOUSE" tooltip="Tài xế nội bộ tham gia tính lương; tài xế 3PL hưởng lương từ hãng họ">
+                <Select options={employmentOptions} />
+              </Form.Item>
+              <Form.Item
+                noStyle
+                shouldUpdate={(prev, cur) => prev.EmploymentType !== cur.EmploymentType}
+              >
+                {({ getFieldValue }) =>
+                  getFieldValue("EmploymentType") === "OUTSOURCED" ? (
+                    <Form.Item
+                      name="ServiceID"
+                      label="Hãng 3PL"
+                      rules={[{ required: true, message: "Chọn hãng 3PL cho tài xế thuê ngoài" }]}
+                    >
+                      <Select options={serviceOptions} placeholder="Chọn dịch vụ 3PL..." showSearch optionFilterProp="label" />
+                    </Form.Item>
+                  ) : null
+                }
               </Form.Item>
             </>
           }

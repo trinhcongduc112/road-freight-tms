@@ -331,7 +331,9 @@ export default function ReportingPage() {
                 { label: "Tổng giá trị tiền", value: currency(totals.totalOrderValue), note: "Tiền hàng + tiền xe/dịch vụ trên đơn" },
                 { label: "Tiền hàng", value: currency(totals.goodsAmount), note: "Tổng tiền sản phẩm trong đơn" },
                 { label: "Tiền xe / dịch vụ đơn hàng", value: currency(totals.serviceAmount), note: "Phí vận chuyển/dịch vụ tính trên đơn" },
-                { label: "Chi phí vận tải ước tính", value: currency(totals.estimatedCost), note: "Chi phí chuyến xe từ lộ trình" },
+                { label: "Chi phí vận tải ước tính", value: currency(totals.estimatedCost), note: "Tổng chi phí chuyến xe (nội bộ + 3PL)" },
+                { label: "  • Chuyến xe nội bộ", value: currency(totals.inHouseTripCost), note: `${number(totals.inHouseTripCount ?? 0)} chuyến · lương TX + nhiên liệu + xe` },
+                { label: "  • Chuyến 3PL (thuê ngoài)", value: currency(totals.outsourcedTripCost), note: `${number(totals.outsourcedTripCount ?? 0)} chuyến · phí dịch vụ trả hãng vận chuyển` },
                 { label: "Doanh thu đã giao", value: currency(totals.revenue), note: "Chỉ tính đơn DELIVERED" },
                 { label: "Lãi gộp vận tải", value: currency(totals.grossProfit), note: "Doanh thu đã giao - chi phí vận tải" }
               ]}
@@ -435,6 +437,7 @@ export default function ReportingPage() {
               columns={[
                 { title: "Mã chuyến", dataIndex: "tripCode", render: (v) => <Tag color="blue">{v}</Tag> },
                 { title: "Ngày", dataIndex: "planDate", render: (v) => dayjs(v).format("DD/MM/YYYY") },
+                { title: "Loại", dataIndex: "serviceType", width: 80, render: (v) => v === "3PL" ? <Tag color="orange">3PL</Tag> : <Tag color="blue">Nội bộ</Tag> },
                 { title: "Xe", dataIndex: "vehicleCode" },
                 { title: "Tài xế / dịch vụ", dataIndex: "driverName", render: (v, r) => v || r.serviceName || "—" },
                 { title: "Trạng thái", dataIndex: "status", render: (v) => <Tag color={v === "COMPLETED" ? "green" : v === "CANCELLED" ? "red" : "blue"}>{v}</Tag> },

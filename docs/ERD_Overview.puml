@@ -119,6 +119,8 @@ Organization ||--o{ TrafficFactor     : "uses"
 ProductCategory ||--o{ Product        : "categorizes"
 CustomerGroup   ||--o{ Customer       : "groups"
 Driver          }o--o| User           : "linked to"
+Driver          }o--o| Service        : "outsourced to (if 3PL)"
+Vehicle         }o--o| Service        : "outsourced to (if 3PL)"
 
 ' --- Orders ---
 Organization ||--o{ SalesOrder        : "places"

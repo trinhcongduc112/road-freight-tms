@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const VEHICLE_TYPES = ["TRUCK", "SEMI_TRUCK", "TRAILER", "BIKE"];
 
+export const EmploymentType = Object.freeze({
+  IN_HOUSE:   "IN_HOUSE",   // tài xế nội bộ — hưởng lương + tham gia bảo dưỡng
+  OUTSOURCED: "OUTSOURCED"  // tài xế 3PL — không nhận lương từ shipper, chi phí tính theo Service
+});
+
 const driverSchema = new mongoose.Schema(
   {
     DriverCode:  { type: String, required: true, trim: true, uppercase: true },
@@ -11,6 +16,14 @@ const driverSchema = new mongoose.Schema(
     Email:       { type: String, trim: true, lowercase: true, default: "" },
     VehicleType: { type: String, enum: VEHICLE_TYPES, default: null },
     LinkedUserID: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    EmploymentType: {
+      type: String,
+      enum: Object.values(EmploymentType),
+      default: EmploymentType.IN_HOUSE,
+      index: true
+    },
+    // Hãng 3PL (Service master-data) — bắt buộc khi EmploymentType=OUTSOURCED
+    ServiceID:   { type: mongoose.Schema.Types.ObjectId, ref: "Service", default: null, index: true },
     Status:      { type: String, enum: ["Active", "Inactive"], default: "Active", index: true },
     CreatedBy:   { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   },

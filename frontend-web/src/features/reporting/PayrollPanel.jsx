@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  Alert,
   App,
   Card,
   DatePicker,
@@ -96,6 +97,10 @@ export default function PayrollPanel() {
   const columns = [
     { title: "Mã TX", dataIndex: "driverCode", width: 100 },
     { title: "Tên", dataIndex: "driverName", render: (v) => <Text strong>{v}</Text> },
+    {
+      title: "Nguồn", width: 90,
+      render: () => <Tag color="blue">Nội bộ</Tag>
+    },
     { title: "SĐT", dataIndex: "phone", width: 120 },
     {
       title: "Chuyến (HT/Tổng)",
@@ -161,8 +166,24 @@ export default function PayrollPanel() {
     }
   ];
 
+  const outsourcedExcluded = data?.outsourcedExcluded ?? 0;
+
   return (
     <div>
+      {outsourcedExcluded > 0 && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={
+            <span>
+              Bảng lương chỉ tính cho <b>{data?.driverCount ?? 0} tài xế nội bộ</b>.
+              Đã loại trừ <b>{outsourcedExcluded} tài xế thuê ngoài (3PL)</b> — họ hưởng lương từ hãng vận chuyển, chi phí tính qua bảng giá Service.
+            </span>
+          }
+        />
+      )}
+
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card size="small">
@@ -249,12 +270,12 @@ export default function PayrollPanel() {
             summary={() => totals.gross ? (
               <Table.Summary fixed>
                 <Table.Summary.Row style={{ background: "#fafafa", fontWeight: 700 }}>
-                  <Table.Summary.Cell index={0} colSpan={6}>TỔNG CỘNG</Table.Summary.Cell>
-                  <Table.Summary.Cell index={6} align="right">{currency(totals.baseSalary)}</Table.Summary.Cell>
-                  <Table.Summary.Cell index={7} align="right">{currency(totals.kmBonus)}</Table.Summary.Cell>
-                  <Table.Summary.Cell index={8} align="right">{currency(totals.completionBonus)}</Table.Summary.Cell>
-                  <Table.Summary.Cell index={9} align="right">{currency(totals.codCommission)}</Table.Summary.Cell>
-                  <Table.Summary.Cell index={10} align="right">
+                  <Table.Summary.Cell index={0} colSpan={7}>TỔNG CỘNG</Table.Summary.Cell>
+                  <Table.Summary.Cell index={7} align="right">{currency(totals.baseSalary)}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={8} align="right">{currency(totals.kmBonus)}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={9} align="right">{currency(totals.completionBonus)}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={10} align="right">{currency(totals.codCommission)}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={11} align="right">
                     <Text strong style={{ color: "#1677ff", fontSize: 14 }}>{currency(totals.gross)}</Text>
                   </Table.Summary.Cell>
                 </Table.Summary.Row>

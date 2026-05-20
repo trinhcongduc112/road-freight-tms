@@ -94,9 +94,26 @@ export async function driverPayroll(req, res) {
 
   // Expand toàn bộ subtree org (admin parent thấy được sub-org)
   const orgFilter = scopeFilter(req.orgScope, "OrganizationID");
-  const driverFilter = { ...orgFilter, Status: "Active" };
+  // Chỉ tính lương cho tài xế NỘI BỘ — tài xế 3PL hưởng lương từ hãng họ, chi phí
+  // đã được tính qua bảng giá Service ở Route Plan / Trip cost. Bao gồm cả document
+  // legacy không có EmploymentType (mặc định coi như IN_HOUSE).
+  const driverFilter = {
+    ...orgFilter,
+    Status: "Active",
+    $or: [
+      { EmploymentType: "IN_HOUSE" },
+      { EmploymentType: { $exists: false } }
+    ]
+  };
   if (req.query.driverId) driverFilter._id = req.query.driverId;
   const drivers = await Driver.find(driverFilter).lean();
+
+  // Đếm tài xế 3PL bị loại để hiển thị thông báo trên UI
+  const outsourcedCount = await Driver.countDocuments({
+    ...orgFilter,
+    Status: "Active",
+    EmploymentType: "OUTSOURCED"
+  });
 
   // DriverID array đã giới hạn bởi org scope ở trên → không cần filter OrgID nữa
   // (Trip.aggregate $match KHÔNG auto-cast string → ObjectId như Mongoose find)
@@ -177,6 +194,7 @@ export async function driverPayroll(req, res) {
       month: monthStr,
       config: PAYROLL_CONFIG,
       driverCount: items.length,
+      outsourcedExcluded: outsourcedCount,
       items,
       totals
     }

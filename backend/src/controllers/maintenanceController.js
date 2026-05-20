@@ -99,6 +99,11 @@ export async function createMaintenance(req, res) {
     ...getOrgScopeFilter(req)
   }).lean();
   if (!vehicle) throw new ApiError(404, "Vehicle not found");
+  // Không lên lịch bảo dưỡng cho xe thuê ngoài — chi phí bảo dưỡng thuộc trách
+  // nhiệm hãng 3PL, hệ thống không quản lý vòng đời bảo dưỡng đó.
+  if (vehicle.EmploymentType === "OUTSOURCED") {
+    throw new ApiError(400, "Không thể lên lịch bảo dưỡng cho xe thuê ngoài");
+  }
 
   // Driver (optional) — phải cùng org subtree
   let driver = null;

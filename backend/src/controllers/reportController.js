@@ -105,6 +105,15 @@ export async function summary(req, res) {
     .filter((row) => row.status === OrderStatus.DELIVERED)
     .reduce((sum, row) => sum + row.totalPrice, 0);
   const estimatedCost = trips.reduce((sum, trip) => sum + (trip.EstimatedCost ?? 0), 0);
+  // Tách chi phí Nội bộ (lương tài xế + xe + nhiên liệu) vs 3PL (phí dịch vụ hãng vận chuyển)
+  const inHouseTripCost = trips
+    .filter((t) => !t.IsOutsourced)
+    .reduce((sum, t) => sum + (t.EstimatedCost ?? 0), 0);
+  const outsourcedTripCost = trips
+    .filter((t) => t.IsOutsourced)
+    .reduce((sum, t) => sum + (t.EstimatedCost ?? 0), 0);
+  const inHouseTripCount = trips.filter((t) => !t.IsOutsourced).length;
+  const outsourcedTripCount = trips.filter((t) => t.IsOutsourced).length;
   const deliveredOrders = orderRows.filter((row) => row.status === OrderStatus.DELIVERED).length;
   const approvedOrders = orderRows.filter((row) => row.approvalStatus === ApprovalStatus.APPROVED).length;
   const plannedOrders = orderRows.filter((row) => [PlanningStatus.PLANNED, PlanningStatus.LOCKED, PlanningStatus.FINALIZED].includes(row.planningStatus)).length;
@@ -243,12 +252,16 @@ export async function summary(req, res) {
         drivers,
         customers,
         trips: trips.length,
+        inHouseTripCount,
+        outsourcedTripCount,
         bookedRevenue,
         goodsAmount,
         serviceAmount,
         totalOrderValue,
         revenue,
         estimatedCost,
+        inHouseTripCost,
+        outsourcedTripCost,
         grossProfit: revenue - estimatedCost,
         deliveryRate,
         approvalRate,

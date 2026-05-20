@@ -199,7 +199,11 @@ export async function seedDemo(req, res) {
   ]);
 
   const demoPasswordHash = await User.hashPassword("Demo@123");
-  const [plannerUser, dispatcherUser, accountantUser, driverUser01, driverUser02, driverUser03] = await User.insertMany([
+  const [
+    plannerUser, dispatcherUser, accountantUser,
+    driverUser01, driverUser02, driverUser03,
+    driver3plUser01, driver3plUser02, driver3plUser03, driver3plUser04
+  ] = await User.insertMany([
     {
       XCode: `${DEMO_PREFIX}USR-PLN-01`,
       UserName: "demo.planner",
@@ -286,6 +290,68 @@ export async function seedDemo(req, res) {
       IsActive: true,
       Status: UserStatus.ACTIVE,
       EmailVerifiedAt: new Date()
+    },
+    /* Tài xế 3PL — vẫn có account để cài app, đăng nhập gửi GPS + ePOD.
+       Khác tài xế nội bộ: không tính lương (loại trừ ở payroll), không quản lịch bảo dưỡng xe của họ. */
+    {
+      XCode: `${DEMO_PREFIX}USR-DRV-3PL-01`,
+      UserName: "demo.driver3pl01",
+      FullName: "Demo Driver 3PL - Trần Văn Tâm (GHN)",
+      Email: "demo.driver3pl01@road-freight.io",
+      Phone: "0977 300 011",
+      PasswordHash: demoPasswordHash,
+      OrganizationIDs: [dataOrgId],
+      RoleGroupID: deliveryGroup._id,
+      FunctionRoles: [FunctionRole.DRIVER],
+      AllowedVehicleTypes: ["TRUCK"],
+      IsActive: true,
+      Status: UserStatus.ACTIVE,
+      EmailVerifiedAt: new Date()
+    },
+    {
+      XCode: `${DEMO_PREFIX}USR-DRV-3PL-02`,
+      UserName: "demo.driver3pl02",
+      FullName: "Demo Driver 3PL - Vũ Quốc Hùng (GHE)",
+      Email: "demo.driver3pl02@road-freight.io",
+      Phone: "0977 300 012",
+      PasswordHash: demoPasswordHash,
+      OrganizationIDs: [dataOrgId],
+      RoleGroupID: deliveryGroup._id,
+      FunctionRoles: [FunctionRole.DRIVER],
+      AllowedVehicleTypes: ["TRUCK"],
+      IsActive: true,
+      Status: UserStatus.ACTIVE,
+      EmailVerifiedAt: new Date()
+    },
+    {
+      XCode: `${DEMO_PREFIX}USR-DRV-3PL-03`,
+      UserName: "demo.driver3pl03",
+      FullName: "Demo Driver 3PL - Phạm Minh Đức (GHN)",
+      Email: "demo.driver3pl03@road-freight.io",
+      Phone: "0977 300 013",
+      PasswordHash: demoPasswordHash,
+      OrganizationIDs: [dataOrgId],
+      RoleGroupID: deliveryGroup._id,
+      FunctionRoles: [FunctionRole.DRIVER],
+      AllowedVehicleTypes: ["TRUCK"],
+      IsActive: true,
+      Status: UserStatus.ACTIVE,
+      EmailVerifiedAt: new Date()
+    },
+    {
+      XCode: `${DEMO_PREFIX}USR-DRV-3PL-04`,
+      UserName: "demo.driver3pl04",
+      FullName: "Demo Driver 3PL - Hoàng Văn Sáng (GHE)",
+      Email: "demo.driver3pl04@road-freight.io",
+      Phone: "0977 300 014",
+      PasswordHash: demoPasswordHash,
+      OrganizationIDs: [dataOrgId],
+      RoleGroupID: deliveryGroup._id,
+      FunctionRoles: [FunctionRole.DRIVER],
+      AllowedVehicleTypes: ["TRUCK"],
+      IsActive: true,
+      Status: UserStatus.ACTIVE,
+      EmailVerifiedAt: new Date()
     }
   ]);
 
@@ -308,23 +374,35 @@ export async function seedDemo(req, res) {
     { ProductCode: `${DEMO_PREFIX}P-FMC-002`, XName: "Demo · Bột giặt OMO 3kg (thùng 6)",           OrganizationID: dataOrgId, CategoryID: catFmcg._id, Unit: "Thùng", WeightPerCase: 18.0, VolumePerCase: 0.030, ItemsPerCase:  6, Price: 486000, Status: "Active" }
   ]);
 
-  /* ── Vehicles ── */
-  await Vehicle.insertMany([
-    { VehicleCode: `${DEMO_PREFIX}XE-001`, XName: "Demo · Hino 500 5 tấn",   OrganizationID: dataOrgId, LicensePlate: "30F-123.01", VehicleType: "TRUCK", Capabilities: ["DRY", "FOOD"],            MaxWeight: 5000, MaxVolume: 30, MaxCases: 300, FixedCost: 700000, CostPerKm: 14000, AvgSpeedKmh: 28, LoadingTime: 40, UnloadingTimePerStop: 30, Status: "Active" },
-    { VehicleCode: `${DEMO_PREFIX}XE-002`, XName: "Demo · Hino 300 3.5 tấn", OrganizationID: dataOrgId, LicensePlate: "30F-234.02", VehicleType: "TRUCK", Capabilities: ["DRY", "FOOD", "CHEMICAL"], MaxWeight: 3500, MaxVolume: 20, MaxCases: 200, FixedCost: 500000, CostPerKm: 11000, AvgSpeedKmh: 30, LoadingTime: 35, UnloadingTimePerStop: 25, Status: "Active" },
-    { VehicleCode: `${DEMO_PREFIX}XE-003`, XName: "Demo · JAC X240 2.4 tấn", OrganizationID: dataOrgId, LicensePlate: "30F-345.03", VehicleType: "TRUCK", Capabilities: ["DRY"],                    MaxWeight: 2400, MaxVolume: 14, MaxCases: 140, FixedCost: 380000, CostPerKm:  9000, AvgSpeedKmh: 30, LoadingTime: 30, UnloadingTimePerStop: 25, Status: "Active" }
-  ]);
-
-  await Driver.insertMany([
-    { DriverCode: `${DEMO_PREFIX}TX-001`, XName: "Demo · Lê Văn Nam",       OrganizationID: dataOrgId, Phone: "0988 300 001", Email: "demo.driver01@road-freight.io", LicenseNumber: "030C-DEMO001", LicenseType: "C",  LicenseExpiry: new Date("2028-09-30"), LinkedUserID: driverUser01._id, Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-002`, XName: "Demo · Nguyễn Văn Phúc",  OrganizationID: dataOrgId, Phone: "0988 300 002", Email: "demo.driver02@road-freight.io", LicenseNumber: "030C-DEMO002", LicenseType: "C",  LicenseExpiry: new Date("2028-11-15"), LinkedUserID: driverUser02._id, Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-003`, XName: "Demo · Đỗ Đức Long",      OrganizationID: dataOrgId, Phone: "0988 300 003", Email: "demo.driver03@road-freight.io", LicenseNumber: "030B2-DEMO003", LicenseType: "B2", LicenseExpiry: new Date("2027-12-20"), LinkedUserID: driverUser03._id, Status: "Active" }
-  ]);
-
-  /* ── 3PL Services ── */
-  await Service.insertMany([
+  /* ── 3PL Services (tạo trước Vehicle/Driver để các bản ghi 3PL tham chiếu được) ── */
+  const services = await Service.insertMany([
     { ServiceCode: `${DEMO_PREFIX}3PL-GHN`, XName: "Demo · Giao Hàng Nhanh — FTL nội thành", OrganizationID: dataOrgId, Carrier: "Giao Hàng Nhanh", ServiceType: "FTL",     FlatRate: 800000, PricePerKm: 0,     MinCharge: 800000, FuelSurchargePercent: 0, Status: "Active" },
     { ServiceCode: `${DEMO_PREFIX}3PL-GHE`, XName: "Demo · Giao Hàng Express — ghép hàng",   OrganizationID: dataOrgId, Carrier: "GHE Logistics",   ServiceType: "EXPRESS", FlatRate: 0,       PricePerKm: 16000, MinCharge: 200000, FuelSurchargePercent: 5, Status: "Active" }
+  ]);
+  const svcByCode = Object.fromEntries(services.map((s) => [s.ServiceCode, s]));
+  const svcGHN = svcByCode[`${DEMO_PREFIX}3PL-GHN`];
+  const svcGHE = svcByCode[`${DEMO_PREFIX}3PL-GHE`];
+
+  /* ── Vehicles (3 nội bộ + 4 thuê ngoài 3PL) ── */
+  await Vehicle.insertMany([
+    { VehicleCode: `${DEMO_PREFIX}XE-001`, XName: "Demo · Hino 500 5 tấn",   OrganizationID: dataOrgId, LicensePlate: "30F-123.01", VehicleType: "TRUCK", Capabilities: ["DRY", "FOOD"],            MaxWeight: 5000, MaxVolume: 30, MaxCases: 300, FixedCost: 700000, CostPerKm: 14000, AvgSpeedKmh: 28, LoadingTime: 40, UnloadingTimePerStop: 30, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { VehicleCode: `${DEMO_PREFIX}XE-002`, XName: "Demo · Hino 300 3.5 tấn", OrganizationID: dataOrgId, LicensePlate: "30F-234.02", VehicleType: "TRUCK", Capabilities: ["DRY", "FOOD", "CHEMICAL"], MaxWeight: 3500, MaxVolume: 20, MaxCases: 200, FixedCost: 500000, CostPerKm: 11000, AvgSpeedKmh: 30, LoadingTime: 35, UnloadingTimePerStop: 25, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { VehicleCode: `${DEMO_PREFIX}XE-003`, XName: "Demo · JAC X240 2.4 tấn", OrganizationID: dataOrgId, LicensePlate: "30F-345.03", VehicleType: "TRUCK", Capabilities: ["DRY"],                    MaxWeight: 2400, MaxVolume: 14, MaxCases: 140, FixedCost: 380000, CostPerKm:  9000, AvgSpeedKmh: 30, LoadingTime: 30, UnloadingTimePerStop: 25, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { VehicleCode: `${DEMO_PREFIX}XE-3PL-01`, XName: "Demo · GHN — Hino 8 tấn (thuê ngoài)",         OrganizationID: dataOrgId, LicensePlate: "29H-789.10", VehicleType: "TRUCK", Capabilities: ["DRY", "FOOD"],         MaxWeight: 8000, MaxVolume: 45, MaxCases: 450, FixedCost: 0, CostPerKm: 0, AvgSpeedKmh: 30, LoadingTime: 45, UnloadingTimePerStop: 30, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
+    { VehicleCode: `${DEMO_PREFIX}XE-3PL-02`, XName: "Demo · GHE — Hyundai 1.9 tấn (thuê ngoài)",    OrganizationID: dataOrgId, LicensePlate: "29K-456.78", VehicleType: "TRUCK", Capabilities: ["DRY"],                 MaxWeight: 1900, MaxVolume: 10, MaxCases: 100, FixedCost: 0, CostPerKm: 0, AvgSpeedKmh: 32, LoadingTime: 25, UnloadingTimePerStop: 20, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" },
+    { VehicleCode: `${DEMO_PREFIX}XE-3PL-03`, XName: "Demo · GHN — Isuzu 10 tấn lạnh (thuê ngoài)", OrganizationID: dataOrgId, LicensePlate: "30H-901.23", VehicleType: "TRUCK", Capabilities: ["DRY", "FOOD", "FROZEN"], MaxWeight: 10000, MaxVolume: 55, MaxCases: 500, FixedCost: 0, CostPerKm: 0, AvgSpeedKmh: 28, LoadingTime: 50, UnloadingTimePerStop: 35, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
+    { VehicleCode: `${DEMO_PREFIX}XE-3PL-04`, XName: "Demo · GHE — Suzuki Carry 0.75 tấn (thuê ngoài)", OrganizationID: dataOrgId, LicensePlate: "29M-234.56", VehicleType: "TRUCK", Capabilities: ["DRY"],                 MaxWeight:  750, MaxVolume:  5, MaxCases:  60, FixedCost: 0, CostPerKm: 0, AvgSpeedKmh: 35, LoadingTime: 15, UnloadingTimePerStop: 15, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" }
+  ]);
+
+  /* ── Drivers (3 nội bộ + 4 thuê ngoài 3PL) ── */
+  await Driver.insertMany([
+    { DriverCode: `${DEMO_PREFIX}TX-001`, XName: "Demo · Lê Văn Nam",       OrganizationID: dataOrgId, Phone: "0988 300 001", Email: "demo.driver01@road-freight.io", LicenseNumber: "030C-DEMO001",  LicenseType: "C",  LicenseExpiry: new Date("2028-09-30"), LinkedUserID: driverUser01._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-002`, XName: "Demo · Nguyễn Văn Phúc",  OrganizationID: dataOrgId, Phone: "0988 300 002", Email: "demo.driver02@road-freight.io", LicenseNumber: "030C-DEMO002",  LicenseType: "C",  LicenseExpiry: new Date("2028-11-15"), LinkedUserID: driverUser02._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-003`, XName: "Demo · Đỗ Đức Long",      OrganizationID: dataOrgId, Phone: "0988 300 003", Email: "demo.driver03@road-freight.io", LicenseNumber: "030B2-DEMO003", LicenseType: "B2", LicenseExpiry: new Date("2027-12-20"), LinkedUserID: driverUser03._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-01`, XName: "Demo · GHN — Trần Văn Tâm (3PL)",     OrganizationID: dataOrgId, Phone: "0977 300 011", Email: "demo.driver3pl01@road-freight.io", LicenseNumber: "030C-3PL001",  LicenseType: "C",  LicenseExpiry: new Date("2029-03-31"), LinkedUserID: driver3plUser01._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-02`, XName: "Demo · GHE — Vũ Quốc Hùng (3PL)",     OrganizationID: dataOrgId, Phone: "0977 300 012", Email: "demo.driver3pl02@road-freight.io", LicenseNumber: "030B2-3PL002", LicenseType: "B2", LicenseExpiry: new Date("2028-06-20"), LinkedUserID: driver3plUser02._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-03`, XName: "Demo · GHN — Phạm Minh Đức (3PL)",    OrganizationID: dataOrgId, Phone: "0977 300 013", Email: "demo.driver3pl03@road-freight.io", LicenseNumber: "030C-3PL003",  LicenseType: "C",  LicenseExpiry: new Date("2029-08-15"), LinkedUserID: driver3plUser03._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-04`, XName: "Demo · GHE — Hoàng Văn Sáng (3PL)",   OrganizationID: dataOrgId, Phone: "0977 300 014", Email: "demo.driver3pl04@road-freight.io", LicenseNumber: "030B2-3PL004", LicenseType: "B2", LicenseExpiry: new Date("2028-12-10"), LinkedUserID: driver3plUser04._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" }
   ]);
 
   /* ── Customers (12 điểm Hà Nội · Bắc Ninh · Hưng Yên với tọa độ thật) ── */
@@ -421,7 +499,7 @@ export async function seedDemo(req, res) {
       branch: { _id: branchOrg._id, XCode: branchOrg.XCode, XName: branchOrg.XName },
       depot:  { _id: depotOrg._id, XCode: depotOrg.XCode, XName: depotOrg.XName },
       groups: [],
-      counts: { orgGroups: 0, roleGroups: 3, users: 6, drivers: 3, customerGroups: 4, categories: 3, customers: 12, products: 8, vehicles: 3, services: 2, orders: 20 }
+      counts: { orgGroups: 0, roleGroups: 3, users: 10, drivers: 7, customerGroups: 4, categories: 3, customers: 12, products: 8, vehicles: 7, services: 2, orders: 20 }
     }
   });
 }

@@ -299,25 +299,35 @@ async function seed() {
     { ProductCode: "SP-007", XName: "Bánh quy AFC Original 100g", OrganizationID: depot._id, CategoryID: catId["CAT-SNACK"], Unit: "Thùng", WeightPerCase: 3.6, VolumePerCase: 0.018, ItemsPerCase: 36, Price: 252000, Status: "Active" }
   ]);
 
-  await Vehicle.insertMany([
-    { VehicleCode: "XE-001", XName: "Hino 500 5 tấn", OrganizationID: depot._id, LicensePlate: "30F-123.45", VehicleType: "TRUCK", MaxWeight: 5000, MaxVolume: 30, MaxCases: 300, FixedCost: 700000, CostPerKm: 14000, AvgSpeedKmh: 38, LoadingTime: 35, UnloadingTimePerStop: 18, Status: "Active" },
-    { VehicleCode: "XE-002", XName: "Hino 300 3.5 tấn", OrganizationID: depot._id, LicensePlate: "30F-234.56", VehicleType: "TRUCK", MaxWeight: 3500, MaxVolume: 20, MaxCases: 200, FixedCost: 500000, CostPerKm: 11000, AvgSpeedKmh: 40, LoadingTime: 30, UnloadingTimePerStop: 15, Status: "Active" },
-    { VehicleCode: "XE-003", XName: "Xe tải nhẹ Ford 1.2 tấn", OrganizationID: depot._id, LicensePlate: "30A-345.67", VehicleType: "TRUCK", MaxWeight: 1200, MaxVolume: 8, MaxCases: 80, FixedCost: 280000, CostPerKm: 7000, AvgSpeedKmh: 42, LoadingTime: 20, UnloadingTimePerStop: 12, Status: "Active" },
-    { VehicleCode: "XE-004", XName: "JAC X240 2.4 tấn", OrganizationID: depot._id, LicensePlate: "30F-456.78", VehicleType: "TRUCK", MaxWeight: 2400, MaxVolume: 14, MaxCases: 140, FixedCost: 380000, CostPerKm: 9000, AvgSpeedKmh: 40, LoadingTime: 25, UnloadingTimePerStop: 15, Status: "Active" },
-    { VehicleCode: "XE-005", XName: "Isuzu QKR55 2.5 tấn", OrganizationID: depot._id, LicensePlate: "30F-567.89", VehicleType: "TRUCK", MaxWeight: 2500, MaxVolume: 16, MaxCases: 160, FixedCost: 420000, CostPerKm: 10000, AvgSpeedKmh: 40, LoadingTime: 25, UnloadingTimePerStop: 15, Status: "Active" }
-  ]);
-
-  await Driver.insertMany([
-    { DriverCode: "TX-001", XName: "Trần Văn Dũng", OrganizationID: depot._id, Phone: "0912 111 001", Email: "driver01@road-freight.io", LicenseNumber: "028B1-00111", LicenseType: "C", LicenseExpiry: new Date("2028-03-15"), LinkedUserID: driverUsers[0]._id, Status: "Active" },
-    { DriverCode: "TX-002", XName: "Phạm Văn Tú", OrganizationID: depot._id, Phone: "0912 111 002", Email: "driver02@road-freight.io", LicenseNumber: "028C-00222", LicenseType: "C", LicenseExpiry: new Date("2027-08-20"), LinkedUserID: driverUsers[1]._id, Status: "Active" },
-    { DriverCode: "TX-003", XName: "Nguyễn Đức Hải", OrganizationID: depot._id, Phone: "0912 111 003", Email: "driver03@road-freight.io", LicenseNumber: "028B2-00333", LicenseType: "B2", LicenseExpiry: new Date("2026-12-31"), LinkedUserID: driverUsers[2]._id, Status: "Active" },
-    { DriverCode: "TX-004", XName: "Lê Quang Minh", OrganizationID: depot._id, Phone: "0912 111 004", Email: "minh.le@ptl.vn", LicenseNumber: "028C-00444", LicenseType: "C", LicenseExpiry: new Date("2027-05-10"), Status: "Active" }
-  ]);
-
-  await Service.insertMany([
+  // Tạo Service (hãng 3PL) TRƯỚC vì Vehicle/Driver thuê ngoài cần ServiceID.
+  const services = await Service.insertMany([
     { ServiceCode: "DV-001", XName: "Thuê xe tải nguyên chuyến nội thành", OrganizationID: depot._id, Carrier: "An Bình Transport", ServiceType: "FTL", FlatRate: 650000, PricePerKm: 12000, MinCharge: 900000, FuelSurchargePercent: 5, Description: "Thuê nguyên xe giao nội thành Hà Nội", Status: "Active" },
     { ServiceCode: "DV-002", XName: "Ghép hàng LTL nội thành", OrganizationID: depot._id, Carrier: "Kerry Express", ServiceType: "LTL", FlatRate: 120000, PricePerKm: 5000, PricePerKg: 800, MinCharge: 250000, FuelSurchargePercent: 3, Description: "Dịch vụ ghép hàng theo kg và km", Status: "Active" },
     { ServiceCode: "DV-003", XName: "Giao nhanh chặng cuối", OrganizationID: depot._id, Carrier: "GHN Logistics", ServiceType: "EXPRESS", FlatRate: 180000, PricePerKm: 9000, MinCharge: 350000, FuelSurchargePercent: 4, Description: "Giao ưu tiên trong ngày", Status: "Active" }
+  ]);
+  const svcByCode = Object.fromEntries(services.map((s) => [s.ServiceCode, s._id]));
+
+  await Vehicle.insertMany([
+    // 5 xe nội bộ
+    { VehicleCode: "XE-001", XName: "Hino 500 5 tấn", OrganizationID: depot._id, LicensePlate: "30F-123.45", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", MaxWeight: 5000, MaxVolume: 30, MaxCases: 300, FixedCost: 700000, CostPerKm: 14000, AvgSpeedKmh: 38, LoadingTime: 35, UnloadingTimePerStop: 18, Status: "Active" },
+    { VehicleCode: "XE-002", XName: "Hino 300 3.5 tấn", OrganizationID: depot._id, LicensePlate: "30F-234.56", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", MaxWeight: 3500, MaxVolume: 20, MaxCases: 200, FixedCost: 500000, CostPerKm: 11000, AvgSpeedKmh: 40, LoadingTime: 30, UnloadingTimePerStop: 15, Status: "Active" },
+    { VehicleCode: "XE-003", XName: "Xe tải nhẹ Ford 1.2 tấn", OrganizationID: depot._id, LicensePlate: "30A-345.67", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", MaxWeight: 1200, MaxVolume: 8, MaxCases: 80, FixedCost: 280000, CostPerKm: 7000, AvgSpeedKmh: 42, LoadingTime: 20, UnloadingTimePerStop: 12, Status: "Active" },
+    { VehicleCode: "XE-004", XName: "JAC X240 2.4 tấn", OrganizationID: depot._id, LicensePlate: "30F-456.78", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", MaxWeight: 2400, MaxVolume: 14, MaxCases: 140, FixedCost: 380000, CostPerKm: 9000, AvgSpeedKmh: 40, LoadingTime: 25, UnloadingTimePerStop: 15, Status: "Active" },
+    { VehicleCode: "XE-005", XName: "Isuzu QKR55 2.5 tấn", OrganizationID: depot._id, LicensePlate: "30F-567.89", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", MaxWeight: 2500, MaxVolume: 16, MaxCases: 160, FixedCost: 420000, CostPerKm: 10000, AvgSpeedKmh: 40, LoadingTime: 25, UnloadingTimePerStop: 15, Status: "Active" },
+    // 2 xe thuê ngoài (3PL) — chi phí tính qua bảng giá Service, không tham gia bảo dưỡng nội bộ
+    { VehicleCode: "XE-3PL-01", XName: "An Bình Hino 8 tấn (thuê ngoài)", OrganizationID: depot._id, LicensePlate: "29C-888.01", VehicleType: "TRUCK", EmploymentType: "OUTSOURCED", ServiceID: svcByCode["DV-001"], MaxWeight: 8000, MaxVolume: 45, MaxCases: 400, FixedCost: 0, CostPerKm: 0, AvgSpeedKmh: 38, LoadingTime: 35, UnloadingTimePerStop: 18, Status: "Active" },
+    { VehicleCode: "XE-3PL-02", XName: "GHN Hyundai 1.5 tấn (thuê ngoài)", OrganizationID: depot._id, LicensePlate: "29C-888.02", VehicleType: "TRUCK", EmploymentType: "OUTSOURCED", ServiceID: svcByCode["DV-003"], MaxWeight: 1500, MaxVolume: 10, MaxCases: 100, FixedCost: 0, CostPerKm: 0, AvgSpeedKmh: 42, LoadingTime: 20, UnloadingTimePerStop: 12, Status: "Active" }
+  ]);
+
+  await Driver.insertMany([
+    // 4 tài xế nội bộ — có LinkedUserID để login app
+    { DriverCode: "TX-001", XName: "Trần Văn Dũng", OrganizationID: depot._id, Phone: "0912 111 001", Email: "driver01@road-freight.io", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", LinkedUserID: driverUsers[0]._id, Status: "Active" },
+    { DriverCode: "TX-002", XName: "Phạm Văn Tú", OrganizationID: depot._id, Phone: "0912 111 002", Email: "driver02@road-freight.io", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", LinkedUserID: driverUsers[1]._id, Status: "Active" },
+    { DriverCode: "TX-003", XName: "Nguyễn Đức Hải", OrganizationID: depot._id, Phone: "0912 111 003", Email: "driver03@road-freight.io", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", LinkedUserID: driverUsers[2]._id, Status: "Active" },
+    { DriverCode: "TX-004", XName: "Lê Quang Minh", OrganizationID: depot._id, Phone: "0912 111 004", Email: "minh.le@ptl.vn", VehicleType: "TRUCK", EmploymentType: "IN_HOUSE", Status: "Active" },
+    // 2 tài xế 3PL — vẫn có LinkedUserID để dùng app driver (GPS + ePOD), nhưng không hưởng lương
+    { DriverCode: "TX-3PL-01", XName: "Vũ Văn Lộc (An Bình)", OrganizationID: depot._id, Phone: "0988 777 001", Email: "loc.vu@anbinh.vn", VehicleType: "TRUCK", EmploymentType: "OUTSOURCED", ServiceID: svcByCode["DV-001"], Status: "Active" },
+    { DriverCode: "TX-3PL-02", XName: "Đỗ Tuấn Anh (GHN)", OrganizationID: depot._id, Phone: "0988 777 002", Email: "anh.do@ghn.vn", VehicleType: "TRUCK", EmploymentType: "OUTSOURCED", ServiceID: svcByCode["DV-003"], Status: "Active" }
   ]);
 
   const O = depot._id;
@@ -358,7 +368,8 @@ async function seed() {
   logger.info("───────────────────────────────────────────────────");
   logger.info("  CSDL mẫu:");
   logger.info("    1 công ty + 1 chi nhánh + 1 kho thật, 7 khách hàng, 3 nhóm KH, 4 nhóm SP");
-  logger.info("    7 sản phẩm, 5 xe, 4 tài xế, 3 dịch vụ 3PL");
+  logger.info("    7 sản phẩm, 3 dịch vụ 3PL");
+  logger.info("    7 xe (5 nội bộ + 2 thuê ngoài), 6 tài xế (4 nội bộ + 2 thuê ngoài)");
   logger.info("    18 đơn hàng thuộc kho PTL-KHO-HN, không đặt khung giờ giao ở đơn");
   logger.info("═══════════════════════════════════════════════════");
 }

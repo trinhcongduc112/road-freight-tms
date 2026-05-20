@@ -1047,20 +1047,22 @@ export default function PlanningPage() {
                             color: "#374151"
                           }}>
                             <Text type="secondary" style={{ fontSize: 11 }}>Vận hành: </Text>
-                            {r.IsOutsourced ? (
-                              service ? (
-                                <Tag color="purple" style={{ marginLeft: 4 }}>
-                                  3PL · {service.Carrier || service.XName} ({service.ServiceCode})
-                                </Tag>
-                              ) : (
-                                <Tag color="red" style={{ marginLeft: 4 }}>3PL · Chưa chọn dịch vụ</Tag>
-                              )
-                            ) : driver ? (
-                              <Tag color="green" style={{ marginLeft: 4 }}>
+                            {driver ? (
+                              <Tag color={driver.EmploymentType === "OUTSOURCED" ? "orange" : "green"} style={{ marginLeft: 4 }}>
                                 Tài xế · {driver.XName ?? driver.FullName} ({driver.DriverCode})
+                                {driver.EmploymentType === "OUTSOURCED" ? " · 3PL" : ""}
                               </Tag>
                             ) : (
-                              <Tag color="red" style={{ marginLeft: 4 }}>Nội bộ · Chưa chọn tài xế</Tag>
+                              <Tag color="red" style={{ marginLeft: 4 }}>Chưa chọn tài xế</Tag>
+                            )}
+                            {r.IsOutsourced && (
+                              service ? (
+                                <Tag color="purple" style={{ marginLeft: 4 }}>
+                                  Hãng · {service.Carrier || service.XName} ({service.ServiceCode})
+                                </Tag>
+                              ) : (
+                                <Tag color="red" style={{ marginLeft: 4 }}>3PL · Chưa chọn hãng</Tag>
+                              )
                             )}
                           </div>
 
@@ -1086,24 +1088,26 @@ export default function PlanningPage() {
                                     { value: true, label: "3PL" }
                                   ]}
                                 />
-                                {!r.IsOutsourced ? (
-                                  <Select
-                                    size="small" style={{ flex: 1, minWidth: 0 }}
-                                    showSearch optionFilterProp="label" allowClear placeholder="Chọn tài xế"
-                                    value={driver?._id}
-                                    onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { driverId: v ?? null } })}
-                                    options={drivers.map((d) => ({ value: d._id, label: `[${d.DriverCode}] ${d.XName ?? d.FullName ?? ""}` }))}
-                                  />
-                                ) : (
-                                  <Select
-                                    size="small" style={{ flex: 1, minWidth: 0 }}
-                                    showSearch optionFilterProp="label" allowClear placeholder="Chọn 3PL"
-                                    value={services.find((s) => s._id === (r.ServiceID?._id ?? r.ServiceID))?._id}
-                                    onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { serviceId: v ?? null } })}
-                                    options={services.filter((s) => s.Status === "Active").map((s) => ({ value: s._id, label: `${s.Carrier} (${s.ServiceCode})` }))}
-                                  />
-                                )}
+                                <Select
+                                  size="small" style={{ flex: 1, minWidth: 0 }}
+                                  showSearch optionFilterProp="label" allowClear placeholder="Chọn tài xế"
+                                  value={driver?._id}
+                                  onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { driverId: v ?? null } })}
+                                  options={drivers.map((d) => ({
+                                    value: d._id,
+                                    label: `[${d.DriverCode}] ${d.XName ?? d.FullName ?? ""}${d.EmploymentType === "OUTSOURCED" ? " · 3PL" : ""}`
+                                  }))}
+                                />
                               </div>
+                              {r.IsOutsourced && (
+                                <Select
+                                  size="small" style={{ width: "100%" }}
+                                  showSearch optionFilterProp="label" allowClear placeholder="Chọn hãng 3PL (tính chi phí)"
+                                  value={services.find((s) => s._id === (r.ServiceID?._id ?? r.ServiceID))?._id}
+                                  onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { serviceId: v ?? null } })}
+                                  options={services.filter((s) => s.Status === "Active").map((s) => ({ value: s._id, label: `${s.Carrier} (${s.ServiceCode})` }))}
+                                />
+                              )}
                             </Space>
                           )}
 
@@ -1463,32 +1467,34 @@ export default function PlanningPage() {
                                 { value: true, label: "3PL" }
                               ]}
                             />
-                            {!r.IsOutsourced ? (
-                              <Select
-                                size="small"
-                                style={{ flex: 1, minWidth: 0 }}
-                                showSearch
-                                optionFilterProp="label"
-                                allowClear
-                                placeholder="Chọn tài xế"
-                                value={driver?._id}
-                                onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { driverId: v ?? null } })}
-                                options={drivers.map((d) => ({ value: d._id, label: `[${d.DriverCode}] ${d.XName ?? d.FullName ?? ""}` }))}
-                              />
-                            ) : (
-                              <Select
-                                size="small"
-                                style={{ flex: 1, minWidth: 0 }}
-                                showSearch
-                                optionFilterProp="label"
-                                allowClear
-                                placeholder="Chọn 3PL"
-                                value={service?._id}
-                                onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { serviceId: v ?? null } })}
-                                options={services.filter((s) => s.Status === "Active").map((s) => ({ value: s._id, label: `${s.Carrier} (${s.ServiceCode})` }))}
-                              />
-                            )}
+                            <Select
+                              size="small"
+                              style={{ flex: 1, minWidth: 0 }}
+                              showSearch
+                              optionFilterProp="label"
+                              allowClear
+                              placeholder="Chọn tài xế"
+                              value={driver?._id}
+                              onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { driverId: v ?? null } })}
+                              options={drivers.map((d) => ({
+                                value: d._id,
+                                label: `[${d.DriverCode}] ${d.XName ?? d.FullName ?? ""}${d.EmploymentType === "OUTSOURCED" ? " · 3PL" : ""}`
+                              }))}
+                            />
                           </div>
+                          {r.IsOutsourced && (
+                            <Select
+                              size="small"
+                              style={{ width: "100%" }}
+                              showSearch
+                              optionFilterProp="label"
+                              allowClear
+                              placeholder="Chọn hãng 3PL (tính chi phí)"
+                              value={service?._id}
+                              onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { serviceId: v ?? null } })}
+                              options={services.filter((s) => s.Status === "Active").map((s) => ({ value: s._id, label: `${s.Carrier} (${s.ServiceCode})` }))}
+                            />
+                          )}
                           <Space size={6} wrap>
                             <Popconfirm title="Khóa route này?" onConfirm={() => lockM.mutate(r._id)}>
                               <Button size="small" icon={<LockOutlined />}>Khóa lộ trình</Button>
