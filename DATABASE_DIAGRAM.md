@@ -53,7 +53,29 @@ TABLE(Vehicle) {
     AvgSpeedKmh: Number
     LoadingTime: Number
     UnloadingTimePerStop: Number
+    EmploymentType: String [IN_HOUSE|OUTSOURCED]
+    ServiceID: ObjectId FK -> Service (if OUTSOURCED)
     Status: String
+    CreatedBy: ObjectId FK -> User
+    createdAt: Date
+    updatedAt: Date
+}
+
+TABLE(Driver) {
+    _id: ObjectId PK
+    DriverCode: String
+    XName: String
+    OrganizationID: ObjectId FK
+    Phone: String
+    Email: String
+    LicenseNumber: String
+    LicenseType: String
+    LicenseExpiry: Date
+    AllowedVehicleTypes: [String]
+    LinkedUserID: ObjectId FK -> User (mobile app login)
+    EmploymentType: String [IN_HOUSE|OUTSOURCED]
+    ServiceID: ObjectId FK -> Service (if OUTSOURCED)
+    Status: String [Active|Inactive]
     CreatedBy: ObjectId FK -> User
     createdAt: Date
     updatedAt: Date
@@ -317,6 +339,7 @@ TABLE(DriverMessage) {
 ' ==================== RELATIONSHIPS ====================
 Organization ||--o{ User : "CreatedBy"
 Organization ||--o{ Vehicle : "contains"
+Organization ||--o{ Driver : "employs"
 Organization ||--o{ Customer : "contains"
 Organization ||--o{ Product : "contains"
 Organization ||--o{ ProductCategory : "contains"
@@ -333,19 +356,25 @@ Organization ||--o{ DriverMessage : "exchanges"
 Organization ||--o{ Organization : "Parent"
 
 ProductCategory ||--o{ Product : "categorizes"
-SalesOrder }o--|| Vehicle : ""
 RoutePlan ||--o{ DeliveryRoute : "generates"
 DeliveryRoute }o--|| Vehicle : "assigns"
-DeliveryRoute }o--|| Service : "uses"
+DeliveryRoute }o--|| Driver : "assigns"
+DeliveryRoute }o--|| Service : "uses (if 3PL)"
 DeliveryRoute ||--o{ Trip : "creates"
 
 Trip }o--|| RoutePlan : "from"
 Trip }o--|| DeliveryRoute : "assigns"
 Trip }o--|| Vehicle : "uses"
-Trip }o--|| Service : "uses"
+Trip }o--|| Driver : "performed by"
+Trip }o--|| Service : "uses (if 3PL)"
 Trip ||--o{ GpsLog : "generates"
 Trip ||--o{ TripIncident : "reports"
 Trip ||--o{ DriverMessage : "communicates"
+
+Driver }o--o| User : "linked to (mobile app)"
+Driver }o--o| Service : "outsourced to (if 3PL)"
+Vehicle }o--o| Service : "outsourced to (if 3PL)"
+Driver ||--o{ GpsLog : "records"
 
 User ||--o{ ChatSession : "initiates"
 User ||--o{ TripIncident : "handles"
@@ -356,10 +385,11 @@ User ||--o{ DriverMessage : "sends"
 
 ## Database Statistics & Relationships Summary
 
-### Core Entities (15 collections):
+### Core Entities:
 - **Organization**: Root entity supporting multi-tenant & hierarchical organization
-- **User**: System users with roles
-- **Vehicle**: Fleet vehicles with capacity constraints
+- **User**: System users with roles (including mobile-app login for drivers)
+- **Vehicle**: Fleet vehicles with capacity constraints + EmploymentType (IN_HOUSE / OUTSOURCED 3PL)
+- **Driver**: Drivers linked to User accounts + EmploymentType (IN_HOUSE / OUTSOURCED 3PL)
 - **Customer**: Delivery destinations
 - **Product & ProductCategory**: Inventory management
 

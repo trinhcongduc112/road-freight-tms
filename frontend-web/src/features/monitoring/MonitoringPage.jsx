@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { tripApi } from "../../api/trip";
+import { useLanguage } from "../../i18n.jsx";
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -385,6 +386,7 @@ export default function MonitoringPage() {
   const qc = useQueryClient();
   // Lấy thêm notification từ App context của Ant Design
   const { message: msg, notification } = App.useApp();
+  const { language } = useLanguage();
 
   /* Lọc theo ngày — mặc định hôm nay. Nếu để trống → server trả toàn bộ
      chuyến đang chạy. */
@@ -720,7 +722,7 @@ export default function MonitoringPage() {
       <Row gutter={12}>
         <Col xs={24} lg={10}>
           <Card title="Timeline tài xế" loading={tripsQ.isLoading} style={{ minHeight: "calc(100vh - 220px)" }}>
-            {!orderedTrips.length ? <Empty description="Chưa có chuyến đã khóa/chốt" /> : (
+            {!orderedTrips.length ? <Empty description={language === "en" ? "No locked/finalized trips" : "Chưa có chuyến đã khóa/chốt"} /> : (
               <Space direction="vertical" size={12} style={{ width: "100%" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 }}>
                   {orderedTrips.map((trip, idx) => {

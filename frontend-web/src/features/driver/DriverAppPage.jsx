@@ -4,6 +4,7 @@ import { Button, Card, Drawer, Empty, Form, Input, InputNumber, List, message, M
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { driverAppApi } from "../../api/trip";
+import { useLanguage } from "../../i18n.jsx";
 
 const { Text, Title } = Typography;
 
@@ -30,6 +31,7 @@ function readFileAsDataUrl(file) {
 
 export default function DriverAppPage() {
   const qc = useQueryClient();
+  const { language } = useLanguage();
   const [selectedId, setSelectedId] = useState(null);
   const [activeTask, setActiveTask] = useState(null);
   const [completeOpen, setCompleteOpen] = useState(false);
@@ -76,7 +78,7 @@ export default function DriverAppPage() {
     return (
       <div style={{ minHeight: "100vh", background: "#f3f6fb", padding: 16 }}>
         <Title level={4}>Driver App</Title>
-        <Empty description="Chưa có chuyến giao được giao cho tài xế này" />
+        <Empty description={language === "en" ? "No delivery trips assigned to this driver" : "Chưa có chuyến giao được giao cho tài xế này"} />
       </div>
     );
   }

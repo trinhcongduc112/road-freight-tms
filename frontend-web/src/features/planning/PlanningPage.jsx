@@ -40,13 +40,13 @@ L.Icon.Default.mergeOptions({
 
 const { Text } = Typography;
 
-const PLAN_STATUS_COLOR  = { DRAFT: "blue", LOCKED: "orange", FINALIZED: "green" };
+const PLAN_STATUS_COLOR = { DRAFT: "blue", LOCKED: "orange", FINALIZED: "green" };
 const ROUTE_STATUS_META = {
   PLANNED: { label: "Planned", color: "#1d4ed8", bg: "#eff6ff", border: "#93c5fd" },
   LOCKED: { label: "Locked", color: "#b45309", bg: "#fffbeb", border: "#fbbf24" },
   FINALIZED: { label: "Finalized", color: "#15803d", bg: "#f0fdf4", border: "#86efac" }
 };
-const ROUTE_COLORS = ["#e74c3c","#2980b9","#27ae60","#8e44ad","#f39c12","#16a085","#c0392b","#2c3e50"];
+const ROUTE_COLORS = ["#e74c3c", "#2980b9", "#27ae60", "#8e44ad", "#f39c12", "#16a085", "#c0392b", "#2c3e50"];
 
 // Hà Nội default center
 const DEFAULT_CENTER = [21.0285, 105.8542];
@@ -176,9 +176,9 @@ export default function PlanningPage() {
   const user = useAuthStore((s) => s.user);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [orgId, setOrgId]             = useState(null);
+  const [orgId, setOrgId] = useState(null);
   // AI Agent deep-link: ?date=YYYY-MM-DD, ?autoCreate=1
-  const [planDate, setPlanDate]       = useState(() => {
+  const [planDate, setPlanDate] = useState(() => {
     const q = searchParams.get("date");
     if (q) {
       const d = dayjs(q);
@@ -196,10 +196,10 @@ export default function PlanningPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
   const [activePlanId, setActivePlanId] = useState(null);
-  const [mapPoints, setMapPoints]     = useState({});  // { routeId: [ [lat,lng], ... ] }
-  const [roadLines, setRoadLines]     = useState({});
-  const [geocoding, setGeocoding]     = useState(false);
-  const [createOpen, setCreateOpen]   = useState(false);
+  const [mapPoints, setMapPoints] = useState({});  // { routeId: [ [lat,lng], ... ] }
+  const [roadLines, setRoadLines] = useState({});
+  const [geocoding, setGeocoding] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [addVehicleOpen, setAddVehicleOpen] = useState(false);
   const [assignOrderOpen, setAssignOrderOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -212,8 +212,8 @@ export default function PlanningPage() {
   const [assignForm] = Form.useForm();
   const [vehicleForm] = Form.useForm();
 
-  const orgsQ    = useQuery({ queryKey: ["organizations"], queryFn: organizationApi.list });
-  const orgs     = orgsQ.data?.data ?? [];
+  const orgsQ = useQuery({ queryKey: ["organizations"], queryFn: organizationApi.list });
+  const orgs = orgsQ.data?.data ?? [];
   const depotOptions = orgs.filter((o) => o.OrgType === "DEPOT" && o.Latitude != null && o.Longitude != null);
   const activeOrg = depotOptions.find((o) => String(o._id) === String(orgId)) ?? null;
 
@@ -243,25 +243,25 @@ export default function PlanningPage() {
   const depotOrg = findDepotOrg(activeOrg, orgs);
   const depot = depotOrg ? [depotOrg.Latitude, depotOrg.Longitude] : null;
 
-  const plansQ   = useQuery({
+  const plansQ = useQuery({
     queryKey: ["route-plans", orgId, planDate?.format("YYYY-MM-DD")],
     queryFn: () => routePlanApi.list({
       from: planDate?.startOf("day").toISOString(),
-      to:   planDate?.endOf("day").toISOString(),
+      to: planDate?.endOf("day").toISOString(),
       ...(orgId ? { organizationId: orgId } : {})
     }),
     enabled: !!orgId && !!planDate
   });
-  const plans      = plansQ.data?.data ?? [];
+  const plans = plansQ.data?.data ?? [];
   const activePlan = plans.find((p) => p._id === activePlanId) ?? plans[0] ?? null;
 
   const planDetailQ = useQuery({
     queryKey: ["route-plan-detail", activePlan?._id],
-    queryFn:  () => routePlanApi.get(activePlan._id),
-    enabled:  !!activePlan?._id
+    queryFn: () => routePlanApi.get(activePlan._id),
+    enabled: !!activePlan?._id
   });
   const planDetail = planDetailQ.data?.data;
-  const routes     = planDetail?.routes ?? [];
+  const routes = planDetail?.routes ?? [];
   const routesSignature = routes.map((r) =>
     `${r._id}:${r.VehicleCode}:${(r.Stops ?? []).map((s) => `${s.StopIndex}-${s.CustomerCode}-${s.Latitude ?? ""}-${s.Longitude ?? ""}-${(s.OrderCodes ?? []).join(",")}`).join(">")}`
   ).join("|");
@@ -270,17 +270,17 @@ export default function PlanningPage() {
 
   const unplannedQ = useQuery({
     queryKey: ["unplanned-orders", orgId, planDate?.format("YYYY-MM-DD")],
-    queryFn:  () => routePlanApi.unplannedOrders({ organizationId: orgId, date: planDate?.format("YYYY-MM-DD") }),
-    enabled:  !!orgId
+    queryFn: () => routePlanApi.unplannedOrders({ organizationId: orgId, date: planDate?.format("YYYY-MM-DD") }),
+    enabled: !!orgId
   });
   const unplanned = unplannedQ.data?.data ?? [];
 
   const vehiclesQ = useQuery({ queryKey: ["vehicles"], queryFn: () => vehicleApi.list(), enabled: !!orgId });
-  const vehicles  = vehiclesQ.data?.data ?? [];
-  const driversQ  = useQuery({ queryKey: ["drivers"], queryFn: () => driverApi.list(), enabled: !!orgId });
-  const drivers   = driversQ.data?.data ?? [];
+  const vehicles = vehiclesQ.data?.data ?? [];
+  const driversQ = useQuery({ queryKey: ["drivers"], queryFn: () => driverApi.list(), enabled: !!orgId });
+  const drivers = driversQ.data?.data ?? [];
   const servicesQ = useQuery({ queryKey: ["services"], queryFn: () => serviceApi.list(), enabled: !!orgId });
-  const services  = servicesQ.data?.data ?? [];
+  const services = servicesQ.data?.data ?? [];
 
   function updateRouteCache(routeId, updatedRoute) {
     if (!activePlan?._id || !updatedRoute) return;
@@ -704,14 +704,14 @@ export default function PlanningPage() {
       </div>
 
       {/* ── Selector bar ── */}
-      <Card size="small" style={{ marginBottom:12 }}>
-        <Row gutter={[12,8]} align="middle">
+      <Card size="small" style={{ marginBottom: 12 }}>
+        <Row gutter={[12, 8]} align="middle">
           <Col>
             <Text type="secondary">Kho lập kế hoạch:</Text>
           </Col>
           <Col>
             <Select
-              style={{ width:300 }}
+              style={{ width: 300 }}
               value={orgId}
               placeholder="Chọn kho có tọa độ"
               onChange={(v) => { setOrgId(v); setActivePlanId(null); }}
@@ -741,7 +741,7 @@ export default function PlanningPage() {
                   <Tag
                     key={p._id}
                     color={activePlan?._id === p._id ? PLAN_STATUS_COLOR[p.Status] : "default"}
-                    style={{ cursor:"pointer", padding:"2px 10px", fontSize:12 }}
+                    style={{ cursor: "pointer", padding: "2px 10px", fontSize: 12 }}
                     onClick={() => setActivePlanId(p._id)}
                   >
                     {p.PlanName ? `${p.PlanName} (${p.PlanCode})` : p.PlanCode} · {p.Status}
@@ -765,7 +765,7 @@ export default function PlanningPage() {
                   <Space>
                     <EnvironmentOutlined />
                     <span>Bản đồ lộ trình</span>
-                    {geocoding && <Text type="secondary" style={{ fontSize:11 }}>Đang định vị địa chỉ...</Text>}
+                    {geocoding && <Text type="secondary" style={{ fontSize: 11 }}>Đang định vị địa chỉ...</Text>}
                   </Space>
                 }
                 extra={
@@ -775,19 +775,19 @@ export default function PlanningPage() {
                     </Button>
                   </Tooltip>
                 }
-                bodyStyle={{ padding:0 }}>
-                <MapContainer center={DEFAULT_CENTER} zoom={12} style={{ height:"55vh", width:"100%", borderRadius:"0 0 8px 8px" }}>
+                bodyStyle={{ padding: 0 }}>
+                <MapContainer center={DEFAULT_CENTER} zoom={12} style={{ height: "55vh", width: "100%", borderRadius: "0 0 8px 8px" }}>
                   <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <FitBounds points={visibleMapPoints} fitKey={mapFitKey} />
                   {shouldDrawDepot && (
                     <Marker position={depot} icon={DEPOT_ICON}>
                       <Popup>
-                    <strong>🏭 {depotOrg?.XName ?? "Kho"}</strong>
-                    {depotOrg?.XCode && <><br /><Tag color="blue" style={{ fontSize: 11 }}>{depotOrg.XCode}</Tag></>}
-                    {depotOrg?.Address && <><br />{depotOrg.Address}</>}
-                    <br />Điểm xuất phát & quay về
-                  </Popup>
+                        <strong>🏭 {depotOrg?.XName ?? "Kho"}</strong>
+                        {depotOrg?.XCode && <><br /><Tag color="blue" style={{ fontSize: 11 }}>{depotOrg.XCode}</Tag></>}
+                        {depotOrg?.Address && <><br />{depotOrg.Address}</>}
+                        <br />Điểm xuất phát & quay về
+                      </Popup>
                     </Marker>
                   )}
                   {routes.map((r, rIdx) => {
@@ -796,11 +796,11 @@ export default function PlanningPage() {
                     const lineSegments = roadLines[r._id] ?? [shouldDrawDepot && pts.length ? [depot, ...pts.map((p) => p.latlng), depot] : pts.map((p) => p.latlng)];
                     return (
                       <span key={r._id}>
-	                        {pts.map((pt) => (
-	                          <Marker key={pt.key} position={pt.latlng} icon={createColoredIcon(color, pt.label)}>
-	                            <Popup>{renderStopPopup(pt, r, color)}</Popup>
-	                          </Marker>
-	                        ))}
+                        {pts.map((pt) => (
+                          <Marker key={pt.key} position={pt.latlng} icon={createColoredIcon(color, pt.label)}>
+                            <Popup>{renderStopPopup(pt, r, color)}</Popup>
+                          </Marker>
+                        ))}
                         {lineSegments.map((linePts, i) => linePts.length >= 2 && (
                           <span key={i}>
                             <Polyline positions={linePts} color="#111827" weight={8} opacity={0.35} />
@@ -816,11 +816,11 @@ export default function PlanningPage() {
                   })}
                 </MapContainer>
                 {routes.length > 0 && (
-                  <div style={{ padding:"6px 12px", display:"flex", flexWrap:"wrap", gap:8, borderTop:"1px solid #f0f0f0" }}>
+                  <div style={{ padding: "6px 12px", display: "flex", flexWrap: "wrap", gap: 8, borderTop: "1px solid #f0f0f0" }}>
                     {routes.map((r, rIdx) => (
                       <Space key={r._id} size={4}>
-                        <span style={{ display:"inline-block", width:12, height:4, background:ROUTE_COLORS[rIdx % ROUTE_COLORS.length], borderRadius:2 }} />
-                        <Text style={{ fontSize:11 }}>{r.VehicleCode}</Text>
+                        <span style={{ display: "inline-block", width: 12, height: 4, background: ROUTE_COLORS[rIdx % ROUTE_COLORS.length], borderRadius: 2 }} />
+                        <Text style={{ fontSize: 11 }}>{r.VehicleCode}</Text>
                       </Space>
                     ))}
                   </div>
@@ -828,11 +828,11 @@ export default function PlanningPage() {
               </Card>
             </Col>
             <Col xs={24} lg={6}>
-              <Card size="small" style={{ height:"100%" }}
+              <Card size="small" style={{ height: "100%" }}
                 title={<Space>Đơn chưa phân công<Tag color="red">{unplanned.length}</Tag></Space>}
                 loading={unplannedQ.isLoading}>
                 {!activePlan && (
-                  <div style={{ color:"#faad14", fontSize:12, marginBottom:8 }}>← Chọn hoặc tạo kế hoạch để gán đơn</div>
+                  <div style={{ color: "#faad14", fontSize: 12, marginBottom: 8 }}>← Chọn hoặc tạo kế hoạch để gán đơn</div>
                 )}
                 <div style={{ maxHeight: "calc(55vh - 50px)", overflowY: "auto" }}>
                   {unplanned.length === 0 ? (
@@ -929,16 +929,16 @@ export default function PlanningPage() {
                     const vehicleCode = r.VehicleCode || r.VehicleID?.VehicleCode || "Chưa chọn xe";
                     const selectedDepotId = String(orgId ?? "");
 
-	                    function onRowDragOver(e) {
-	                      if (isLocked || isFinalized) return;
-	                      e.preventDefault();
-	                      e.dataTransfer.dropEffect = "move";
-	                      if (dragState) setDropTarget({ routeId: String(r._id), index: r.Stops?.length ?? 0 });
-	                    }
-	                    function onRowDrop(e) {
-	                      if (isLocked || isFinalized) return;
-	                      handleRouteDrop(e, r);
-	                    }
+                    function onRowDragOver(e) {
+                      if (isLocked || isFinalized) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragState) setDropTarget({ routeId: String(r._id), index: r.Stops?.length ?? 0 });
+                    }
+                    function onRowDrop(e) {
+                      if (isLocked || isFinalized) return;
+                      handleRouteDrop(e, r);
+                    }
 
                     /* Vehicles available to swap into this route: Active + same org +
                        not already used by another route in this plan. */
@@ -969,67 +969,67 @@ export default function PlanningPage() {
                         }}
                       >
                         {/* LEFT panel: vehicle + assignment */}
-	                        <div style={{ width: 360, padding: "10px 12px", borderRight: "1px solid #f0f0f0", flexShrink: 0, background: "#fafbfc" }}>
-	                          {/* Header row: vehicle + actions */}
-	                          <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
-	                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-		                            <Space size={8} align="center" style={{ minWidth: 0, flex: 1 }}>
-		                              <CarOutlined style={{ color, fontSize: 16, flexShrink: 0 }} />
-		                              {!isLocked && !isFinalized ? (
-	                                <Select
-	                                  size="small"
-	                                  showSearch optionFilterProp="label"
-	                                  value={vehicleId || undefined}
-	                                  onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { vehicleId: v } })}
-                                  options={[
-                                    ...(vehicleId ? [{ value: vehicleId, label: `${vehicleCode} · xe hiện tại` }] : []),
-                                    ...swappableVehicles.map((v) => ({
-                                      value: String(v._id),
-                                      label: `${v.VehicleCode} · ${v.MaxWeight}kg / ${v.MaxVolume}m³`
-                                    }))
-                                  ]}
-	                                  style={{ width: 220, fontWeight: 600 }}
-	                                  dropdownStyle={{ minWidth: 280 }}
-	                                />
-	                              ) : (
-	                                <Text strong>{vehicleCode}</Text>
-	                              )}
-		                              <RouteStatusPill status={r.Status} />
-	                            </Space>
-	                            </div>
-	                            <Space size={6} onClick={(e) => e.stopPropagation()} wrap>
-	                              {!isLocked && !isFinalized && (
-	                                <Popconfirm title="Khóa route này?" onConfirm={() => lockM.mutate(r._id)}>
-	                                  <Button size="small" icon={<LockOutlined />}>Khóa lộ trình</Button>
-	                                </Popconfirm>
-	                              )}
-	                              {isLocked && (
-	                                <>
-	                                  <Popconfirm title="Mở khóa?" onConfirm={() => unlockM.mutate(r._id)}>
-	                                    <Button size="small" icon={<UnlockOutlined />}>Mở khóa</Button>
-	                                  </Popconfirm>
-	                                  <Popconfirm title="Finalize route?" onConfirm={() => finalizeM.mutate(r._id)}>
-	                                    <Button size="small" icon={<CheckCircleOutlined />} style={{ color: "#52c41a" }}>Hoàn tất</Button>
-	                                  </Popconfirm>
-	                                  <Popconfirm title="Xóa lộ trình đã khóa này?" description="Các đơn trong route sẽ quay về trạng thái chờ lập kế hoạch." onConfirm={() => removeRouteM.mutate(r._id)}>
-	                                    <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
-	                                  </Popconfirm>
-	                                </>
-	                              )}
-	                              {!isLocked && !isFinalized && (
-	                                <Popconfirm title="Xóa lộ trình này?" onConfirm={() => removeRouteM.mutate(r._id)}>
-	                                  <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
-	                                </Popconfirm>
-	                              )}
-	                            </Space>
+                        <div style={{ width: 360, padding: "10px 12px", borderRight: "1px solid #f0f0f0", flexShrink: 0, background: "#fafbfc" }}>
+                          {/* Header row: vehicle + actions */}
+                          <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                              <Space size={8} align="center" style={{ minWidth: 0, flex: 1 }}>
+                                <CarOutlined style={{ color, fontSize: 16, flexShrink: 0 }} />
+                                {!isLocked && !isFinalized ? (
+                                  <Select
+                                    size="small"
+                                    showSearch optionFilterProp="label"
+                                    value={vehicleId || undefined}
+                                    onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { vehicleId: v } })}
+                                    options={[
+                                      ...(vehicleId ? [{ value: vehicleId, label: `${vehicleCode} · xe hiện tại` }] : []),
+                                      ...swappableVehicles.map((v) => ({
+                                        value: String(v._id),
+                                        label: `${v.VehicleCode} · ${v.MaxWeight}kg / ${v.MaxVolume}m³`
+                                      }))
+                                    ]}
+                                    style={{ width: 220, fontWeight: 600 }}
+                                    dropdownStyle={{ minWidth: 280 }}
+                                  />
+                                ) : (
+                                  <Text strong>{vehicleCode}</Text>
+                                )}
+                                <RouteStatusPill status={r.Status} />
+                              </Space>
+                            </div>
+                            <Space size={6} onClick={(e) => e.stopPropagation()} wrap>
+                              {!isLocked && !isFinalized && (
+                                <Popconfirm title="Khóa route này?" onConfirm={() => lockM.mutate(r._id)}>
+                                  <Button size="small" icon={<LockOutlined />}>Khóa lộ trình</Button>
+                                </Popconfirm>
+                              )}
+                              {isLocked && (
+                                <>
+                                  <Popconfirm title="Mở khóa?" onConfirm={() => unlockM.mutate(r._id)}>
+                                    <Button size="small" icon={<UnlockOutlined />}>Mở khóa</Button>
+                                  </Popconfirm>
+                                  <Popconfirm title="Finalize route?" onConfirm={() => finalizeM.mutate(r._id)}>
+                                    <Button size="small" icon={<CheckCircleOutlined />} style={{ color: "#52c41a" }}>Hoàn tất</Button>
+                                  </Popconfirm>
+                                  <Popconfirm title="Xóa lộ trình đã khóa này?" description="Các đơn trong route sẽ quay về trạng thái chờ lập kế hoạch." onConfirm={() => removeRouteM.mutate(r._id)}>
+                                    <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
+                                  </Popconfirm>
+                                </>
+                              )}
+                              {!isLocked && !isFinalized && (
+                                <Popconfirm title="Xóa lộ trình này?" onConfirm={() => removeRouteM.mutate(r._id)}>
+                                  <Button size="small" danger icon={<DeleteOutlined />}>Xóa lộ trình</Button>
+                                </Popconfirm>
+                              )}
+                            </Space>
                           </div>
 
                           {/* Stats row */}
-	                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, max-content)", gap: "6px 10px", fontSize: 11, color: "#6b7280", marginBottom: 8, whiteSpace: "nowrap" }}>
-	                            <span>{totalOrders} đơn</span>
-	                            <span>{r.Stops?.length ?? 0} điểm</span>
-	                            <span>{r.TotalDistance ?? 0} km</span>
-	                            <span>{r.TotalWeight ?? 0} kg</span>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, max-content)", gap: "6px 10px", fontSize: 11, color: "#6b7280", marginBottom: 8, whiteSpace: "nowrap" }}>
+                            <span>{totalOrders} đơn</span>
+                            <span>{r.Stops?.length ?? 0} điểm</span>
+                            <span>{r.TotalDistance ?? 0} km</span>
+                            <span>{r.TotalWeight ?? 0} kg</span>
                           </div>
                           {r.PlannedStartTime && r.PlannedReturnTime && (
                             <div style={{ fontSize: 11, color: "#374151", marginBottom: 8 }}>
@@ -1039,31 +1039,40 @@ export default function PlanningPage() {
 
                           <div style={{
                             marginBottom: 8,
-                            padding: "7px 8px",
+                            padding: "8px 12px",
                             border: "1px solid #e5e7eb",
                             borderRadius: 6,
-                            background: "#fff",
+                            background: "#f9fafb",
                             fontSize: 11,
-                            color: "#374151"
+                            color: "#374151",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            width: "100%"
                           }}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>Vận hành: </Text>
-                            {driver ? (
-                              <Tag color={driver.EmploymentType === "OUTSOURCED" ? "orange" : "green"} style={{ marginLeft: 4 }}>
-                                Tài xế · {driver.XName ?? driver.FullName} ({driver.DriverCode})
-                                {driver.EmploymentType === "OUTSOURCED" ? " · 3PL" : ""}
-                              </Tag>
-                            ) : (
-                              <Tag color="red" style={{ marginLeft: 4 }}>Chưa chọn tài xế</Tag>
-                            )}
-                            {r.IsOutsourced && (
-                              service ? (
-                                <Tag color="purple" style={{ marginLeft: 4 }}>
-                                  Hãng · {service.Carrier || service.XName} ({service.ServiceCode})
+                            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Vận hành:</Text>
+
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {driver ? (
+                                <Tag color={driver.EmploymentType === "OUTSOURCED" ? "orange" : "green"}
+                                  style={{ margin: 0, whiteSpace: "normal", height: "auto", padding: "2px 8px" }}>
+                                  Tài xế · {driver.XName ?? driver.FullName} ({driver.DriverCode})
+                                  {driver.EmploymentType === "OUTSOURCED" ? " · 3PL" : ""}
                                 </Tag>
                               ) : (
-                                <Tag color="red" style={{ marginLeft: 4 }}>3PL · Chưa chọn hãng</Tag>
-                              )
-                            )}
+                                <Tag color="red" style={{ margin: 0 }}>Chưa chọn tài xế</Tag>
+                              )}
+
+                              {r.IsOutsourced && (
+                                service ? (
+                                  <Tag color="purple" style={{ margin: 0, whiteSpace: "normal", height: "auto", padding: "2px 8px" }}>
+                                    Hãng · {service.Carrier || service.XName} ({service.ServiceCode})
+                                  </Tag>
+                                ) : (
+                                  <Tag color="red" style={{ margin: 0 }}>3PL · Chưa chọn hãng</Tag>
+                                )
+                              )}
+                            </div>
                           </div>
 
                           {!isLocked && !isFinalized && (
@@ -1073,9 +1082,9 @@ export default function PlanningPage() {
                                 value={r.Shift ?? "MORNING"}
                                 onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { shift: v } })}
                                 options={[
-                                  { value: "MORNING",   label: "🌅 Ca sáng (08:00–12:00)" },
+                                  { value: "MORNING", label: "🌅 Ca sáng (08:00–12:00)" },
                                   { value: "AFTERNOON", label: "🌇 Ca chiều (13:30–17:30)" },
-                                  { value: "FULL_DAY",  label: "☀ Cả ngày (08:00–17:30)" }
+                                  { value: "FULL_DAY", label: "☀ Cả ngày (08:00–17:30)" }
                                 ]}
                               />
                               <div style={{ display: "flex", gap: 4 }}>
@@ -1122,107 +1131,107 @@ export default function PlanningPage() {
 
                         {/* RIGHT panel: horizontal stops timeline */}
                         <div style={{ flex: 1, padding: "10px 12px", overflowX: "auto", display: "flex", alignItems: "center", gap: 4, minWidth: 0, background: isRouteDropTarget(r._id) ? "#f8fbff" : "#fff", transition: "background .16s ease" }}>
-	                          <div title={depotOrg?.XName ?? "Kho"} style={{ background: "#111827", color: "#fde68a", padding: "7px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap", border: "1px solid #374151" }}>
-	                            Kho {depotTimelineLabel}
+                          <div title={depotOrg?.XName ?? "Kho"} style={{ background: "#111827", color: "#fde68a", padding: "7px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap", border: "1px solid #374151" }}>
+                            Kho {depotTimelineLabel}
                           </div>
                           {(r.Stops ?? []).length === 0 ? (
                             <div style={{ flex: 1, padding: "16px 12px", border: "2px dashed #d9d9d9", borderRadius: 6, textAlign: "center", color: "#9ca3af", fontSize: 12 }}>
-	                              Kéo đơn từ panel "Đơn chưa phân công" hoặc từ xe khác vào đây
+                              Kéo đơn từ panel "Đơn chưa phân công" hoặc từ xe khác vào đây
                             </div>
                           ) : (
-	                            r.Stops.map((stop) => {
-	                              const slotIndex = Math.max(0, (stop.StopIndex ?? 1) - 1);
-	                              const stopActive = dragState && dropTarget?.routeId === String(r._id) && dropTarget?.index === slotIndex;
-	                              return (
-	                              <div key={stop.StopIndex} style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                                <span style={{ color: "#9ca3af", fontSize: 16 }}>→</span>
-                                {renderDropSlot(r, slotIndex, isLocked || isFinalized)}
-                                <div style={{
-                                  border: `1.5px solid ${stopActive ? "#2563eb" : color}`,
-                                  background: stopActive ? "#eff6ff" : "#fff",
-                                  borderRadius: 8,
-                                  padding: "6px 10px",
-                                  minWidth: 140,
-                                  boxShadow: stopActive ? "0 8px 18px rgba(37,99,235,0.18)" : "0 1px 2px rgba(0,0,0,0.05)",
-                                  transform: stopActive ? "translateY(-2px)" : "none",
-                                  transition: "background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease"
-                                }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                                    <span style={{
-                                      background: color, color: "#fff", borderRadius: "50%",
-                                      width: 20, height: 20, display: "inline-flex",
-                                      alignItems: "center", justifyContent: "center",
-                                      fontSize: 11, fontWeight: 700
-                                    }}>
-                                      {stop.StopIndex}
-                                    </span>
-                                    <Text strong style={{ fontSize: 12 }}>{stop.CustomerCode}</Text>
-                                  </div>
-                                  {stop.PlannedArrivalTime && (
-                                    <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 4 }}>
-                                      ⏰ {stop.PlannedArrivalTime}{stop.PlannedDepartureTime ? ` - ${stop.PlannedDepartureTime}` : ""}
-                                      {stop.PlannedServiceTime ? ` · dỡ ${stop.PlannedServiceTime}p` : ""}
+                            r.Stops.map((stop) => {
+                              const slotIndex = Math.max(0, (stop.StopIndex ?? 1) - 1);
+                              const stopActive = dragState && dropTarget?.routeId === String(r._id) && dropTarget?.index === slotIndex;
+                              return (
+                                <div key={stop.StopIndex} style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                                  <span style={{ color: "#9ca3af", fontSize: 16 }}>→</span>
+                                  {renderDropSlot(r, slotIndex, isLocked || isFinalized)}
+                                  <div style={{
+                                    border: `1.5px solid ${stopActive ? "#2563eb" : color}`,
+                                    background: stopActive ? "#eff6ff" : "#fff",
+                                    borderRadius: 8,
+                                    padding: "6px 10px",
+                                    minWidth: 140,
+                                    boxShadow: stopActive ? "0 8px 18px rgba(37,99,235,0.18)" : "0 1px 2px rgba(0,0,0,0.05)",
+                                    transform: stopActive ? "translateY(-2px)" : "none",
+                                    transition: "background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease"
+                                  }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                      <span style={{
+                                        background: color, color: "#fff", borderRadius: "50%",
+                                        width: 20, height: 20, display: "inline-flex",
+                                        alignItems: "center", justifyContent: "center",
+                                        fontSize: 11, fontWeight: 700
+                                      }}>
+                                        {stop.StopIndex}
+                                      </span>
+                                      <Text strong style={{ fontSize: 12 }}>{stop.CustomerCode}</Text>
                                     </div>
-                                  )}
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-		                                    {stop.OrderCodes?.map((code, i) => {
-		                                      const orderId = String(stop.OrderIDs?.[i] ?? "");
-		                                      const canDragOrder = !isLocked && !isFinalized && !!orderId;
-		                                      return (
-		                                      <Tooltip key={code} title={canDragOrder ? "Kéo sang xe khác hoặc đổi vị trí trong lộ trình" : ""}>
-		                                        <div
-		                                          draggable={canDragOrder}
-		                                          onDragStart={(e) => {
-		                                            e.stopPropagation();
-		                                            if (!canDragOrder) {
-		                                              e.preventDefault();
-		                                              return;
-		                                            }
-		                                            setDragState({ orderId, code, fromRouteId: String(r._id) });
-		                                            setDropTarget({ routeId: String(r._id), index: slotIndex });
-		                                            e.dataTransfer.setData("text/plain", JSON.stringify({ orderId, fromRouteId: r._id, source: "route" }));
-		                                            e.dataTransfer.effectAllowed = "move";
-		                                          }}
-		                                          onDragEnd={() => {
-		                                            setDragState(null);
-		                                            setDropTarget(null);
-		                                          }}
-		                                          style={{
-		                                            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
-		                                            cursor: canDragOrder ? "grab" : "default",
-		                                            background: dragState?.orderId === orderId ? "#2563eb" : "#f8fafc",
-		                                            border: `1px solid ${dragState?.orderId === orderId ? "#1d4ed8" : "#bfdbfe"}`,
-		                                            borderRadius: 6, padding: "3px 6px",
-		                                            opacity: dragState?.orderId === orderId ? 0.72 : 1,
-		                                            transform: dragState?.orderId === orderId ? "scale(0.98)" : "none",
-		                                            transition: "background .14s ease, border-color .14s ease, opacity .14s ease, transform .14s ease"
-		                                          }}
-		                                        >
-		                                          <Space size={4} style={{ minWidth: 0 }}>
-		                                            {!isLocked && !isFinalized && <DragOutlined style={{ color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8", fontSize: 11, flexShrink: 0 }} />}
-		                                            <span style={{ fontSize: 10, fontFamily: "monospace", color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8", whiteSpace: "nowrap" }}>{code}</span>
-		                                          </Space>
-		                                          {!isLocked && !isFinalized && (
-	                                            <Popconfirm title={`Gỡ ${code}?`} onConfirm={() => removeOrderM.mutate({ routeId: r._id, orderId: stop.OrderIDs?.[i] })}>
-	                                              <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ height: 16, width: 16, padding: 0, fontSize: 10 }} />
-	                                            </Popconfirm>
-	                                          )}
-		                                        </div>
-		                                      </Tooltip>
-		                                    );
-		                                    })}
+                                    {stop.PlannedArrivalTime && (
+                                      <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 4 }}>
+                                        ⏰ {stop.PlannedArrivalTime}{stop.PlannedDepartureTime ? ` - ${stop.PlannedDepartureTime}` : ""}
+                                        {stop.PlannedServiceTime ? ` · dỡ ${stop.PlannedServiceTime}p` : ""}
+                                      </div>
+                                    )}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                      {stop.OrderCodes?.map((code, i) => {
+                                        const orderId = String(stop.OrderIDs?.[i] ?? "");
+                                        const canDragOrder = !isLocked && !isFinalized && !!orderId;
+                                        return (
+                                          <Tooltip key={code} title={canDragOrder ? "Kéo sang xe khác hoặc đổi vị trí trong lộ trình" : ""}>
+                                            <div
+                                              draggable={canDragOrder}
+                                              onDragStart={(e) => {
+                                                e.stopPropagation();
+                                                if (!canDragOrder) {
+                                                  e.preventDefault();
+                                                  return;
+                                                }
+                                                setDragState({ orderId, code, fromRouteId: String(r._id) });
+                                                setDropTarget({ routeId: String(r._id), index: slotIndex });
+                                                e.dataTransfer.setData("text/plain", JSON.stringify({ orderId, fromRouteId: r._id, source: "route" }));
+                                                e.dataTransfer.effectAllowed = "move";
+                                              }}
+                                              onDragEnd={() => {
+                                                setDragState(null);
+                                                setDropTarget(null);
+                                              }}
+                                              style={{
+                                                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
+                                                cursor: canDragOrder ? "grab" : "default",
+                                                background: dragState?.orderId === orderId ? "#2563eb" : "#f8fafc",
+                                                border: `1px solid ${dragState?.orderId === orderId ? "#1d4ed8" : "#bfdbfe"}`,
+                                                borderRadius: 6, padding: "3px 6px",
+                                                opacity: dragState?.orderId === orderId ? 0.72 : 1,
+                                                transform: dragState?.orderId === orderId ? "scale(0.98)" : "none",
+                                                transition: "background .14s ease, border-color .14s ease, opacity .14s ease, transform .14s ease"
+                                              }}
+                                            >
+                                              <Space size={4} style={{ minWidth: 0 }}>
+                                                {!isLocked && !isFinalized && <DragOutlined style={{ color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8", fontSize: 11, flexShrink: 0 }} />}
+                                                <span style={{ fontSize: 10, fontFamily: "monospace", color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8", whiteSpace: "nowrap" }}>{code}</span>
+                                              </Space>
+                                              {!isLocked && !isFinalized && (
+                                                <Popconfirm title={`Gỡ ${code}?`} onConfirm={() => removeOrderM.mutate({ routeId: r._id, orderId: stop.OrderIDs?.[i] })}>
+                                                  <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ height: 16, width: 16, padding: 0, fontSize: 10 }} />
+                                                </Popconfirm>
+                                              )}
+                                            </div>
+                                          </Tooltip>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
+                              );
                             })
                           )}
                           {r.Stops?.length > 0 && (
                             <>
                               <span style={{ color: "#9ca3af", fontSize: 16 }}>→</span>
                               {renderDropSlot(r, r.Stops.length, isLocked || isFinalized)}
-	                              <div title={depotOrg?.XName ?? "Kho"} style={{ background: "#111827", color: "#fde68a", padding: "7px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap", border: "1px solid #374151" }}>
-	                                Kho {depotTimelineLabel}
+                              <div title={depotOrg?.XName ?? "Kho"} style={{ background: "#111827", color: "#fde68a", padding: "7px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap", border: "1px solid #374151" }}>
+                                Kho {depotTimelineLabel}
                               </div>
                             </>
                           )}
@@ -1246,9 +1255,9 @@ export default function PlanningPage() {
           <Form.Item name="Shift" label="Khung giờ giao hàng" rules={[{ required: true }]}
             tooltip="Quyết định thời điểm xuất phát của các xe trong kế hoạch này">
             <Select options={[
-              { value: "MORNING",   label: "Ca sáng — xuất phát 08:00, dự kiến quay về trước 12:00" },
+              { value: "MORNING", label: "Ca sáng — xuất phát 08:00, dự kiến quay về trước 12:00" },
               { value: "AFTERNOON", label: "Ca chiều — xuất phát 13:30, dự kiến quay về trước 17:30" },
-	              { value: "FULL_DAY",  label: "Cả ngày — xe chạy từ 08:00 đến 17:30" }
+              { value: "FULL_DAY", label: "Cả ngày — xe chạy từ 08:00 đến 17:30" }
             ]} />
           </Form.Item>
           <Form.Item name="PlanName" label="Tên kế hoạch (tùy chọn)" extra="VD: 'Ca sáng tuần 19', 'Giao đặc biệt'...">
@@ -1258,7 +1267,7 @@ export default function PlanningPage() {
             <Input.TextArea rows={2} placeholder="Ghi chú cho kế hoạch này" />
           </Form.Item>
         </Form>
-        <div style={{ color:"#6b7280", fontSize:12 }}>
+        <div style={{ color: "#6b7280", fontSize: 12 }}>
           Ngày: <strong>{planDate?.format("DD/MM/YYYY")}</strong> · sau khi tạo, hệ thống tự chạy tối ưu tuyến cho đơn PENDING.
         </div>
       </Modal>
@@ -1285,7 +1294,7 @@ export default function PlanningPage() {
         onCancel={() => setAssignOrderOpen(false)} onOk={onAssignOk}
         confirmLoading={addOrderM.isPending} destroyOnClose>
         <Form form={assignForm} layout="vertical" preserve={false}>
-          <div style={{ marginBottom:12 }}>
+          <div style={{ marginBottom: 12 }}>
             <Text type="secondary">Khách hàng: </Text>
             <Tag color="purple">{selectedOrder?.CustomerCode}</Tag>
           </div>
@@ -1340,11 +1349,11 @@ export default function PlanningPage() {
                   : pts.map((p) => p.latlng)];
                 return (
                   <span key={r._id}>
-	                    {pts.map((pt) => (
-	                      <Marker key={pt.key} position={pt.latlng} icon={createColoredIcon(color, pt.label)} opacity={dim}>
-	                        <Popup>{renderStopPopup(pt, r, color)}</Popup>
-	                      </Marker>
-	                    ))}
+                    {pts.map((pt) => (
+                      <Marker key={pt.key} position={pt.latlng} icon={createColoredIcon(color, pt.label)} opacity={dim}>
+                        <Popup>{renderStopPopup(pt, r, color)}</Popup>
+                      </Marker>
+                    ))}
                     {lineSegments.map((linePts, i) => linePts.length >= 2 && (
                       <span key={i}>
                         <Polyline positions={linePts} color="#111827" weight={highlightRouteId === r._id ? 10 : 8} opacity={dim * 0.35} />
@@ -1527,77 +1536,77 @@ export default function PlanningPage() {
                         const slotIndex = Math.max(0, (stop.StopIndex ?? 1) - 1);
                         const stopActive = dragState && dropTarget?.routeId === String(r._id) && dropTarget?.index === slotIndex;
                         return (
-                        <span key={`${r._id}-${stop.StopIndex}`} style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                          <span style={{ color, fontSize: 18, fontWeight: 800 }}>→</span>
-                          {renderDropSlot(r, slotIndex, isLocked || isFinalized)}
-                          <div style={{
-                            border: `2px solid ${stopActive ? "#2563eb" : color}`,
-                            borderRadius: 8,
-                            padding: "7px 10px",
-                            minWidth: 150,
-                            background: stopActive ? "#eff6ff" : "#fff",
-                            boxShadow: stopActive ? "0 8px 18px rgba(37,99,235,0.18)" : "none"
-                          }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ background: color, color: "#fff", borderRadius: "50%", width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>
-                                {stop.StopIndex}
-                              </span>
-                              <Text strong style={{ fontSize: 12 }}>{stop.CustomerCode}</Text>
+                          <span key={`${r._id}-${stop.StopIndex}`} style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                            <span style={{ color, fontSize: 18, fontWeight: 800 }}>→</span>
+                            {renderDropSlot(r, slotIndex, isLocked || isFinalized)}
+                            <div style={{
+                              border: `2px solid ${stopActive ? "#2563eb" : color}`,
+                              borderRadius: 8,
+                              padding: "7px 10px",
+                              minWidth: 150,
+                              background: stopActive ? "#eff6ff" : "#fff",
+                              boxShadow: stopActive ? "0 8px 18px rgba(37,99,235,0.18)" : "none"
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ background: color, color: "#fff", borderRadius: "50%", width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>
+                                  {stop.StopIndex}
+                                </span>
+                                <Text strong style={{ fontSize: 12 }}>{stop.CustomerCode}</Text>
+                              </div>
+                              <div style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>
+                                {stop.PlannedArrivalTime ?? "--:--"}{stop.PlannedDepartureTime ? ` - ${stop.PlannedDepartureTime}` : ""}
+                                {stop.PlannedServiceTime ? ` · dỡ ${stop.PlannedServiceTime}p` : ""}
+                              </div>
+                              <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
+                                {(stop.OrderCodes ?? []).map((code, i) => {
+                                  const orderId = String(stop.OrderIDs?.[i] ?? "");
+                                  const canDragOrder = !isLocked && !isFinalized && !!orderId;
+                                  return (
+                                    <div
+                                      key={code}
+                                      draggable={canDragOrder}
+                                      onDragStart={(e) => {
+                                        e.stopPropagation();
+                                        if (!canDragOrder) {
+                                          e.preventDefault();
+                                          return;
+                                        }
+                                        setDragState({ orderId, code, fromRouteId: String(r._id) });
+                                        setDropTarget({ routeId: String(r._id), index: slotIndex });
+                                        e.dataTransfer.setData("text/plain", JSON.stringify({ orderId, fromRouteId: r._id, source: "route" }));
+                                        e.dataTransfer.effectAllowed = "move";
+                                      }}
+                                      onDragEnd={() => {
+                                        setDragState(null);
+                                        setDropTarget(null);
+                                      }}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 4,
+                                        cursor: canDragOrder ? "grab" : "default",
+                                        background: dragState?.orderId === orderId ? "#2563eb" : "#eff6ff",
+                                        border: `1px solid ${dragState?.orderId === orderId ? "#1d4ed8" : "#bfdbfe"}`,
+                                        borderRadius: 6,
+                                        padding: "2px 5px",
+                                        fontSize: 10,
+                                        color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8"
+                                      }}
+                                    >
+                                      {canDragOrder && <DragOutlined style={{ fontSize: 10 }} />}
+                                      <span style={{ fontFamily: "monospace" }}>{code}</span>
+                                      {canDragOrder && (
+                                        <Popconfirm title={`Gỡ ${code}?`} onConfirm={() => removeOrderM.mutate({ routeId: r._id, orderId })}>
+                                          <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ height: 14, width: 14, padding: 0, fontSize: 9 }} />
+                                        </Popconfirm>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            <div style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>
-                              {stop.PlannedArrivalTime ?? "--:--"}{stop.PlannedDepartureTime ? ` - ${stop.PlannedDepartureTime}` : ""}
-                              {stop.PlannedServiceTime ? ` · dỡ ${stop.PlannedServiceTime}p` : ""}
-                            </div>
-                            <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
-                              {(stop.OrderCodes ?? []).map((code, i) => {
-                                const orderId = String(stop.OrderIDs?.[i] ?? "");
-                                const canDragOrder = !isLocked && !isFinalized && !!orderId;
-                                return (
-                                  <div
-                                    key={code}
-                                    draggable={canDragOrder}
-                                    onDragStart={(e) => {
-                                      e.stopPropagation();
-                                      if (!canDragOrder) {
-                                        e.preventDefault();
-                                        return;
-                                      }
-                                      setDragState({ orderId, code, fromRouteId: String(r._id) });
-                                      setDropTarget({ routeId: String(r._id), index: slotIndex });
-                                      e.dataTransfer.setData("text/plain", JSON.stringify({ orderId, fromRouteId: r._id, source: "route" }));
-                                      e.dataTransfer.effectAllowed = "move";
-                                    }}
-                                    onDragEnd={() => {
-                                      setDragState(null);
-                                      setDropTarget(null);
-                                    }}
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 4,
-                                      cursor: canDragOrder ? "grab" : "default",
-                                      background: dragState?.orderId === orderId ? "#2563eb" : "#eff6ff",
-                                      border: `1px solid ${dragState?.orderId === orderId ? "#1d4ed8" : "#bfdbfe"}`,
-                                      borderRadius: 6,
-                                      padding: "2px 5px",
-                                      fontSize: 10,
-                                      color: dragState?.orderId === orderId ? "#fff" : "#1d4ed8"
-                                    }}
-                                  >
-                                    {canDragOrder && <DragOutlined style={{ fontSize: 10 }} />}
-                                    <span style={{ fontFamily: "monospace" }}>{code}</span>
-                                    {canDragOrder && (
-                                      <Popconfirm title={`Gỡ ${code}?`} onConfirm={() => removeOrderM.mutate({ routeId: r._id, orderId })}>
-                                        <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ height: 14, width: 14, padding: 0, fontSize: 9 }} />
-                                      </Popconfirm>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </span>
-                      );
+                          </span>
+                        );
                       })}
                       {(r.Stops ?? []).length > 0 && (
                         <>

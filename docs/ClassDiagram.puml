@@ -130,11 +130,14 @@ package "Master Data\n(Danh mục)" as PKG_MD {
     - vehicleType : String
     - maxWeight : Number
     - maxVolume : Number
+    - employmentType : EmploymentType
+    - serviceId : ObjectId
     - status : VehicleStatus
     --
     + isAvailable(date : Date) : Boolean
     + getNextMaintenance() : Date
     + getCurrentTrip() : Trip
+    + isOutsourced() : Boolean
   }
 
   class Driver {
@@ -144,11 +147,19 @@ package "Master Data\n(Danh mục)" as PKG_MD {
     - phone : String
     - licenseNumber : String
     - userId : ObjectId
+    - employmentType : EmploymentType
+    - serviceId : ObjectId
     - status : DriverStatus
     --
     + getCurrentTrip() : Trip
     + calculateWorkload(period) : Number
     + getCompletionRate() : Number
+    + isOutsourced() : Boolean
+  }
+
+  enum EmploymentType {
+    IN_HOUSE
+    OUTSOURCED
   }
 }
 
