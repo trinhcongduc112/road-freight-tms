@@ -115,14 +115,14 @@ describe("etaService.handleStopCompletion", () => {
     expect(trip.EtaHistory).toHaveLength(0);
   });
 
-  test("đến sớm 25 phút (|dev|>20) → requiresExplanation cho case sớm", () => {
+  test("đến sớm 75 phút (vượt ngưỡng sớm 60) → requiresExplanation cho case sớm", () => {
     const trip = makeTrip([
       { StopIndex: 1, PlannedArrivalTime: "10:00",
-        Status: TripTaskStatus.COMPLETED, CompletedAt: new Date(Date.UTC(2025,0,1, 2, 35)) }, // 09:35 VN
+        Status: TripTaskStatus.COMPLETED, CompletedAt: new Date(Date.UTC(2025,0,1, 1, 45)) }, // 08:45 VN → sớm 75'
       { StopIndex: 2, PlannedArrivalTime: "11:00", Status: TripTaskStatus.PENDING }
     ]);
     const r = handleStopCompletion(trip, 1);
-    expect(r.deviationMin).toBe(-25);
+    expect(r.deviationMin).toBe(-75);
     expect(r.autoCascaded).toBe(false);
     expect(r.requiresExplanation).toBe(true);
   });
