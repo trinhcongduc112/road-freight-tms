@@ -12,7 +12,7 @@ ANDROID_AVD := Pixel_6
         build-mobile-android build-mobile-ios \
         test test-backend test-web test-optimizer test-coverage test-report \
         test-e2e test-e2e-ui test-e2e-headed test-e2e-report \
-        start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status
+        init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status
 
 help:
 	@echo ""
@@ -25,6 +25,7 @@ help:
 	@echo "  make check env=dev    — kiểm tra biến môi trường dev"
 	@echo "  make check env=prod   — kiểm tra biến môi trường production (ẩn secrets)"
 	@echo "  ── PRODUCTION (Docker Compose trên server EC2 / VPS) ──────────"
+	@echo "  make init-prod        — ★ chạy LẦN ĐẦU: tạo .env.production + sinh JWT_SECRET"
 	@echo "  make start-prod       — build + start toàn bộ stack production"
 	@echo "  make stop-prod        — dừng production stack"
 	@echo "  make restart-prod     — restart sau khi update biến môi trường"
@@ -97,11 +98,33 @@ stop:
 # ─────────────────────────────────────────────────────────────────
 COMPOSE_PROD := docker compose -f docker-compose.prod.yml
 
+# Setup lần đầu: copy template + auto-sinh JWT_SECRET + auto-detect EC2 IP cho FRONTEND_URL
+init-prod:
+	@if [ -f backend/.env.production ]; then \
+		echo "✔ backend/.env.production đã tồn tại — bỏ qua. Muốn tạo lại? Xoá tay rồi chạy lại."; \
+	else \
+		cp backend/.env.production.example backend/.env.production; \
+		JWT=$$(openssl rand -hex 32); \
+		IP=$$(curl -s --max-time 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $$1}'); \
+		sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$$JWT|" backend/.env.production; \
+		sed -i "s|^FRONTEND_URL=.*|FRONTEND_URL=http://$$IP:8080|" backend/.env.production; \
+		echo "✔ Tạo backend/.env.production từ template"; \
+		echo "✔ Sinh JWT_SECRET ngẫu nhiên 256-bit"; \
+		echo "✔ Set FRONTEND_URL=http://$$IP:8080 (auto-detect)"; \
+		echo ""; \
+		echo "  Còn lại 2 field BẮT BUỘC điền tay (Gmail SMTP):"; \
+		echo "  - SMTP_USER     (email Gmail hệ thống — vd: company-noreply@gmail.com)"; \
+		echo "  - SMTP_PASS     (App Password 16 ký tự — lấy tại myaccount.google.com/apppasswords)"; \
+		echo ""; \
+		echo "  Sửa: nano backend/.env.production"; \
+		echo "  Khi xong: make start-prod"; \
+	fi
+
 start-prod:
 	@if [ ! -f backend/.env.production ]; then \
 		echo "✗ Thiếu file backend/.env.production"; \
-		echo "  Tạo từ template: cp backend/.env.production.example backend/.env.production"; \
-		echo "  Sau đó điền JWT_SECRET, SMTP_*, FRONTEND_URL"; \
+		echo "  Chạy: make init-prod  (auto tạo + sinh JWT_SECRET)"; \
+		echo "  Sau đó: nano backend/.env.production để điền SMTP_USER + SMTP_PASS + FRONTEND_URL"; \
 		exit 1; \
 	fi
 	@$(COMPOSE_PROD) up -d --build
@@ -238,6 +261,12 @@ install:
 	$(NVM) && cd frontend-web && npm install
 	$(NVM) && cd frontend-app && npm install
 	$(NVM) && cd docs-site && npm install
+
+update-backend:
+	docker compose -f docker-compose.prod.yml up -d --no-deps --build tms-backend
+
+update-web:
+	docker compose -f docker-compose.prod.yml up -d --no-deps --build tms-web
 
 # ── Mobile App ──────────────────────────────────────────────────────────────
 

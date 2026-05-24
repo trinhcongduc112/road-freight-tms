@@ -50,7 +50,8 @@ services:
     build:
       context: ./frontend-web
       args:
-        # Frontend build-time: phải biết URL backend public
+        # Frontend gọi /api/* (relative) → nginx trong container proxy về backend.
+        # KHÔNG hardcode IP/domain vào build → image dùng được trên mọi server.
         VITE_API_URL: ${VITE_API_URL:-/api}
     image: road-freight-tms-web:prod
     container_name: tms-web
@@ -58,7 +59,9 @@ services:
     depends_on:
       - backend
     ports:
-      - "127.0.0.1:8080:80"
+      # Bind 0.0.0.0:8080 → user truy cập http://<EC2-IP>:8080
+      # Nginx container đã proxy /api/* + /socket.io/* → backend (port 5000 không cần expose)
+      - "0.0.0.0:8080:80"
 
 volumes:
   mongo-data:

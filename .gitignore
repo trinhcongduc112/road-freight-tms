@@ -31,3 +31,9 @@ coverage.xml
 
 .test-venv/
 .venv/
+
+# Playwright E2E auto-generated artifacts (regenerated mỗi lần chạy test)
+e2e/playwright-report/
+e2e/test-results/
+playwright-report/
+test-results/
