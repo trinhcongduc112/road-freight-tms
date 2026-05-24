@@ -24,3 +24,7 @@ data/
 _legacy/
 .claude/
 .claude/
+
+# Test coverage outputs
+coverage.xml
+.coverage
