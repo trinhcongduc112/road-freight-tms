@@ -1,11 +1,8 @@
 name: Deploy User Docs to GitHub Pages
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs-site/**"
-      - ".github/workflows/docs-deploy.yml"
+  # Auto-trigger tắt (cần bật GitHub Pages thủ công trước).
+  # Chạy bằng cách vào tab Actions → "Deploy User Docs to GitHub Pages" → Run workflow.
   workflow_dispatch:
 
 permissions:
