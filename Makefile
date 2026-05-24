@@ -6,20 +6,32 @@ LOG_FE     := /tmp/tms-frontend.log
 LOG_MOBILE := /tmp/tms-mobile.log
 ANDROID_AVD := Pixel_6
 
-.PHONY: help start stop mongo backend web dev seed logs \
+.PHONY: help start stop mongo backend web dev seed logs check \
         install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop \
         docs docs-install docs-build docs-local docs-deploy docs-stop api-docs api-docs-sync \
         build-mobile-android build-mobile-ios \
         test test-backend test-web test-optimizer test-coverage test-report \
-        test-e2e test-e2e-ui test-e2e-headed test-e2e-report
+        test-e2e test-e2e-ui test-e2e-headed test-e2e-report \
+        start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status
 
 help:
 	@echo ""
-	@echo "  ── Web (Backend + Frontend) ────────────────────────────────────"
+	@echo "  ── Web LOCAL DEV (Backend + Frontend qua nvm) ─────────────────"
 	@echo "  make start            — chạy MongoDB + backend + frontend (kèm tail log)"
 	@echo "  make dev              — chạy nền, không mở log"
 	@echo "  make stop             — dừng backend + frontend"
-	@echo "  make logs             — xem log backend + frontend"
+	@echo "  make logs             — xem log dev   (alias: make logs env=dev)"
+	@echo "  make logs env=prod    — xem log production stack"
+	@echo "  make check env=dev    — kiểm tra biến môi trường dev"
+	@echo "  make check env=prod   — kiểm tra biến môi trường production (ẩn secrets)"
+	@echo "  ── PRODUCTION (Docker Compose trên server EC2 / VPS) ──────────"
+	@echo "  make start-prod       — build + start toàn bộ stack production"
+	@echo "  make stop-prod        — dừng production stack"
+	@echo "  make restart-prod     — restart sau khi update biến môi trường"
+	@echo "  make build-prod       — rebuild image (sau khi git pull)"
+	@echo "  make logs-prod        — tail log production"
+	@echo "  make prod-status      — kiểm tra container đang Up?"
+	@echo "  make seed-prod        — seed dữ liệu mẫu vào DB production"
 	@echo "  ── Mobile App (Tài xế) ─────────────────────────────────────────"
 	@echo "  make mobile           — Expo QR (--lan) cho điện thoại thật cùng WiFi"
 	@echo "  make mobile-localhost — Expo cho VM/emulator (--localhost)"
@@ -76,6 +88,52 @@ start: mongo
 
 stop:
 	@lsof -ti:5000,5173 | xargs -r kill && echo "Đã dừng Backend + Frontend" || echo "Không có process nào đang chạy"
+
+# ─────────────────────────────────────────────────────────────────
+#  PRODUCTION (chạy trên server EC2 / VPS qua Docker Compose)
+#  - Đọc backend/.env.production (BẮT BUỘC tạo trước khi start)
+#  - Port chỉ bind 127.0.0.1 → traffic public đi qua Nginx + HTTPS
+#  - QUAN TRỌNG: phải có -f docker-compose.prod.yml, không dùng dev compose
+# ─────────────────────────────────────────────────────────────────
+COMPOSE_PROD := docker compose -f docker-compose.prod.yml
+
+start-prod:
+	@if [ ! -f backend/.env.production ]; then \
+		echo "✗ Thiếu file backend/.env.production"; \
+		echo "  Tạo từ template: cp backend/.env.production.example backend/.env.production"; \
+		echo "  Sau đó điền JWT_SECRET, SMTP_*, FRONTEND_URL"; \
+		exit 1; \
+	fi
+	@$(COMPOSE_PROD) up -d --build
+	@echo ""
+	@echo "  ✔ Production stack đã start"
+	@echo "  ✔ Backend   — http://127.0.0.1:5000/api  (loopback only)"
+	@echo "  ✔ Optimizer — http://127.0.0.1:8000      (loopback only)"
+	@echo "  ✔ Web       — http://127.0.0.1:8080      (loopback only)"
+	@echo ""
+	@echo "  Xem log:  make logs env=prod   |  Dừng: make stop-prod"
+
+stop-prod:
+	@$(COMPOSE_PROD) down
+	@echo "✔ Đã dừng production stack"
+
+restart-prod:
+	@$(COMPOSE_PROD) restart
+	@echo "✔ Đã restart production stack"
+
+logs-prod:
+	@$(COMPOSE_PROD) logs -f --tail=200
+
+build-prod:
+	@$(COMPOSE_PROD) build --no-cache
+	@echo "✔ Đã rebuild production images"
+
+prod-status:
+	@$(COMPOSE_PROD) ps
+
+seed-prod:
+	@$(COMPOSE_PROD) exec backend node src/seed/seed.js
+	@echo "✔ Đã seed dữ liệu mẫu vào production DB"
 
 docs:
 	@echo "Đang khởi động User Docs tại http://localhost:3000 ..."
@@ -137,14 +195,39 @@ dev: mongo
 	echo ""
 
 logs:
-	@files=""; \
-	[ -f "$(LOG_BE)" ] && files="$$files $(LOG_BE)"; \
-	[ -f "$(LOG_FE)" ] && files="$$files $(LOG_FE)"; \
-	if [ -n "$$files" ]; then \
-		echo "Đang xem log:$$files"; \
-		tail -n 200 -f $$files; \
+	@if [ "$(env)" = "prod" ]; then \
+		$(MAKE) logs-prod; \
 	else \
-		echo "Chưa có log. Chạy 'make start' hoặc 'make dev' trước."; \
+		files=""; \
+		[ -f "$(LOG_BE)" ] && files="$$files $(LOG_BE)"; \
+		[ -f "$(LOG_FE)" ] && files="$$files $(LOG_FE)"; \
+		if [ -n "$$files" ]; then \
+			echo "Đang xem log dev:$$files"; \
+			tail -n 200 -f $$files; \
+		else \
+			echo "Chưa có log dev. Chạy 'make start' hoặc 'make dev' trước."; \
+			echo "Xem log prod:  make logs env=prod"; \
+		fi; \
+	fi
+
+check:
+	@if [ "$(env)" = "prod" ]; then \
+		if [ -f backend/.env.production ]; then \
+			echo "── backend/.env.production ──────────────────────"; \
+			grep -v '^#\|^$$' backend/.env.production | sed 's/\(PASS\|SECRET\|KEY\)=.*/\1=***/'; \
+		else \
+			echo "✗ backend/.env.production CHƯA TỒN TẠI"; \
+			echo "  Tạo bằng: cp backend/.env.production.example backend/.env.production"; \
+		fi; \
+	elif [ "$(env)" = "dev" ]; then \
+		if [ -f backend/.env ]; then \
+			echo "── backend/.env (dev) ───────────────────────────"; \
+			grep -v '^#\|^$$' backend/.env | sed 's/\(PASS\|SECRET\|KEY\)=.*/\1=***/'; \
+		else \
+			echo "✗ backend/.env CHƯA TỒN TẠI (dev sẽ dùng default)"; \
+		fi; \
+	else \
+		echo "Cách dùng: make check env=dev   hoặc   make check env=prod"; \
 	fi
 
 seed: mongo
