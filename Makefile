@@ -98,21 +98,23 @@ stop:
 # ─────────────────────────────────────────────────────────────────
 COMPOSE_PROD := docker compose -f docker-compose.prod.yml
 
-# Setup lần đầu: copy template + auto-sinh JWT_SECRET + show field cần điền
+# Setup lần đầu: copy template + auto-sinh JWT_SECRET + auto-detect EC2 IP cho FRONTEND_URL
 init-prod:
 	@if [ -f backend/.env.production ]; then \
 		echo "✔ backend/.env.production đã tồn tại — bỏ qua. Muốn tạo lại? Xoá tay rồi chạy lại."; \
 	else \
 		cp backend/.env.production.example backend/.env.production; \
 		JWT=$$(openssl rand -hex 32); \
+		IP=$$(curl -s --max-time 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $$1}'); \
 		sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$$JWT|" backend/.env.production; \
+		sed -i "s|^FRONTEND_URL=.*|FRONTEND_URL=http://$$IP:8080|" backend/.env.production; \
 		echo "✔ Tạo backend/.env.production từ template"; \
 		echo "✔ Sinh JWT_SECRET ngẫu nhiên 256-bit"; \
+		echo "✔ Set FRONTEND_URL=http://$$IP:8080 (auto-detect)"; \
 		echo ""; \
-		echo "  Còn lại 3 field BẮT BUỘC điền tay:"; \
-		echo "  - FRONTEND_URL  (vd: http://$$(curl -s ifconfig.me 2>/dev/null || echo YOUR-EC2-IP):8080)"; \
-		echo "  - SMTP_USER     (email Gmail hệ thống)"; \
-		echo "  - SMTP_PASS     (Gmail App Password 16 ký tự)"; \
+		echo "  Còn lại 2 field BẮT BUỘC điền tay (Gmail SMTP):"; \
+		echo "  - SMTP_USER     (email Gmail hệ thống — vd: company-noreply@gmail.com)"; \
+		echo "  - SMTP_PASS     (App Password 16 ký tự — lấy tại myaccount.google.com/apppasswords)"; \
 		echo ""; \
 		echo "  Sửa: nano backend/.env.production"; \
 		echo "  Khi xong: make start-prod"; \
