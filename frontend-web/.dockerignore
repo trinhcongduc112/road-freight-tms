@@ -1,0 +1,12 @@
+# Tránh COPY .env local vào image — env phải đến từ build args / runtime
+node_modules
+dist
+build
+coverage
+.env
+.env.local
+.env.*.local
+*.log
+.git
+.vscode
+.idea
