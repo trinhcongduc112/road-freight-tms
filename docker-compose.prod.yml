@@ -1,0 +1,65 @@
+# Production compose — chỉ dùng trên server (EC2 / VPS).
+# Khác với docker-compose.yml (dev):
+#   - Backend đọc biến môi trường từ backend/.env.production (KHÔNG hardcode trong compose)
+#   - Mọi port nội bộ chỉ bind 127.0.0.1 → ép traffic public phải đi qua Nginx + HTTPS
+#   - mongo-express bị loại bỏ (UI debug DB không nên expose ngoài prod)
+#   - Image tag :prod để phân biệt với image dev
+#
+# Chạy: make start-prod   (hoặc: docker compose -f docker-compose.prod.yml up -d --build)
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: tms-mongo
+    restart: unless-stopped
+    # KHÔNG expose port ra ngoài host — chỉ container nội bộ mạng compose dùng được
+    expose:
+      - "27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: road_freight
+
+  optimizer:
+    build:
+      context: ./optimizer-service
+    image: road-freight-tms-optimizer:prod
+    container_name: tms-optimizer
+    restart: unless-stopped
+    # Chỉ bind loopback, Nginx (host) sẽ proxy nếu cần
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  backend:
+    build:
+      context: ./backend
+    image: road-freight-tms-backend:prod
+    container_name: tms-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - optimizer
+    env_file:
+      - ./backend/.env.production
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend-web:
+    build:
+      context: ./frontend-web
+      args:
+        # Frontend build-time: phải biết URL backend public
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    image: road-freight-tms-web:prod
+    container_name: tms-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:8080:80"
+
+volumes:
+  mongo-data:
+    name: tms-mongo-data
