@@ -1,10 +1,9 @@
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from "@ant-design/icons";
-import { Alert, App, Button, Card, Form, Input, Result, Typography } from "antd";
+import { Alert, App, Button, Form, Input, Result } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { authApi } from "../../api/auth";
-
-const { Text } = Typography;
+import AuthShell from "./AuthShell";
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -40,68 +39,74 @@ export default function VerifyEmailPage() {
 
   if (!token) {
     return (
-      <div style={{ maxWidth: 480, margin: "80px auto", padding: "0 16px" }}>
+      <AuthShell title="Thiếu token" subtitle="URL xác thực không hợp lệ">
         <Alert type="warning" message="Không có token xác thực trong URL." showIcon />
-        <div style={{ marginTop: 12 }}>
-          <Link to="/login">← Về đăng nhập</Link>
-        </div>
-      </div>
+        <p className="lp-register">
+          <Link to="/login" className="lp-lnk">← Về đăng nhập</Link>
+        </p>
+      </AuthShell>
     );
   }
 
   if (state === "loading") {
     return (
-      <div style={{ textAlign: "center", marginTop: 120 }}>
-        <LoadingOutlined style={{ fontSize: 40, color: "#1677ff" }} />
-        <div style={{ marginTop: 16 }}>Đang xác thực email...</div>
-      </div>
+      <AuthShell title="Đang xác thực email" subtitle="Vui lòng đợi trong giây lát">
+        <div style={{ textAlign: "center", padding: "32px 0" }}>
+          <LoadingOutlined style={{ fontSize: 48, color: "#1677ff" }} />
+        </div>
+      </AuthShell>
     );
   }
 
   if (state === "ok") {
     return (
-      <div style={{ maxWidth: 480, margin: "80px auto", padding: "0 16px" }}>
+      <AuthShell title="Email đã được xác thực!" subtitle="Tài khoản của bạn đã được kích hoạt">
         <Result
           status="success"
           icon={<CheckCircleOutlined />}
-          title="Email đã được xác thực!"
-          subTitle="Tài khoản của bạn đã được kích hoạt. Bạn có thể đăng nhập ngay."
-          extra={<Link to="/login"><Button type="primary">Đăng nhập ngay</Button></Link>}
+          subTitle="Bạn có thể đăng nhập ngay."
+          extra={<Link to="/login"><Button type="primary" className="lp-submit">Đăng nhập ngay</Button></Link>}
         />
-      </div>
+      </AuthShell>
     );
   }
 
   if (state === "error") {
     return (
-      <div style={{ maxWidth: 480, margin: "80px auto", padding: "0 16px" }}>
+      <AuthShell title="Xác thực thất bại" subtitle={errorMsg || "Token không hợp lệ hoặc đã hết hạn"}>
         <Result
           status="error"
           icon={<CloseCircleOutlined />}
-          title="Xác thực thất bại"
-          subTitle={errorMsg || "Token không hợp lệ hoặc đã hết hạn."}
+          subTitle={resendDone ? null : "Bạn có thể gửi lại email xác thực bên dưới."}
         />
-        <Card size="small" title="Gửi lại email xác thực">
-          {resendDone ? (
-            <Alert type="success" message="Email đã được gửi lại. Kiểm tra hộp thư của bạn." showIcon />
-          ) : (
-            <Form layout="inline">
-              <Form.Item style={{ flex: 1 }}>
-                <Input
-                  placeholder="Nhập email đã đăng ký"
-                  value={resendEmail}
-                  onChange={(e) => setResendEmail(e.target.value)}
-                  type="email"
-                />
-              </Form.Item>
-              <Button loading={resendLoading} onClick={onResend}>Gửi lại</Button>
-            </Form>
-          )}
-        </Card>
-        <div style={{ marginTop: 12 }}>
-          <Link to="/login">← Về đăng nhập</Link>
-        </div>
-      </div>
+
+        {resendDone ? (
+          <Alert type="success" message="Đã gửi lại email xác thực — kiểm tra hộp thư của bạn." showIcon />
+        ) : (
+          <Form layout="vertical" onFinish={onResend} size="large">
+            <Form.Item label="Email đã đăng ký">
+              <Input
+                className="lp-inp"
+                placeholder="email@company.vn"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                type="email"
+              />
+            </Form.Item>
+            <Button
+              type="primary" block htmlType="submit"
+              loading={resendLoading} onClick={onResend}
+              className="lp-submit"
+            >
+              Gửi lại email xác thực
+            </Button>
+          </Form>
+        )}
+
+        <p className="lp-register">
+          <Link to="/login" className="lp-lnk">← Về đăng nhập</Link>
+        </p>
+      </AuthShell>
     );
   }
 
