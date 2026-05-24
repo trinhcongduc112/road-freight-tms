@@ -32,10 +32,11 @@ export default function AcceptInvitationPage() {
     try {
       setLoading(true);
       const res = await authApi.acceptInvitation({ token, password, fullName, phone });
-      const { token: jwt, user } = res.data;
-      useAuthStore.getState().setSession({ token: jwt, user, role: null });
+      const { token: jwt, refreshToken, user } = res.data ?? res;
+      useAuthStore.getState().setSession({ token: jwt, refreshToken, user, role: null });
       const meRes = await authApi.me();
-      setSession({ token: jwt, user, role: meRes.data.role });
+      const role = meRes?.data?.role ?? meRes?.role ?? null;
+      setSession({ token: jwt, refreshToken, user, role });
       message.success(`Chào mừng, ${user.UserName}! Tài khoản đã kích hoạt.`);
       navigate("/", { replace: true });
     } catch (err) {

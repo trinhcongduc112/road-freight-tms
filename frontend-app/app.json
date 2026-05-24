@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "com.roadfreight.driver",
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "CAMERA",
         "ACCESS_FINE_LOCATION",

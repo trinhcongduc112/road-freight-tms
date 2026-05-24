@@ -81,7 +81,6 @@ export default function PODScreen({ route, navigation }) {
 
     setLoading(true);
     try {
-      // Build entities để tương thích với backend updateStopStatus
       const entities = [];
 
       if (paths.length > 0) {
@@ -101,9 +100,11 @@ export default function PODScreen({ route, navigation }) {
       });
 
       await driverApi.updateStop(routeId, stopIndex, {
+        action:       "complete",
         status:       "COMPLETED",
         note,
-        lastResponse: { entities },
+        podImages: entities.filter((e) => e.type === "PHOTO").flatMap((e) => e.data.map((d) => d.value)),
+        signatureImage: entities.find((e) => e.type === "SIGNATURE")?.data?.[0]?.value ?? "",
       });
 
       Alert.alert("Thành công", "Đã xác nhận giao hàng và lưu ePOD!", [
@@ -121,7 +122,7 @@ export default function PODScreen({ route, navigation }) {
       {/* Stop info */}
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>
-          📍 {stop.LocationName ?? stop.Address ?? `Điểm dừng ${stopIndex + 1}`}
+          📍 {stop.CustomerName ?? stop.Address ?? `Điểm dừng ${stopIndex}`}
         </Text>
       </View>
 

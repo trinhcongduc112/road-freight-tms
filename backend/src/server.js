@@ -3,12 +3,17 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
 import { connectDatabase } from "./config/db.js";
+import { swaggerSpec } from "./config/swagger.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { perfMonitor } from "./middlewares/perfMonitor.js";
+import { auditLogger } from "./middlewares/audit.js";
 import { apiRouter } from "./routes/index.js";
 import { logger } from "./utils/logger.js";
 import { initSocket } from "./socket.js";
+import { startTrafficFactorJob } from "./jobs/trafficFactorJob.js";
 import http from "http";
 
 async function bootstrap() {
@@ -23,7 +28,19 @@ async function bootstrap() {
   app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
 
   app.get("/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
-  app.use("/api", apiRouter);
+
+  // OpenAPI / Swagger UI ở /api-docs
+  app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+      customSiteTitle: "Road Freight TMS — API Docs",
+      customCss: ".swagger-ui .topbar { display: none }"
+    })
+  );
+  app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
+
+  app.use("/api", perfMonitor(), auditLogger(), apiRouter);
 
   app.use(errorHandler);
 
@@ -35,6 +52,9 @@ async function bootstrap() {
   server.listen(env.port, () => {
     logger.info(`Server listening on http://localhost:${env.port}`);
   });
+
+  /* Background job: seed traffic factor defaults + recompute hằng ngày từ Trip history. */
+  startTrafficFactorJob();
 }
 
 bootstrap().catch((err) => {

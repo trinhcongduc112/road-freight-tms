@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const gpsLogSchema = new mongoose.Schema(
   {
-    DriverID: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    DriverID: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", required: true, index: true },
     RouteID: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryRoute" },
     OrganizationID: { type: mongoose.Schema.Types.ObjectId, ref: "Organization" },
     Latitude: { type: Number, required: true },

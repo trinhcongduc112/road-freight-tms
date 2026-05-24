@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="840" viewBox="0 0 420 840" role="img" aria-label="Driver trip detail">
+  <rect width="420" height="840" rx="36" fill="#111827"/>
+  <rect x="18" y="18" width="384" height="804" rx="28" fill="#f4f7fb"/>
+  <rect x="18" y="18" width="384" height="112" rx="28" fill="#1677ff"/>
+  <text x="50" y="84" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#fff">Chi tiết chuyến</text>
+  <rect x="36" y="156" width="348" height="180" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <text x="58" y="198" font-family="Arial, sans-serif" font-size="18" fill="#64748b">Xe</text>
+  <text x="185" y="198" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">🚚 DEMO-XE-001</text>
+  <text x="58" y="236" font-family="Arial, sans-serif" font-size="18" fill="#64748b">Tài xế</text>
+  <text x="185" y="236" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">Demo • Lê Văn Nam</text>
+  <text x="58" y="274" font-family="Arial, sans-serif" font-size="18" fill="#64748b">Tiến độ</text>
+  <text x="185" y="274" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">0/9 điểm</text>
+  <rect x="58" y="298" width="280" height="44" rx="12" fill="#eaf4ff"/>
+  <text x="126" y="326" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#1677ff">🗺 Xem bản đồ lộ trình</text>
+  <text x="36" y="386" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a">Danh sách điểm dừng</text>
+  <rect x="36" y="414" width="348" height="104" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <circle cx="74" cy="466" r="25" fill="#1677ff"/>
+  <text x="67" y="474" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#fff">1</text>
+  <text x="116" y="454" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#0f172a">Demo • Winmart Tây Hồ</text>
+  <text x="116" y="480" font-family="Arial, sans-serif" font-size="15" fill="#64748b">Xuân La, Tây Hồ, Hà Nội</text>
+  <text x="116" y="505" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#1677ff">DEMO-260513-006</text>
+  <rect x="36" y="536" width="348" height="104" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <circle cx="74" cy="588" r="25" fill="#1677ff"/>
+  <text x="67" y="596" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#fff">2</text>
+  <text x="116" y="576" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#0f172a">Demo • Đại lý Hoàng Giang</text>
+  <text x="116" y="602" font-family="Arial, sans-serif" font-size="15" fill="#64748b">Minh Khai, Nam Từ Liêm</text>
+  <text x="116" y="627" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#1677ff">DEMO-260513-007</text>
+</svg>

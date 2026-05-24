@@ -1,0 +1,111 @@
+@startuml TMS_ERD_Overview
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+
+' Chuyển sang định dạng Entity chuẩn ERD
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor     #000000
+  BorderThickness 2
+  FontColor       #000000
+  FontStyle       bold
+}
+
+skinparam ArrowColor     #000000
+skinparam ArrowThickness 1.5
+skinparam linetype       polyline
+skinparam nodesep        55
+skinparam ranksep        70
+
+' Ẩn các trường chi tiết để làm sơ đồ tổng quan
+hide empty members
+hide circle
+
+title <b>TMS — Entity Relationship Diagram (Overview)</b>\n<size:11>Road Freight TMS · 26 Collections · MongoDB</size>
+
+entity "Organization"        as ORG
+entity "User"                as USR
+entity "RoleGroup"           as ROLE
+entity "TokenBlacklist"      as TOKEN
+entity "Vehicle"             as VEH
+entity "Driver"              as DRV
+entity "Customer"            as CUS
+entity "CustomerGroup"       as CUSGRP
+entity "ProductCategory"     as PCAT
+entity "Product"             as PRD
+entity "VehicleMaintenance"  as VMNT
+entity "SalesOrder"          as ORD
+entity "Service"             as SVC
+entity "OrderTripAllocation" as ALLOC
+entity "RoutePlan"           as RPLAN
+entity "DeliveryRoute"       as DROUTE
+entity "TrafficFactor"       as TRAF
+entity "PayrollConfig"       as PAY
+entity "Trip"                as TRIP
+entity "GpsLog"              as GPS
+entity "TripIncident"        as INC
+entity "ChatSession"         as CHAT
+entity "DriverMessage"       as MSG
+entity "Notification"        as NOTIF
+entity "SupportArticle"      as ART
+entity "AuditLog"            as AUDIT
+
+' ===========================================================
+' CÁC KÝ HIỆU CHUẨN CROW'S FOOT:
+' ||--o{ : 1 - Nhiều (1 to Many)
+' }o--|| : Nhiều - 1 (Many to 1)
+' ||--o| : 1 - 1 (1 to 1)
+' }o--o| : Nhiều - 0..1 (FK tuỳ chọn)
+' ===========================================================
+
+ORG    ||--o{ ORG    : "has child"
+ORG    ||--o{ ROLE   : "defines"
+ROLE   ||--o{ USR    : "assigned to"
+ORG    ||--o{ USR    : "belongs to"
+USR    }o--o| USR    : "invites"
+USR    ||--o{ TOKEN  : "revokes"
+ORG    ||--o{ VEH    : "owns"
+ORG    ||--o{ DRV    : "employs"
+ORG    ||--o{ CUS    : "serves"
+ORG    ||--o{ CUSGRP : "groups"
+ORG    ||--o{ PCAT   : "categorizes"
+ORG    ||--o{ PRD    : "sells"
+ORG    ||--o{ SVC    : "offers"
+ORG    ||--o{ PAY    : "configures"
+ORG    ||--o{ TRAF   : "uses"
+PCAT   ||--o{ PRD    : "contains"
+CUSGRP ||--o{ CUS    : "groups"
+DRV    ||--o| USR    : "linked to"
+
+' --- 3PL outsourcing: xe / tài xế thuê ngoài liên kết Service ---
+DRV    }o--o| SVC    : "outsourced to (if 3PL)"
+VEH    }o--o| SVC    : "outsourced to (if 3PL)"
+
+ORG    ||--o{ ORD    : "places"
+ORD    ||--o{ ALLOC  : "allocated via"
+ORG    ||--o{ RPLAN  : "plans"
+RPLAN  ||--o{ DROUTE : "generates"
+DROUTE }o--|| VEH    : "assigns"
+DROUTE }o--o| DRV    : "assigns"
+DROUTE }o--o| SVC    : "uses (if 3PL)"
+RPLAN  ||--o{ TRIP   : "executes"
+DROUTE ||--|| TRIP   : "creates (1-1)"
+VEH    ||--o{ TRIP   : "used in"
+DRV    ||--o{ TRIP   : "drives"
+SVC    ||--o{ TRIP   : "applies (if 3PL)"
+TRIP   ||--o{ GPS    : "generates"
+DRV    ||--o{ GPS    : "records"
+TRIP   ||--o{ INC    : "reports"
+USR    ||--o{ INC    : "handles"
+VEH    ||--o{ VMNT   : "maintained by"
+DRV    ||--o{ VMNT   : "performs"
+TRIP   ||--o{ MSG    : "communicates"
+DRV    ||--o{ MSG    : "sends"
+USR    ||--o{ CHAT   : "opens"
+USR    ||--o{ NOTIF  : "receives"
+ORG    ||--o{ ART    : "has"
+USR    ||--o{ AUDIT  : "audited"
+
+@enduml

@@ -1,9 +1,9 @@
 import { ConfigProvider, App as AntApp } from "antd";
-import viVN from "antd/locale/vi_VN";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
+import { LanguageProvider, UiTextTranslator, useLanguage } from "./i18n.jsx";
 import { router } from "./router.jsx";
 import "./styles/global.css";
 
@@ -85,14 +85,25 @@ const themeConfig = {
   }
 };
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <ConfigProvider locale={viVN} theme={themeConfig}>
+function Root() {
+  const { antdLocale } = useLanguage();
+
+  return (
+    <ConfigProvider locale={antdLocale} theme={themeConfig}>
       <AntApp>
         <QueryClientProvider client={queryClient}>
+          <UiTextTranslator />
           <RouterProvider router={router} />
         </QueryClientProvider>
       </AntApp>
     </ConfigProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <LanguageProvider>
+      <Root />
+    </LanguageProvider>
   </React.StrictMode>
 );

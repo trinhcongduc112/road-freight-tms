@@ -161,15 +161,27 @@ export async function getVehicle(req, res) {
 
 export async function createVehicle(req, res) {
   const { VehicleCode, XName, OrganizationID, LicensePlate, VehicleType: vtype,
-    MaxWeight, MaxVolume, MaxCases, FixedCost, CostPerKm, Status } = req.body ?? {};
+    EmploymentType, ServiceID,
+    MaxWeight, MaxVolume, MaxCases, FixedCost, CostPerKm, AvgSpeedKmh,
+    LoadingTime, UnloadingTimePerStop, Status } = req.body ?? {};
   if (!VehicleCode || !XName || !OrganizationID) throw new ApiError(400, "VehicleCode, XName, OrganizationID required");
+  const employment = EmploymentType ?? "IN_HOUSE";
+  if (employment === "OUTSOURCED" && !ServiceID) {
+    throw new ApiError(400, "Xe thuê ngoài cần chọn hãng 3PL (ServiceID)");
+  }
   await resolveOrg(OrganizationID, req.orgScope);
   const code = VehicleCode.toUpperCase();
   if (await Vehicle.exists({ OrganizationID, VehicleCode: code })) throw new ApiError(409, "VehicleCode already exists in this org");
   const doc = await Vehicle.create({
     VehicleCode: code, XName, OrganizationID, LicensePlate: LicensePlate ?? "",
-    VehicleType: vtype ?? "TRUCK", MaxWeight: MaxWeight ?? 0, MaxVolume: MaxVolume ?? 0,
+    VehicleType: vtype ?? "TRUCK",
+    EmploymentType: employment,
+    ServiceID: employment === "OUTSOURCED" ? ServiceID : null,
+    MaxWeight: MaxWeight ?? 0, MaxVolume: MaxVolume ?? 0,
     MaxCases: MaxCases ?? 0, FixedCost: FixedCost ?? 0, CostPerKm: CostPerKm ?? 0,
+    AvgSpeedKmh: AvgSpeedKmh ?? 40,
+    LoadingTime: LoadingTime ?? 30,
+    UnloadingTimePerStop: UnloadingTimePerStop ?? 15,
     Status: Status ?? "Active", CreatedBy: req.user._id
   });
   res.status(201).json({ success: true, data: doc });
@@ -179,8 +191,13 @@ export async function updateVehicle(req, res) {
   const doc = await Vehicle.findById(req.params.id);
   if (!doc) throw new ApiError(404, "Vehicle not found");
   assertOrgInScope(req.orgScope, doc.OrganizationID);
-  const fields = ["XName", "LicensePlate", "VehicleType", "MaxWeight", "MaxVolume", "MaxCases", "FixedCost", "CostPerKm", "Status"];
+  const fields = ["XName", "LicensePlate", "VehicleType", "EmploymentType", "ServiceID", "MaxWeight", "MaxVolume", "MaxCases", "FixedCost", "CostPerKm", "AvgSpeedKmh", "LoadingTime", "UnloadingTimePerStop", "Status"];
   for (const f of fields) if (req.body?.[f] !== undefined) doc[f] = req.body[f];
+  // Bảo toàn invariant: OUTSOURCED phải có ServiceID
+  if (doc.EmploymentType === "OUTSOURCED" && !doc.ServiceID) {
+    throw new ApiError(400, "Xe thuê ngoài cần chọn hãng 3PL (ServiceID)");
+  }
+  if (doc.EmploymentType === "IN_HOUSE") doc.ServiceID = null;
   await doc.save();
   res.json({ success: true, data: doc });
 }
@@ -212,8 +229,13 @@ export async function getDriver(req, res) {
 }
 
 export async function createDriver(req, res) {
-  const { DriverCode, XName, OrganizationID, Phone, Email, VehicleType, Status } = req.body ?? {};
+  const { DriverCode, XName, OrganizationID, Phone, Email, VehicleType,
+    EmploymentType, ServiceID, Status } = req.body ?? {};
   if (!DriverCode || !XName || !OrganizationID) throw new ApiError(400, "DriverCode, XName, OrganizationID required");
+  const employment = EmploymentType ?? "IN_HOUSE";
+  if (employment === "OUTSOURCED" && !ServiceID) {
+    throw new ApiError(400, "Tài xế thuê ngoài cần chọn hãng 3PL (ServiceID)");
+  }
   await resolveOrg(OrganizationID, req.orgScope);
   const code = DriverCode.toUpperCase();
   if (await Driver.exists({ OrganizationID, DriverCode: code })) throw new ApiError(409, "DriverCode already exists in this org");
@@ -221,6 +243,8 @@ export async function createDriver(req, res) {
     DriverCode: code, XName, OrganizationID,
     Phone: Phone ?? "", Email: Email ?? "",
     VehicleType: VehicleType ?? null,
+    EmploymentType: employment,
+    ServiceID: employment === "OUTSOURCED" ? ServiceID : null,
     Status: Status ?? "Active", CreatedBy: req.user._id
   });
   res.status(201).json({ success: true, data: doc });
@@ -230,8 +254,12 @@ export async function updateDriver(req, res) {
   const doc = await Driver.findById(req.params.id);
   if (!doc) throw new ApiError(404, "Driver not found");
   assertOrgInScope(req.orgScope, doc.OrganizationID);
-  const fields = ["XName", "Phone", "Email", "VehicleType", "Status"];
+  const fields = ["XName", "Phone", "Email", "VehicleType", "EmploymentType", "ServiceID", "Status"];
   for (const f of fields) if (req.body?.[f] !== undefined) doc[f] = req.body[f];
+  if (doc.EmploymentType === "OUTSOURCED" && !doc.ServiceID) {
+    throw new ApiError(400, "Tài xế thuê ngoài cần chọn hãng 3PL (ServiceID)");
+  }
+  if (doc.EmploymentType === "IN_HOUSE") doc.ServiceID = null;
   await doc.save();
   res.json({ success: true, data: doc });
 }
@@ -430,6 +458,9 @@ export async function importVehicles(req, res) {
       MaxCases:  r.MaxCases  ? parseInt(r.MaxCases)    : 0,
       FixedCost: r.FixedCost ? parseFloat(r.FixedCost) : 0,
       CostPerKm: r.CostPerKm ? parseFloat(r.CostPerKm) : 0,
+      AvgSpeedKmh: r.AvgSpeedKmh ? parseFloat(r.AvgSpeedKmh) : 40,
+      LoadingTime: r.LoadingTime ? parseFloat(r.LoadingTime) : 30,
+      UnloadingTimePerStop: r.UnloadingTimePerStop ? parseFloat(r.UnloadingTimePerStop) : 15,
       Status: "Active"
     })
   });

@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 from hgs.types import Problem, Stop, Vehicle
+from hgs.traffic import TrafficModel
 from hgs.algorithm import optimize_hgs
 from hgs.baselines import optimize_nn2opt, optimize_lns_sa
 from hgs.output import build_output
@@ -44,6 +45,14 @@ class DepotIn(BaseModel):
     lng: float
 
 
+class TrafficFactorIn(BaseModel):
+    """Bảng hệ số tắc đường empirical. Tất cả tuỳ chọn — empty → factor 1.0."""
+    hourBuckets: list[dict] = Field(default_factory=list)  # [{start,end,factor}]
+    dow:         dict[str, float] = Field(default_factory=dict)  # {"0":0.85,...}
+    zones:       list[dict] = Field(default_factory=list)  # [{type,fromKm,toKm,factor}]
+    dowHint:     int = -1                                  # thứ trong tuần dự kiến của plan
+
+
 class OptimizeRequest(BaseModel):
     depot: DepotIn
     vehicles: list[VehicleIn]
@@ -53,6 +62,7 @@ class OptimizeRequest(BaseModel):
     departMinutes: int = 480
     maxSeconds: float = 10.0
     seed: int | None = None
+    traffic: TrafficFactorIn | None = None
 
 
 class BenchmarkRequest(BaseModel):
@@ -63,11 +73,13 @@ class BenchmarkRequest(BaseModel):
     departMinutes: int = 480
     maxSeconds: float = 10.0
     seed: int | None = 42
+    traffic: TrafficFactorIn | None = None
 
 
 # ---------- helpers -----------------------------------------------------
 
 def to_problem(req: OptimizeRequest | BenchmarkRequest) -> Problem:
+    traffic_model = TrafficModel.from_dict(req.traffic.model_dump()) if req.traffic else None
     return Problem(
         depot_lat=req.depot.lat,
         depot_lng=req.depot.lng,
@@ -80,6 +92,7 @@ def to_problem(req: OptimizeRequest | BenchmarkRequest) -> Problem:
         ) for s in req.stops],
         avg_speed_kmh=req.avgSpeedKmh,
         depart_minutes=req.departMinutes,
+        traffic=traffic_model,
     )
 
 

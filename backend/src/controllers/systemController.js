@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Organization } from "../models/Organization.js";
 import { RoleGroup } from "../models/RoleGroup.js";
 import { User } from "../models/User.js";
+import { getPerfSnapshot } from "../middlewares/perfMonitor.js";
 
 /**
  * GET /api/system/health
@@ -54,4 +55,13 @@ export async function systemHealth(_req, res) {
       }
     }
   });
+}
+
+/**
+ * GET /api/system/metrics
+ * Snapshot p50/p95/p99 + slow endpoints — ISO 25010 mục 1.1 (Performance).
+ * Public-readable nhẹ; nếu cần private có thể bọc auth sau.
+ */
+export async function systemMetrics(_req, res) {
+  res.json({ success: true, data: getPerfSnapshot() });
 }

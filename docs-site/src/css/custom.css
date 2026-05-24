@@ -1,0 +1,51 @@
+/**
+ * Custom CSS — Road Freight TMS docs
+ * Đồng bộ tông màu xanh với app
+ */
+
+:root {
+  --ifm-color-primary: #1677ff;
+  --ifm-color-primary-dark: #0958d9;
+  --ifm-color-primary-darker: #003eb3;
+  --ifm-color-primary-darkest: #002c8c;
+  --ifm-color-primary-light: #4096ff;
+  --ifm-color-primary-lighter: #69b1ff;
+  --ifm-color-primary-lightest: #91caff;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] {
+  --ifm-color-primary: #4096ff;
+  --ifm-color-primary-dark: #1677ff;
+  --ifm-color-primary-darker: #0958d9;
+  --ifm-color-primary-darkest: #003eb3;
+  --ifm-color-primary-light: #69b1ff;
+  --ifm-color-primary-lighter: #91caff;
+  --ifm-color-primary-lightest: #bae0ff;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Screenshot container — bo góc + bóng đổ nhẹ */
+.markdown img {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  max-width: 100%;
+}
+
+/* Callout cho lưu ý */
+.tip-box {
+  background: #e6f4ff;
+  border-left: 4px solid #1677ff;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 16px 0;
+}
+
+.warning-box {
+  background: #fff7e6;
+  border-left: 4px solid #fa8c16;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 16px 0;
+}

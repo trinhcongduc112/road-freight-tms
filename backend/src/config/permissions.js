@@ -136,7 +136,12 @@ export const DELIVERER_TEMPLATE_PERMISSIONS = Object.freeze([
   p(Modules.TRIP, Actions.UPDATE)
 ]);
 
-export const DISPATCHER_TEMPLATE_PERMISSIONS = Object.freeze([
+/**
+ * PLANNER — Người LẬP KẾ HOẠCH vận tải.
+ * Chính: tạo plan, tối ưu tuyến, phân tài xế/xe, lock & finalize.
+ * Không: theo dõi realtime chuyến đang chạy (chỉ đọc), không kế toán.
+ */
+export const PLANNER_TEMPLATE_PERMISSIONS = Object.freeze([
   p(Modules.ORGANIZATION, Actions.READ),
   p(Modules.ORGANIZATION, Actions.READ_ALL),
   ...allActionsOf(Modules.CUSTOMER),
@@ -144,19 +149,71 @@ export const DISPATCHER_TEMPLATE_PERMISSIONS = Object.freeze([
   ...allActionsOf(Modules.VEHICLE),
   ...allActionsOf(Modules.DRIVER),
   ...allActionsOf(Modules.SERVICE),
-  ...allActionsOf(Modules.ORDER),
+  p(Modules.ORDER, Actions.READ),
+  p(Modules.ORDER, Actions.UPDATE),
   ...allActionsOf(Modules.ROUTE_PLAN),
   p(Modules.ROUTE_PLAN, RoutePlanActions.OPTIMIZE),
   p(Modules.ROUTE_PLAN, RoutePlanActions.LOCK),
   p(Modules.ROUTE_PLAN, RoutePlanActions.UNLOCK),
   p(Modules.ROUTE_PLAN, RoutePlanActions.FINALIZE),
-  p(Modules.ROUTE_PLAN, RoutePlanActions.CLOSE_TRIP),
   p(Modules.ROUTE_PLAN, RoutePlanActions.CHANGE_DRIVER),
   p(Modules.ROUTE_PLAN, RoutePlanActions.CHANGE_VEHICLE),
   p(Modules.ROUTE_PLAN, RoutePlanActions.MOVE_ORDER),
   p(Modules.ROUTE_PLAN, RoutePlanActions.REMOVE_ORDER),
+  p(Modules.TRIP, Actions.READ),
+  p(Modules.TASK, Actions.READ),
+  p(Modules.DASHBOARD, Actions.READ)
+]);
+
+/**
+ * DISPATCHER — Người ĐIỀU PHỐI realtime.
+ * Chính: giám sát chuyến chạy, đổi tài xế/xe, close trip, xử lý sự cố.
+ * Không: lập plan / optimize từ đầu (planner làm).
+ */
+export const DISPATCHER_TEMPLATE_PERMISSIONS = Object.freeze([
+  p(Modules.ORGANIZATION, Actions.READ),
+  p(Modules.ORGANIZATION, Actions.READ_ALL),
+  p(Modules.CUSTOMER, Actions.READ),
+  p(Modules.PRODUCT, Actions.READ),
+  p(Modules.VEHICLE, Actions.READ),
+  p(Modules.DRIVER, Actions.READ),
+  p(Modules.SERVICE, Actions.READ),
+  p(Modules.ORDER, Actions.READ),
+  p(Modules.ROUTE_PLAN, Actions.READ),
+  p(Modules.ROUTE_PLAN, RoutePlanActions.CLOSE_TRIP),
+  p(Modules.ROUTE_PLAN, RoutePlanActions.CHANGE_DRIVER),
+  p(Modules.ROUTE_PLAN, RoutePlanActions.CHANGE_VEHICLE),
   ...allActionsOf(Modules.TRIP),
   p(Modules.TASK, Actions.READ),
+  p(Modules.TASK, Actions.UPDATE),
+  p(Modules.DASHBOARD, Actions.READ)
+]);
+
+/**
+ * PLANNER_DISPATCHER — Người làm CẢ HAI vai trò (doanh nghiệp nhỏ).
+ * Gộp full quyền PLANNER + DISPATCHER.
+ */
+export const PLANNER_DISPATCHER_TEMPLATE_PERMISSIONS = Object.freeze([
+  ...new Set([...PLANNER_TEMPLATE_PERMISSIONS, ...DISPATCHER_TEMPLATE_PERMISSIONS])
+]);
+
+/**
+ * ACCOUNTANT — Kế toán vận tải.
+ * Chính: xem báo cáo doanh thu/chi phí, bảng lương tài xế, xuất Excel.
+ * Không: chỉnh sửa Master Data / Plan / Trip — chỉ READ + EXPORT.
+ */
+export const ACCOUNTANT_TEMPLATE_PERMISSIONS = Object.freeze([
+  p(Modules.ORGANIZATION, Actions.READ),
+  p(Modules.ORGANIZATION, Actions.READ_ALL),
+  p(Modules.CUSTOMER, Actions.READ),
+  p(Modules.PRODUCT, Actions.READ),
+  p(Modules.VEHICLE, Actions.READ),
+  p(Modules.DRIVER, Actions.READ),
+  p(Modules.SERVICE, Actions.READ),
+  p(Modules.ORDER, Actions.READ),
+  p(Modules.ORDER, Actions.EXPORT),
+  p(Modules.ROUTE_PLAN, Actions.READ),
+  p(Modules.TRIP, Actions.READ),
   p(Modules.DASHBOARD, Actions.READ),
   p(Modules.REPORT, Actions.READ),
   p(Modules.REPORT, Actions.EXPORT)
@@ -181,12 +238,37 @@ export const RolePresets = Object.freeze({
     isSystem: false,
     permissions: DELIVERER_TEMPLATE_PERMISSIONS
   },
+  PLANNER: {
+    code: "PLANNER",
+    nameVi: "Người lập kế hoạch",
+    nameEn: "Planner",
+    isSystem: false,
+    description: "Tạo & tối ưu lộ trình, phân tài xế/xe, khoá & chốt kế hoạch.",
+    permissions: PLANNER_TEMPLATE_PERMISSIONS
+  },
   DISPATCHER: {
     code: "DISPATCHER",
-    nameVi: "Điều phối / Lập kế hoạch",
-    nameEn: "Dispatcher / Planner",
+    nameVi: "Người điều phối",
+    nameEn: "Dispatcher",
     isSystem: false,
+    description: "Giám sát chuyến realtime, đổi tài xế/xe, đóng chuyến, xử lý sự cố.",
     permissions: DISPATCHER_TEMPLATE_PERMISSIONS
+  },
+  PLANNER_DISPATCHER: {
+    code: "PLANNER_DISPATCHER",
+    nameVi: "Lập kế hoạch & Điều phối",
+    nameEn: "Planner & Dispatcher",
+    isSystem: false,
+    description: "Gộp 2 vai trò — phù hợp doanh nghiệp nhỏ.",
+    permissions: PLANNER_DISPATCHER_TEMPLATE_PERMISSIONS
+  },
+  ACCOUNTANT: {
+    code: "ACCOUNTANT",
+    nameVi: "Kế toán vận tải",
+    nameEn: "Accountant",
+    isSystem: false,
+    description: "Xem báo cáo doanh thu, chi phí, bảng lương tài xế, xuất Excel.",
+    permissions: ACCOUNTANT_TEMPLATE_PERMISSIONS
   }
 });
 

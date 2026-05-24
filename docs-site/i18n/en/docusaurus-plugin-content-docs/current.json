@@ -1,0 +1,34 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.userGuide.category.Bắt đầu": {
+    "message": "Getting Started",
+    "description": "The label for category 'Bắt đầu' in sidebar 'userGuide'"
+  },
+  "sidebar.userGuide.category.Quản trị viên (IT Admin)": {
+    "message": "Administrator (IT Admin)",
+    "description": "The label for category 'Quản trị viên (IT Admin)' in sidebar 'userGuide'"
+  },
+  "sidebar.userGuide.category.Planner — Lập kế hoạch": {
+    "message": "Planner — Planning",
+    "description": "The label for category 'Planner — Lập kế hoạch' in sidebar 'userGuide'"
+  },
+  "sidebar.userGuide.category.Dispatcher — Điều phối": {
+    "message": "Dispatcher — Operations",
+    "description": "The label for category 'Dispatcher — Điều phối' in sidebar 'userGuide'"
+  },
+  "sidebar.userGuide.category.Accountant — Kế toán": {
+    "message": "Accountant — Finance",
+    "description": "The label for category 'Accountant — Kế toán' in sidebar 'userGuide'"
+  },
+  "sidebar.userGuide.category.Driver — App tài xế": {
+    "message": "Driver — Mobile App",
+    "description": "The label for category 'Driver — App tài xế' in sidebar 'userGuide'"
+  },
+  "sidebar.userGuide.category.Tính năng AI": {
+    "message": "AI Features",
+    "description": "The label for category 'Tính năng AI' in sidebar 'userGuide'"
+  }
+}

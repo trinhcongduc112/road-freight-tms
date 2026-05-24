@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="840" viewBox="0 0 420 840" role="img" aria-label="Driver maintenance screen">
+  <rect width="420" height="840" rx="36" fill="#111827"/>
+  <rect x="18" y="18" width="384" height="804" rx="28" fill="#f4f7fb"/>
+  <rect x="18" y="18" width="384" height="112" rx="28" fill="#1677ff"/>
+  <text x="50" y="84" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#fff">Bảo dưỡng xe</text>
+  <rect x="36" y="156" width="348" height="166" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <text x="58" y="198" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">DEMO-XE-001</text>
+  <rect x="240" y="174" width="112" height="30" rx="15" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="259" y="195" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#ea580c">SCHEDULED</text>
+  <text x="58" y="232" font-family="Arial, sans-serif" font-size="16" fill="#334155">🛢 Thay dầu máy</text>
+  <text x="58" y="262" font-family="Arial, sans-serif" font-size="16" fill="#334155">Gara: Cầu Giấy Auto</text>
+  <text x="58" y="292" font-family="Arial, sans-serif" font-size="16" fill="#64748b">Hạn hoàn thành: 14/05/2026</text>
+  <rect x="36" y="348" width="348" height="58" rx="14" fill="#1677ff"/>
+  <text x="154" y="385" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#fff">Nhận việc</text>
+  <rect x="36" y="426" width="348" height="58" rx="14" fill="#f59e0b"/>
+  <text x="129" y="463" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#fff">Bắt đầu thực hiện</text>
+  <rect x="36" y="504" width="348" height="58" rx="14" fill="#22c55e"/>
+  <text x="138" y="541" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#fff">Gửi để duyệt</text>
+  <rect x="36" y="604" width="348" height="92" rx="18" fill="#fff" stroke="#d7dee8"/>
+  <text x="58" y="640" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#0f172a">Ảnh hoàn thành</text>
+  <text x="58" y="668" font-family="Arial, sans-serif" font-size="15" fill="#64748b">Hóa đơn gara, ảnh phần xe đã sửa, đồng hồ km.</text>
+</svg>

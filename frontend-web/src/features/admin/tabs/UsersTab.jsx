@@ -16,6 +16,7 @@ import {
 import * as XLSX from "xlsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { organizationApi } from "../../../api/organization";
+import { roleGroupApi } from "../../../api/roleGroup";
 import { userApi } from "../../../api/user";
 import { Permissions, usePermissions } from "../../../utils/permissions";
 
@@ -61,7 +62,7 @@ function exportXlsx(rows, fields, filename) {
   XLSX.writeFile(wb, filename);
 }
 
-function UserFormFields({ watchRoles, orgs, editing }) {
+function UserFormFields({ watchRoles, orgs, roleGroups, editing }) {
   return (
     <>
       <Form.Item name="XCode" label="Mã nhân viên"><Input placeholder="EMP-005" /></Form.Item>
@@ -81,6 +82,10 @@ function UserFormFields({ watchRoles, orgs, editing }) {
       <Form.Item name="OrganizationIDs" label="Tổ chức" rules={[{ required: true, message: "Chọn ít nhất 1" }]}>
         <Select mode="multiple" showSearch optionFilterProp="label"
           options={(orgs ?? []).map((o) => ({ value: o._id, label: `[${o.XCode}] ${o.XName}` }))} />
+      </Form.Item>
+      <Form.Item name="RoleGroupID" label="Nhóm vai trò" rules={editing?.IsSuperAdmin ? [] : [{ required: true, message: "Chọn nhóm vai trò" }]}>
+        <Select allowClear showSearch optionFilterProp="label" placeholder="Chọn nhóm vai trò"
+          options={(roleGroups ?? []).map((g) => ({ value: g._id, label: `[${g.XCode}] ${g.XName}` }))} />
       </Form.Item>
       <Form.Item name="FunctionRoles" label="Phân quyền" rules={[{ required: true, message: "Chọn ít nhất 1 quyền" }]}>
         <Select mode="multiple" options={FUNCTION_ROLE_OPTIONS} placeholder="Chọn vai trò" />
@@ -124,8 +129,11 @@ export default function UsersTab() {
 
   const usersQ = useQuery({ queryKey: ["users"], queryFn: () => userApi.list() });
   const orgsQ  = useQuery({ queryKey: ["organizations"], queryFn: organizationApi.list });
+  const roleGroupsQ = useQuery({ queryKey: ["role-groups"], queryFn: () => roleGroupApi.list() });
   const orgs   = orgsQ.data?.data ?? [];
+  const roleGroups = roleGroupsQ.data?.data ?? [];
   const orgMap = Object.fromEntries(orgs.map((o) => [o._id, o]));
+  const roleGroupMap = Object.fromEntries(roleGroups.map((g) => [String(g._id), g]));
 
   const filtered = useMemo(() => {
     let list = usersQ.data?.data ?? [];
@@ -136,6 +144,10 @@ export default function UsersTab() {
     }
     return list;
   }, [usersQ.data, search, orgFilter]);
+  const displayRows = filtered.map((u) => {
+    const roleGroupId = String(u.RoleGroupID?._id ?? u.RoleGroupID ?? "");
+    return { ...u, RoleGroupName: roleGroupMap[roleGroupId]?.XName ?? "" };
+  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["users"] });
 
@@ -152,13 +164,14 @@ export default function UsersTab() {
         XCode: editing.XCode, FullName: editing.FullName, UserName: editing.UserName,
         Email: editing.Email, Phone: editing.Phone,
         OrganizationIDs: editing.OrganizationIDs,
+        RoleGroupID: editing.RoleGroupID?._id ?? editing.RoleGroupID,
         FunctionRoles: editing.FunctionRoles ?? [],
         AllowedVehicleTypes: editing.AllowedVehicleTypes ?? [],
         IsActive: editing.IsActive
       });
     } else {
       form.resetFields();
-      form.setFieldsValue({ IsActive: true, OrganizationIDs: [], FunctionRoles: [], AllowedVehicleTypes: [] });
+      form.setFieldsValue({ IsActive: true, OrganizationIDs: [], RoleGroupID: undefined, FunctionRoles: [], AllowedVehicleTypes: [] });
     }
   }, [modalOpen, editing]);
 
@@ -178,6 +191,7 @@ export default function UsersTab() {
         XCode: v.XCode, FullName: v.FullName, UserName: v.UserName,
         Email: v.Email, Phone: v.Phone,
         OrganizationIDs: v.OrganizationIDs,
+        RoleGroupID: v.RoleGroupID || null,
         FunctionRoles: v.FunctionRoles,
         AllowedVehicleTypes: v.AllowedVehicleTypes ?? [],
         IsActive: v.IsActive
@@ -189,6 +203,7 @@ export default function UsersTab() {
         XCode: v.XCode, FullName: v.FullName, UserName: v.UserName,
         Email: v.Email, Phone: v.Phone, Password: v.Password,
         OrganizationIDs: v.OrganizationIDs,
+        RoleGroupID: v.RoleGroupID || null,
         FunctionRoles: v.FunctionRoles,
         AllowedVehicleTypes: v.AllowedVehicleTypes ?? []
       });
@@ -202,6 +217,7 @@ export default function UsersTab() {
       FullName: v.FullName, Phone: v.Phone,
       Password: v.Password || undefined,
       OrganizationIDs: v.OrganizationIDs,
+      RoleGroupID: v.RoleGroupID || null,
       FunctionRoles: v.FunctionRoles ?? [],
       AllowedVehicleTypes: v.AllowedVehicleTypes ?? []
     });
@@ -209,7 +225,7 @@ export default function UsersTab() {
 
   /* ── Import Excel ── */
   function downloadTemplate() {
-    const fields = ["UserName","Email","FullName","XCode","Phone","Password","OrganizationID","FunctionRoles","AllowedVehicleTypes"];
+    const fields = ["UserName","Email","FullName","XCode","Phone","Password","OrganizationID","RoleGroupCode","FunctionRoles","AllowedVehicleTypes"];
     const ws = XLSX.utils.json_to_sheet([Object.fromEntries(fields.map((f) => [f, ""]))]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
@@ -276,6 +292,10 @@ export default function UsersTab() {
         </Space>
       )
     },
+    {
+      title: "Họ tên", dataIndex: "FullName", width: 180,
+      render: (v) => v || <Tag>—</Tag>
+    },
     { title: "Mã NV", dataIndex: "XCode", width: 90, render: (v) => v && <Tag>{v}</Tag> },
     {
       title: "Tổ chức", dataIndex: "OrganizationIDs", width: 140,
@@ -293,6 +313,14 @@ export default function UsersTab() {
           {(!roles || roles.length === 0) && <Tag>—</Tag>}
         </Space>
       )
+    },
+    {
+      title: "Nhóm vai trò", dataIndex: "RoleGroupID", width: 190,
+      render: (id) => {
+        const key = String(id?._id ?? id ?? "");
+        const group = roleGroupMap[key];
+        return group ? <Tag color="geekblue">{group.XName}</Tag> : <Tag>—</Tag>;
+      }
     },
     {
       title: "Loại xe", dataIndex: "AllowedVehicleTypes", width: 150,
@@ -333,10 +361,10 @@ export default function UsersTab() {
             options={orgs.map((o) => ({ value: o._id, label: `[${o.XCode}] ${o.XName}` }))} />
         </Space>
         <Space>
-          <Button icon={<DownloadOutlined />} onClick={() => exportXlsx(filtered, [
+          <Button icon={<DownloadOutlined />} onClick={() => exportXlsx(displayRows, [
             { label: "Username", key: "UserName" }, { label: "Họ tên", key: "FullName" },
             { label: "Email", key: "Email" }, { label: "Mã NV", key: "XCode" },
-            { label: "Phân quyền", key: "FunctionRoles" }, { label: "Loại xe", key: "AllowedVehicleTypes" },
+            { label: "Nhóm vai trò", key: "RoleGroupName" }, { label: "Phân quyền", key: "FunctionRoles" }, { label: "Loại xe", key: "AllowedVehicleTypes" },
             { label: "Trạng thái", key: "Status" }
           ], "users.xlsx")}>
             Xuất Excel
@@ -358,7 +386,7 @@ export default function UsersTab() {
       </div>
 
       <Card size="small">
-        <Table size="small" rowKey="_id" loading={usersQ.isLoading} columns={columns} dataSource={filtered} pagination={{ pageSize: 10 }} />
+        <Table size="small" rowKey="_id" loading={usersQ.isLoading || roleGroupsQ.isLoading} columns={columns} dataSource={displayRows} pagination={{ pageSize: 10 }} />
       </Card>
 
       {/* Create / Edit Modal */}
@@ -366,7 +394,7 @@ export default function UsersTab() {
         onCancel={() => setModalOpen(false)} onOk={onSubmit}
         confirmLoading={createM.isPending || updateM.isPending} width={560}>
         <Form form={form} layout="vertical" preserve={false}>
-          <UserFormFields watchRoles={watchRoles} orgs={orgs} editing={editing} />
+          <UserFormFields watchRoles={watchRoles} orgs={orgs} roleGroups={roleGroups} editing={editing} />
         </Form>
       </Modal>
 
@@ -389,6 +417,10 @@ export default function UsersTab() {
           <Form.Item name="OrganizationIDs" label="Tổ chức" rules={[{ required: true, message: "Chọn ít nhất 1" }]}>
             <Select mode="multiple" showSearch optionFilterProp="label"
               options={orgs.map((o) => ({ value: o._id, label: `[${o.XCode}] ${o.XName}` }))} />
+          </Form.Item>
+          <Form.Item name="RoleGroupID" label="Nhóm vai trò" rules={[{ required: true, message: "Chọn nhóm vai trò" }]}>
+            <Select allowClear showSearch optionFilterProp="label" placeholder="Chọn nhóm vai trò"
+              options={roleGroups.map((g) => ({ value: g._id, label: `[${g.XCode}] ${g.XName}` }))} />
           </Form.Item>
           <Form.Item name="FunctionRoles" label="Phân quyền">
             <Select mode="multiple" options={FUNCTION_ROLE_OPTIONS} placeholder="Chọn vai trò" />

@@ -21,6 +21,7 @@ routePlanRouter.get("/unplanned-orders", requirePermission(READ), asyncHandler(c
 routePlanRouter.get("/", requirePermission(READ), asyncHandler(ctrl.listRoutePlans));
 routePlanRouter.get("/:id", requirePermission(READ), asyncHandler(ctrl.getRoutePlan));
 routePlanRouter.post("/", requireAnyPermission(WRITE), asyncHandler(ctrl.createRoutePlan));
+routePlanRouter.patch("/:id", requirePermission(WRITE), asyncHandler(ctrl.updateRoutePlan));
 routePlanRouter.delete("/:id", requirePermission(WRITE), asyncHandler(ctrl.deleteRoutePlan));
 
 /* ── Delivery Routes ── */
@@ -34,6 +35,7 @@ routePlanRouter.delete("/:planId/routes/:routeId/orders/:orderId", requirePermis
 
 /* ── Move order between routes (with constraint validation) ── */
 routePlanRouter.post("/:planId/move-order", requirePermission(WRITE), asyncHandler(ctrl.moveOrderBetweenRoutes));
+routePlanRouter.post("/:planId/reorder-order", requirePermission(WRITE), asyncHandler(ctrl.reorderOrder));
 
 /* ── Driver / 3PL service / cost assignment ── */
 routePlanRouter.patch("/:planId/routes/:routeId/assignment", requirePermission(WRITE), asyncHandler(ctrl.assignRoute));
@@ -47,3 +49,20 @@ routePlanRouter.post("/:planId/routes/:routeId/finalize", requirePermission(FINA
 const OPTIMIZE = p(Modules.ROUTE_PLAN, RoutePlanActions.OPTIMIZE);
 routePlanRouter.post("/:id/optimize", requirePermission(OPTIMIZE), asyncHandler(ctrl.optimizeRoutePlan));
 routePlanRouter.post("/:id/benchmark", requirePermission(OPTIMIZE), asyncHandler(ctrl.benchmarkRoutePlan));
+
+/**
+ * @openapi
+ * /api/route-plans/{id}/auto-dispatch:
+ *   post:
+ *     tags: [Route Planning]
+ *     summary: Tự động phân công tài xế cho tất cả tuyến chưa gán
+ *     description: Chấm điểm tài xế theo workload + completion rate + seniority + vehicle match, gán greedy.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: "Trả về danh sách đã gán + skipped + tóm tắt" }
+ */
+routePlanRouter.post("/:id/auto-dispatch", requirePermission(OPTIMIZE), asyncHandler(ctrl.autoDispatchRoutePlan));

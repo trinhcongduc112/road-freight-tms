@@ -4,6 +4,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuthStore } from "../store/authStore";
 import { authApi } from "../api/driver";
+import { gpsTracker } from "../services/gpsTracker";
+import { loadBaseUrl } from "../api/baseUrlStore";
 
 import LoginScreen       from "../screens/LoginScreen";
 import RouteListScreen   from "../screens/RouteListScreen";
@@ -11,14 +13,21 @@ import RouteDetailScreen from "../screens/RouteDetailScreen";
 import StopDetailScreen  from "../screens/StopDetailScreen";
 import PODScreen         from "../screens/PODScreen";
 import MapScreen         from "../screens/MapScreen";
+import IncidentReportScreen from "../screens/IncidentReportScreen";
+import DriverMessagesScreen from "../screens/DriverMessagesScreen";
+import AIChatScreen from "../screens/AIChatScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
+import MaintenanceDetailScreen from "../screens/MaintenanceDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   const { token, user, hydrated, hydrate, setUser } = useAuthStore();
 
-  // Khôi phục token từ SecureStore khi khởi động
-  useEffect(() => { hydrate(); }, []);
+  // Khôi phục token + URL backend đã cài từ SecureStore khi khởi động
+  useEffect(() => {
+    loadBaseUrl().finally(() => hydrate());
+  }, []);
 
   // Sau khi có token, fetch thông tin user
   useEffect(() => {
@@ -26,6 +35,15 @@ export default function AppNavigator() {
       authApi.me()
         .then((res) => setUser(res.data.data?.user ?? res.data.data))
         .catch(() => {});
+    }
+  }, [token]);
+
+  // Resume GPS tracking nếu phiên trước có chuyến đang chạy
+  useEffect(() => {
+    if (token) {
+      gpsTracker.resumeIfNeeded().catch(() => {});
+    } else {
+      gpsTracker.stop().catch(() => {});
     }
   }, [token]);
 
@@ -65,6 +83,11 @@ export default function AppNavigator() {
               options={{ title: "Chi tiết chuyến" }}
             />
             <Stack.Screen
+              name="DriverMessages"
+              component={DriverMessagesScreen}
+              options={{ title: "Tin nhắn dispatcher" }}
+            />
+            <Stack.Screen
               name="StopDetail"
               component={StopDetailScreen}
               options={{ title: "Điểm dừng" }}
@@ -78,6 +101,26 @@ export default function AppNavigator() {
               name="Map"
               component={MapScreen}
               options={{ title: "Bản đồ lộ trình" }}
+            />
+            <Stack.Screen
+              name="IncidentReport"
+              component={IncidentReportScreen}
+              options={{ title: "Báo sự cố" }}
+            />
+            <Stack.Screen
+              name="AIChat"
+              component={AIChatScreen}
+              options={{ title: "Trợ lý AI" }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{ title: "Thông báo" }}
+            />
+            <Stack.Screen
+              name="MaintenanceDetail"
+              component={MaintenanceDetailScreen}
+              options={{ title: "Bảo dưỡng xe" }}
             />
           </>
         )}

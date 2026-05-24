@@ -1,0 +1,520 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Road Freight TMS API",
+    "version": "0.2.0",
+    "description": "Multi-tenant Transportation Management System / Hệ thống quản lý vận tải đa tổ chức: RBAC + DAC, route optimization, live GPS tracking, AI Agent, chatbot, reporting.",
+    "contact": {
+      "name": "Trịnh Công Đức",
+      "email": "ductuyetvoi@gmail.com"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local dev"
+    },
+    {
+      "url": "/",
+      "description": "Same origin (production)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Authentication: login, refresh token, password management / Xác thực: đăng nhập, refresh token, đổi mật khẩu"
+    },
+    {
+      "name": "Master Data",
+      "description": "Master data: customers, products, vehicles, drivers, depots, services / Dữ liệu nền: khách hàng, sản phẩm, xe, tài xế, kho, dịch vụ"
+    },
+    {
+      "name": "Orders",
+      "description": "Order lifecycle management / Quản lý vòng đời đơn hàng"
+    },
+    {
+      "name": "Route Planning",
+      "description": "Route planning and VRP optimization / Lập kế hoạch và tối ưu lộ trình"
+    },
+    {
+      "name": "Trips",
+      "description": "Trips, driver assignment, GPS, ePOD, completion / Chuyến đi, phân công tài xế, GPS, ePOD, hoàn tất"
+    },
+    {
+      "name": "Driver",
+      "description": "Driver mobile app APIs / API cho app tài xế"
+    },
+    {
+      "name": "Reports",
+      "description": "Reports, payroll, revenue, cost, maintenance / Báo cáo, bảng lương, doanh thu, chi phí, bảo dưỡng"
+    },
+    {
+      "name": "AI Agent",
+      "description": "AI action execution and deep links / AI thực thi hành động"
+    },
+    {
+      "name": "Support",
+      "description": "Q&A chatbot and human handoff / Hỏi đáp và chuyển nhân viên hỗ trợ"
+    },
+    {
+      "name": "Tracking",
+      "description": "Public order tracking without login / Tra cứu đơn công khai không cần đăng nhập"
+    },
+    {
+      "name": "System",
+      "description": "Health, metrics, observability, audit logs / Health, metrics, giám sát hệ thống, nhật ký"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "example": 400
+              },
+              "message": {
+                "type": "string",
+                "example": "Validation failed"
+              }
+            }
+          }
+        }
+      },
+      "ApiSuccess": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "PagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 124
+          },
+          "page": {
+            "type": "integer",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "example": 20
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/audit-logs": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "List audit logs / Liệt kê audit log",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CREATE",
+                "UPDATE",
+                "DELETE",
+                "LOGIN",
+                "LOGOUT",
+                "EXPORT"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả danh sách log phân trang"
+          },
+          "401": {
+            "description": "Cần đăng nhập"
+          }
+        }
+      }
+    },
+    "/api/audit-logs/summary": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Audit log summary for the latest 24 hours / Tóm tắt audit log 24h gần nhất",
+        "responses": {
+          "200": {
+            "description": "byAction + byResource counts"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a new tenant owner account / Đăng ký tài khoản chủ tổ chức mới",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "Email",
+                  "Password",
+                  "FullName",
+                  "OrganizationName"
+                ],
+                "properties": {
+                  "Email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "Password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "FullName": {
+                    "type": "string"
+                  },
+                  "OrganizationName": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tạo tổ chức + user thành công"
+          },
+          "400": {
+            "description": "Validation lỗi"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login and return JWT access/refresh tokens / Đăng nhập và trả JWT access/refresh token",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "Email",
+                  "Password"
+                ],
+                "properties": {
+                  "Email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "Password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đăng nhập thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
+                        },
+                        "user": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sai email hoặc mật khẩu"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current authenticated user / Lấy thông tin user hiện tại",
+        "responses": {
+          "200": {
+            "description": "Trả về user + danh sách Organization"
+          },
+          "401": {
+            "description": "Token không hợp lệ"
+          }
+        }
+      }
+    },
+    "/api/maintenance/alerts": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Get maintenance alerts / Lấy cảnh báo bảo dưỡng",
+        "responses": {
+          "200": {
+            "description": "Trả về upcoming + overdue + odometerWarnings"
+          }
+        }
+      }
+    },
+    "/api/maintenance": {
+      "get": {
+        "tags": [
+          "Master Data"
+        ],
+        "summary": "List maintenance records / Liệt kê lịch bảo dưỡng",
+        "responses": {
+          "200": {
+            "description": "Danh sách maintenance records"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Master Data"
+        ],
+        "summary": "Create a vehicle maintenance schedule / Tạo lịch bảo dưỡng xe",
+        "responses": {
+          "201": {
+            "description": "Tạo thành công"
+          }
+        }
+      }
+    },
+    "/api/maintenance/{id}": {
+      "put": {
+        "tags": [
+          "Master Data"
+        ],
+        "summary": "Update maintenance record / Cập nhật bản ghi bảo dưỡng"
+      },
+      "delete": {
+        "tags": [
+          "Master Data"
+        ],
+        "summary": "Delete maintenance record / Xóa bản ghi bảo dưỡng"
+      }
+    },
+    "/api/payroll/drivers": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Driver payroll and commission by month / Bảng lương và hoa hồng tài xế theo tháng",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "schema": {
+              "type": "string",
+              "example": "2026-05"
+            }
+          },
+          {
+            "in": "query",
+            "name": "driverId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lương từng tài xế + tổng"
+          }
+        }
+      }
+    },
+    "/api/payroll/config": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Get payroll configuration / Lấy cấu hình lương"
+      },
+      "put": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Update payroll configuration / Cập nhật cấu hình lương"
+      }
+    },
+    "/api/route-plans/{id}/auto-dispatch": {
+      "post": {
+        "tags": [
+          "Route Planning"
+        ],
+        "summary": "Auto assign drivers to routes / Tự động phân công tài xế cho tuyến",
+        "description": "Chấm điểm tài xế theo workload + completion rate + seniority + vehicle match, gán greedy.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về danh sách đã gán + skipped + tóm tắt"
+          }
+        }
+      }
+    },
+    "/api/track/{orderCode}": {
+      "get": {
+        "tags": [
+          "Tracking"
+        ],
+        "security": [],
+        "summary": "Public order tracking by order code / Tra cứu đơn hàng công khai bằng mã đơn",
+        "description": "Khách hàng dán mã đơn nhận được qua SMS/Zalo để xem trạng thái real-time:\n- Vị trí xe trên bản đồ\n- ETA + tài xế + SĐT\n- Timeline trạng thái\n- Ảnh ePOD sau khi giao\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orderCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin tracking"
+          },
+          "404": {
+            "description": "Không tìm thấy đơn"
+          },
+          "429": {
+            "description": "Vượt giới hạn tra cứu"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,23 +1,45 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { driverApi } from "../api/driver";
 import StatusBadge from "../components/StatusBadge";
+import DeviationExplainModal from "../components/DeviationExplainModal";
 
 const ACTIONS = [
-  { status: "IN_PROGRESS", label: "🚀 Bắt đầu giao",  color: "#1677ff" },
-  { status: "COMPLETED",   label: "✅ Hoàn thành",    color: "#52c41a" },
-  { status: "FAILED",      label: "❌ Giao thất bại", color: "#ff4d4f" },
+  { status: "EN_ROUTE", label: "🚀 Đang tới",  color: "#1677ff", action: "en-route" },
+  { status: "ARRIVED", label: "📍 Đã đến",    color: "#faad14", action: "arrive" },
+  { status: "COMPLETED",   label: "✅ Hoàn thành",    color: "#52c41a", action: "complete" },
+  { status: "FAILED",      label: "❌ Giao thất bại", color: "#ff4d4f", action: "fail" },
 ];
 
 export default function StopDetailScreen({ route, navigation }) {
   const { routeId, stop: initStop, stopIndex } = route.params;
   const [stop,    setStop]    = useState(initStop);
   const [loading, setLoading] = useState(false);
+  /* deviationPrompt: { visible, deviationMin } — bật khi backend trả requiresExplanation */
+  const [deviationPrompt, setDeviationPrompt] = useState({ visible: false, deviationMin: 0 });
+  const isClosed = ["COMPLETED", "FAILED"].includes(stop.Status);
+
+  /* RouteDetailScreen tự gọi fetchDetail() trong useFocusEffect mỗi lần được
+     focus lại — nên ở đây chỉ cần refresh stop hiện tại, KHÔNG truyền callback
+     qua nav params (sẽ bị warning non-serializable). */
+  const refreshStop = useCallback(async () => {
+    try {
+      const res = await driverApi.getRoute(routeId);
+      const updated = res.data.data?.Tasks?.find((s) => s.StopIndex === stopIndex);
+      if (updated) setStop(updated);
+    } catch {
+      // Giữ dữ liệu hiện tại nếu refresh nền lỗi.
+    }
+  }, [routeId, stopIndex]);
+
+  useFocusEffect(useCallback(() => { refreshStop(); }, [refreshStop]));
 
   const updateStatus = (status) => {
-    const label = ACTIONS.find((a) => a.status === status)?.label ?? status;
+    const action = ACTIONS.find((a) => a.status === status);
+    const label = action?.label ?? status;
     Alert.alert(
       "Cập nhật trạng thái",
       `Xác nhận "${label}" cho điểm dừng này?`,
@@ -28,13 +50,48 @@ export default function StopDetailScreen({ route, navigation }) {
           onPress: async () => {
             setLoading(true);
             try {
-              const res = await driverApi.updateStop(routeId, stopIndex, { status });
+              if (isClosed) {
+                Alert.alert("Không thể cập nhật", "Điểm dừng này đã được xử lý trước đó.");
+                return;
+              }
+              const res = await driverApi.updateStop(routeId, stopIndex, { action: action?.action, status, reason: "Khác" });
               // Tìm lại stop đã cập nhật từ response
-              const updated = res.data.data?.Stops?.find((s) => s.StopIndex === stopIndex);
+              const updated = res.data.data?.Tasks?.find((s) => s.StopIndex === stopIndex);
               if (updated) setStop(updated);
-              Alert.alert("Thành công", `Đã cập nhật trạng thái: ${label}`);
+
+              /* Backend trả `eta` cho action "complete":
+                 - eta.testMode      → plan khác ngày actual → ghi nhận êm, không alert noise.
+                 - eta.sanitySkipped → lệch >4h cùng ngày → ghi nhận, alert cảnh báo nhẹ.
+                 - eta.autoCascaded  → trong band (trễ ≤20 hoặc sớm ≤60), tự dịch ETA.
+                 - eta.requiresExplanation → ngoài band → mở Modal bắt giải trình.
+                 ✓ Mọi trường hợp: stop ĐÃ được ghi nhận thành công (status COMPLETED). */
+              const eta = res.data?.eta;
+              if (status === "COMPLETED" && eta) {
+                if (eta.testMode) {
+                  Alert.alert("✅ Đã ghi nhận hoàn thành", "Plan thuộc ngày khác — bỏ qua cập nhật ETA (chế độ test).");
+                  return;
+                }
+                if (eta.sanitySkipped) {
+                  Alert.alert("✅ Đã ghi nhận hoàn thành", `Lệch giờ ${Math.round(eta.deviationMin)} phút vượt 4 tiếng — ETA các điểm sau giữ nguyên.`);
+                  return;
+                }
+                if (eta.requiresExplanation) {
+                  setDeviationPrompt({ visible: true, deviationMin: eta.deviationMin });
+                  return;
+                }
+                if (eta.autoCascaded && Math.abs(eta.deviationMin) > 0) {
+                  const sign = eta.deviationMin > 0 ? "trễ" : "sớm";
+                  Alert.alert("✅ Đã ghi nhận hoàn thành", `Lệch ${sign} ${Math.abs(eta.deviationMin)} phút — đã tự dịch ETA ${eta.shifted ?? 0} điểm tiếp theo.`);
+                  return;
+                }
+              }
+              Alert.alert("✅ Thành công", `Đã cập nhật trạng thái: ${label}`);
             } catch (err) {
-              Alert.alert("Lỗi", err.response?.data?.message ?? err.message);
+              const message = err.response?.data?.message === "Task already closed"
+                ? "Điểm dừng này đã được xử lý trước đó. Tôi đã tải lại trạng thái mới nhất."
+                : err.response?.data?.message ?? err.message;
+              await refreshStop();
+              Alert.alert("Lỗi", message);
             } finally {
               setLoading(false);
             }
@@ -44,7 +101,25 @@ export default function StopDetailScreen({ route, navigation }) {
     );
   };
 
-  const orders = stop.Orders ?? [];
+  /* Gửi giải trình sau khi tài xế chọn lý do trong Modal. Backend sẽ tạo
+     TripIncident TIME_DEVIATION + cascade ETA xuống các điểm còn lại. */
+  const submitDeviation = async (payload) => {
+    try {
+      const res = await driverApi.explainDeviation(routeId, stopIndex, payload);
+      const shifted = res.data?.data?.shiftedStops ?? 0;
+      Alert.alert(
+        "Đã ghi nhận",
+        `Hệ thống đã dịch ETA của ${shifted} điểm tiếp theo theo lý do bạn chọn.`
+      );
+    } catch (err) {
+      Alert.alert("Lỗi", err.response?.data?.message ?? err.message ?? "Không gửi được giải trình");
+    } finally {
+      setDeviationPrompt({ visible: false, deviationMin: 0 });
+      refreshStop();
+    }
+  };
+
+  const orders = stop.Orders ?? stop.OrderCodes?.map((code) => ({ OrderCode: code })) ?? [];
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 32 }}>
@@ -52,9 +127,9 @@ export default function StopDetailScreen({ route, navigation }) {
       <View style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.title} numberOfLines={2}>
-            📍 {stop.LocationName ?? stop.Address ?? `Điểm dừng ${stopIndex + 1}`}
+            📍 {stop.CustomerName ?? stop.Address ?? `Điểm dừng ${stopIndex}`}
           </Text>
-          <StatusBadge status={stop.StopStatus ?? "PENDING"} style={{ marginLeft: 8 }} />
+          <StatusBadge status={stop.Status ?? "PENDING"} style={{ marginLeft: 8 }} />
         </View>
         {stop.Address && <Text style={styles.address}>{stop.Address}</Text>}
         {stop.EstimatedArrival && (
@@ -85,7 +160,8 @@ export default function StopDetailScreen({ route, navigation }) {
 
       {/* ePOD button */}
       <TouchableOpacity
-        style={styles.podBtn}
+        style={[styles.podBtn, isClosed && styles.disabledBtn]}
+        disabled={isClosed}
         onPress={() => navigation.navigate("POD", { routeId, stop, stopIndex })}
       >
         <Text style={styles.podBtnText}>📸 Chụp ảnh & Ký xác nhận (ePOD)</Text>
@@ -97,13 +173,20 @@ export default function StopDetailScreen({ route, navigation }) {
       {!loading && ACTIONS.map((a) => (
         <TouchableOpacity
           key={a.status}
-          style={[styles.actionBtn, { borderColor: a.color, opacity: stop.StopStatus === a.status ? 0.4 : 1 }]}
+          style={[styles.actionBtn, { borderColor: a.color, opacity: stop.Status === a.status || isClosed ? 0.4 : 1 }]}
           onPress={() => updateStatus(a.status)}
-          disabled={stop.StopStatus === a.status}
+          disabled={stop.Status === a.status || isClosed}
         >
           <Text style={[styles.actionBtnText, { color: a.color }]}>{a.label}</Text>
         </TouchableOpacity>
       ))}
+
+      <DeviationExplainModal
+        visible={deviationPrompt.visible}
+        deviationMin={deviationPrompt.deviationMin}
+        onSubmit={submitDeviation}
+        onCancel={() => setDeviationPrompt({ visible: false, deviationMin: 0 })}
+      />
     </ScrollView>
   );
 }
@@ -123,6 +206,7 @@ const styles = StyleSheet.create({
   orderNote:     { fontSize: 12, color: "#888", fontStyle: "italic", marginTop: 4 },
   podBtn:        { backgroundColor: "#fff7e6", borderRadius: 10, margin: 12, padding: 14, alignItems: "center", borderWidth: 1, borderColor: "#faad14" },
   podBtnText:    { color: "#d48806", fontWeight: "bold", fontSize: 14 },
+  disabledBtn:   { opacity: 0.45 },
   actionBtn:     { borderWidth: 1.5, borderRadius: 10, marginHorizontal: 12, marginBottom: 10, padding: 14, alignItems: "center" },
   actionBtnText: { fontWeight: "bold", fontSize: 15 },
 });

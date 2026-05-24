@@ -5,6 +5,8 @@ import LoginPage from "./features/auth/LoginPage";
 import RegisterPage from "./features/auth/RegisterPage";
 import ResetPasswordPage from "./features/auth/ResetPasswordPage";
 import VerifyEmailPage from "./features/auth/VerifyEmailPage";
+import SupportReplyPage from "./features/support/SupportReplyPage";
+import TrackingPage from "./features/tracking/TrackingPage";
 import AdminPage from "./features/admin/AdminPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MasterDataPage from "./features/master-data/MasterDataPage";
@@ -12,6 +14,7 @@ import MonitoringPage from "./features/monitoring/MonitoringPage";
 import OrdersPage from "./features/orders/OrdersPage";
 import PlanningPage from "./features/planning/PlanningPage";
 import ReportingPage from "./features/reporting/ReportingPage";
+import DriverAppPage from "./features/driver/DriverAppPage";
 import AppLayout from "./layouts/AppLayout";
 import RequireAuth from "./utils/RequireAuth";
 
@@ -22,6 +25,10 @@ export const router = createBrowserRouter([
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
   { path: "/reset-password", element: <ResetPasswordPage /> },
   { path: "/accept-invitation", element: <AcceptInvitationPage /> },
+  { path: "/support/reply", element: <SupportReplyPage /> },
+  { path: "/track", element: <TrackingPage /> },
+  { path: "/track/:orderCode", element: <TrackingPage /> },
+  { path: "/driver", element: <RequireAuth><DriverAppPage /></RequireAuth> },
   {
     path: "/",
     element: (

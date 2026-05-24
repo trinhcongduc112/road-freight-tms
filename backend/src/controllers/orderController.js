@@ -1,8 +1,10 @@
 import * as XLSX from "xlsx";
+import mongoose from "mongoose";
 import { hasPermission, Modules, Actions, RoutePlanActions, p } from "../config/permissions.js";
-import { SalesOrder, OrderStatus, PlanningStatus, ApprovalStatus } from "../models/SalesOrder.js";
+import { SalesOrder, OrderStatus, PlanningStatus, ApprovalStatus, FulfillmentStatus, TypeWay } from "../models/SalesOrder.js";
 import { OrderTripAllocation } from "../models/OrderTripAllocation.js";
 import { Product } from "../models/Product.js";
+import { Organization } from "../models/Organization.js";
 import { ApiError } from "../utils/apiError.js";
 import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
 
@@ -10,16 +12,60 @@ import { assertOrgInScope, scopeFilter } from "../middlewares/dac.js";
  * Auto-tính TotalPrice = Σ Items × Product.Price (theo từng thùng).
  * Trả về { totalPrice, productMap }: productMap để cấp phát thông tin SP cho client.
  */
-async function calcOrderTotalPrice(items, organizationId) {
+async function collectOrgSubtreeIds(orgId) {
+  const ids = [organizationIdToObjectId(orgId)];
+  let frontier = ids;
+  const seen = new Set(ids.map(String));
+  while (frontier.length) {
+    const children = await Organization.find({ Parent: { $in: frontier } }, { _id: 1 }).lean();
+    const next = [];
+    for (const child of children) {
+      const key = String(child._id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ids.push(child._id);
+      next.push(child._id);
+    }
+    frontier = next;
+  }
+  return ids;
+}
+
+function organizationIdToObjectId(orgId) {
+  return typeof orgId === "string" ? new mongoose.Types.ObjectId(orgId) : orgId;
+}
+
+async function calcOrderTotalPrice(items, organizationId, orgScope = null) {
   if (!Array.isArray(items) || items.length === 0) return { totalPrice: 0, productMap: {} };
   const codes = [...new Set(items.map((it) => String(it.ProductCode || "").toUpperCase()).filter(Boolean))];
   if (codes.length === 0) return { totalPrice: 0, productMap: {} };
+  const orgIds = await collectOrgSubtreeIds(organizationId);
 
-  const products = await Product.find(
-    { OrganizationID: organizationId, ProductCode: { $in: codes } },
+  let products = await Product.find(
+    { OrganizationID: { $in: orgIds }, ProductCode: { $in: codes } },
     { ProductCode: 1, XName: 1, Price: 1, WeightPerCase: 1, VolumePerCase: 1, ItemsPerCase: 1, CategoryID: 1 }
   ).lean();
-  const productMap = Object.fromEntries(products.map((p) => [p.ProductCode, p]));
+  const foundCodes = new Set(products.map((p) => p.ProductCode));
+  const missingCodes = codes.filter((code) => !foundCodes.has(code));
+  if (missingCodes.length) {
+    const scopeOrgIds = orgScope === null ? null : Array.from(orgScope ?? []);
+    const fallbackFilter = {
+      ProductCode: { $in: missingCodes },
+      ...(scopeOrgIds ? { OrganizationID: { $in: scopeOrgIds } } : {})
+    };
+    products = products.concat(await Product.find(
+      fallbackFilter,
+      { ProductCode: 1, XName: 1, Price: 1, WeightPerCase: 1, VolumePerCase: 1, ItemsPerCase: 1, CategoryID: 1 }
+    ).lean());
+  }
+  const orgRank = new Map(orgIds.map((id, idx) => [String(id), idx]));
+  const productMap = {};
+  for (const product of products) {
+    const existing = productMap[product.ProductCode];
+    const rank = orgRank.get(String(product.OrganizationID)) ?? Number.MAX_SAFE_INTEGER;
+    const existingRank = existing ? orgRank.get(String(existing.OrganizationID)) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+    if (!existing || rank < existingRank) productMap[product.ProductCode] = product;
+  }
 
   let totalPrice = 0;
   for (const it of items) {
@@ -90,6 +136,125 @@ function parseUploadRows(file) {
   throw new ApiError(400, "Chỉ hỗ trợ file .xlsx hoặc .json");
 }
 
+function rowValue(row, keys) {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null && row[key] !== "") return row[key];
+  }
+  return "";
+}
+
+function normalizeCode(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function normalizeEnum(value, allowed, fallback) {
+  const normalized = normalizeCode(value);
+  return allowed.includes(normalized) ? normalized : fallback;
+}
+
+function parseImportBoolean(value) {
+  if (typeof value === "boolean") return value;
+  const raw = String(value ?? "").trim().toLowerCase();
+  return ["true", "1", "yes", "y", "có", "co"].includes(raw);
+}
+
+function parseImportDate(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "number") {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+  }
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const dmy = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmy) return new Date(Date.UTC(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])));
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function resolveImportOrganization(row, cache, orgScope) {
+  const orgId = rowValue(row, ["OrganizationID", "organizationId", "OrgID"]);
+  const orgCode = normalizeCode(rowValue(row, ["OrganizationCode", "organizationCode", "OrgCode", "XCode", "Kho", "MaKho", "Mã kho"]));
+
+  if (orgId) {
+    assertOrgInScope(orgScope, orgId);
+    return orgId;
+  }
+  if (!orgCode) throw new ApiError(400, "Missing OrganizationCode");
+  if (!cache.has(orgCode)) {
+    const org = await Organization.findOne({ XCode: orgCode }).lean();
+    if (!org) throw new ApiError(400, `OrganizationCode không tồn tại: ${orgCode}`);
+    assertOrgInScope(orgScope, org._id);
+    cache.set(orgCode, org._id);
+  }
+  return cache.get(orgCode);
+}
+
+async function buildImportOrders(rows, orgScope) {
+  const orgCache = new Map();
+  const grouped = new Map();
+  const errors = [];
+
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    try {
+      const orderCode = normalizeCode(rowValue(row, ["OrderCode", "orderCode", "Mã đơn", "MaDon"]));
+      const customerCode = normalizeCode(rowValue(row, ["CustomerCode", "customerCode", "Mã khách hàng", "MaKhachHang"]));
+      const productCode = normalizeCode(rowValue(row, ["ProductCode", "productCode", "SKU", "Mã sản phẩm", "MaSanPham"]));
+      const orderDate = parseImportDate(rowValue(row, ["OrderDate", "orderDate", "Ngày đơn", "NgayDon"]));
+      const organizationId = await resolveImportOrganization(row, orgCache, orgScope);
+      const cases = Number(rowValue(row, ["NumberOfCases", "numberOfCases", "Cases", "Số thùng", "SoThung"]) || 0);
+      const items = Number(rowValue(row, ["NumberOfItems", "numberOfItems", "Items", "Số lẻ", "SoLe"]) || 0);
+
+      if (!orderCode) throw new ApiError(400, "Missing OrderCode");
+      if (!customerCode) throw new ApiError(400, "Missing CustomerCode");
+      if (!orderDate) throw new ApiError(400, "Invalid OrderDate");
+      if (!productCode) throw new ApiError(400, "Missing ProductCode");
+      if (cases <= 0 && items <= 0) throw new ApiError(400, "NumberOfCases hoặc NumberOfItems phải > 0");
+
+      const key = `${String(organizationId)}:${orderCode}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          sourceRows: [i + 1],
+          OrderCode: orderCode,
+          CustomerCode: customerCode,
+          OrganizationID: organizationId,
+          OrderDate: orderDate,
+          TypeWay: normalizeEnum(rowValue(row, ["TypeWay", "typeWay"]), Object.values(TypeWay), TypeWay.FIRST_WAY),
+          PickupOrder: parseImportBoolean(rowValue(row, ["PickupOrder", "pickupOrder", "Đơn lấy hàng", "DonLayHang"])),
+          SplittedOrder: parseImportBoolean(rowValue(row, ["SplittedOrder", "splittedOrder", "Đơn tách", "DonTach"])),
+          TimeWindow: rowValue(row, ["TimeWindow", "timeWindow"]) || "",
+          ServiceTime: Number(rowValue(row, ["ServiceTime", "serviceTime"]) || 0),
+          TotalServicePrice: Number(rowValue(row, ["TotalServicePrice", "totalServicePrice"]) || 0),
+          NumberCollected: Number(rowValue(row, ["NumberCollected", "numberCollected"]) || 0),
+          OrderStatus: normalizeEnum(rowValue(row, ["OrderStatus", "orderStatus"]), Object.values(OrderStatus), OrderStatus.OPEN),
+          PlanningStatus: normalizeEnum(rowValue(row, ["PlanningStatus", "planningStatus"]), Object.values(PlanningStatus), PlanningStatus.PENDING),
+          ApprovalStatus: normalizeEnum(rowValue(row, ["ApprovalStatus", "approvalStatus"]), Object.values(ApprovalStatus), ApprovalStatus.PENDING),
+          FulfillmentStatus: normalizeEnum(rowValue(row, ["FulfillmentStatus", "fulfillmentStatus"]), Object.values(FulfillmentStatus), FulfillmentStatus.NOT_FULFILLED),
+          Items: []
+        });
+      } else {
+        const order = grouped.get(key);
+        order.sourceRows.push(i + 1);
+        if (order.CustomerCode !== customerCode) {
+          throw new ApiError(400, `OrderCode ${orderCode} có nhiều CustomerCode khác nhau`);
+        }
+      }
+      grouped.get(key).Items.push({
+        ProductCode: productCode,
+        NumberOfCases: cases,
+        NumberOfItems: items,
+        NumberOfCasesDelivered: Number(rowValue(row, ["NumberOfCasesDelivered", "numberOfCasesDelivered"]) || 0),
+        NumberOfItemsDelivered: Number(rowValue(row, ["NumberOfItemsDelivered", "numberOfItemsDelivered"]) || 0)
+      });
+    } catch (err) {
+      errors.push({ row: i + 1, message: err.message });
+    }
+  }
+
+  return { orders: [...grouped.values()], errors };
+}
+
 function requirePlanningPermission(req, fromPlanningStatus, toPlanningStatus) {
   if (req.user?.IsSuperAdmin) return;
   const granted = req.role?.Permissions ?? [];
@@ -124,7 +289,35 @@ export async function listOrders(req, res) {
     filter.OrganizationID = req.query.organizationId;
   }
   if (req.query.status) filter.OrderStatus = req.query.status;
+  if (req.query.approvalStatus) filter.ApprovalStatus = req.query.approvalStatus;
   if (req.query.planningStatus) filter.PlanningStatus = req.query.planningStatus;
+  if (req.query.dateFrom || req.query.dateTo) {
+    filter.OrderDate = {};
+    if (req.query.dateFrom) {
+      const from = new Date(req.query.dateFrom);
+      from.setUTCHours(0, 0, 0, 0);
+      filter.OrderDate.$gte = from;
+    }
+    if (req.query.dateTo) {
+      const to = new Date(req.query.dateTo);
+      to.setUTCHours(23, 59, 59, 999);
+      filter.OrderDate.$lte = to;
+    }
+  }
+  if (req.query.product) {
+    const keyword = String(req.query.product).trim();
+    if (keyword) {
+      const productFilter = {
+        ...(filter.OrganizationID ? { OrganizationID: filter.OrganizationID } : {}),
+        $or: [
+          { ProductCode: { $regex: keyword, $options: "i" } },
+          { XName: { $regex: keyword, $options: "i" } }
+        ]
+      };
+      const productCodes = await Product.distinct("ProductCode", productFilter);
+      filter["Items.ProductCode"] = { $in: productCodes.length ? productCodes : [keyword.toUpperCase()] };
+    }
+  }
 
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.max(1, parseInt(req.query.limit) || 100);
@@ -174,7 +367,7 @@ export async function createOrder(req, res) {
   assertOrgInScope(req.orgScope, OrganizationID);
 
   const toStatus = orderStatusInput ?? OrderStatus.OPEN;
-  const { totalPrice } = await calcOrderTotalPrice(Items, OrganizationID);
+  const { totalPrice } = await calcOrderTotalPrice(Items, OrganizationID, req.orgScope);
 
   const order = await SalesOrder.create({
     ...req.body,
@@ -222,7 +415,7 @@ export async function updateOrder(req, res) {
     }
   }
 
-  const { totalPrice } = await calcOrderTotalPrice(order.Items, order.OrganizationID);
+  const { totalPrice } = await calcOrderTotalPrice(order.Items, order.OrganizationID, req.orgScope);
   order.TotalPrice = totalPrice;
   await order.save();
   res.json({ success: true, data: toOrderDTO(order) });
@@ -244,38 +437,53 @@ export async function deleteOrder(req, res) {
 
 export async function uploadOrders(req, res) {
   const rows = parseUploadRows(req.file);
+  const { orders: importOrders, errors } = await buildImportOrders(rows, req.orgScope);
   const created = [];
-  const errors = [];
 
-  for (let i = 0; i < rows.length; i += 1) {
-    const row = rows[i];
+  for (const payload of importOrders) {
     try {
-      const payload = {
-        ...row,
-        OrderCode: row.OrderCode || row.orderCode,
-        CustomerCode: row.CustomerCode || row.customerCode,
-        OrganizationID: row.OrganizationID || row.organizationId,
-        OrderDate: row.OrderDate || row.orderDate,
-        Items: Array.isArray(row.Items)
-          ? row.Items
-          : [{ ProductCode: row.ProductCode || "SKU-DEFAULT", NumberOfCases: Number(row.NumberOfCases || 1) }],
-        Source: "IMPORT"
-      };
-
-      if (!payload.OrderCode || !payload.CustomerCode || !payload.OrganizationID || !payload.OrderDate) {
-        throw new ApiError(400, "Missing required order fields");
-      }
       assertOrgInScope(req.orgScope, payload.OrganizationID);
+      const duplicate = await SalesOrder.findOne({
+        OrganizationID: payload.OrganizationID,
+        OrderCode: payload.OrderCode
+      }).lean();
+      if (duplicate) throw new ApiError(409, `OrderCode đã tồn tại: ${payload.OrderCode}`);
 
       const toStatus = payload.OrderStatus ?? OrderStatus.OPEN;
-      const { totalPrice } = await calcOrderTotalPrice(payload.Items, payload.OrganizationID);
+      const { totalPrice } = await calcOrderTotalPrice(payload.Items, payload.OrganizationID, req.orgScope);
+      const productCodes = payload.Items.map((item) => item.ProductCode);
+      const orgIds = await collectOrgSubtreeIds(payload.OrganizationID);
+      let foundProductCodes = await Product.distinct("ProductCode", {
+        OrganizationID: { $in: orgIds },
+        ProductCode: { $in: productCodes }
+      });
+      let missingProductCodes = productCodes.filter((code) => !foundProductCodes.includes(code));
+      if (missingProductCodes.length) {
+        const scopeOrgIds = Array.from(req.orgScope ?? []);
+        const fallbackProductCodes = await Product.distinct("ProductCode", {
+          OrganizationID: { $in: scopeOrgIds },
+          ProductCode: { $in: missingProductCodes }
+        });
+        foundProductCodes = foundProductCodes.concat(fallbackProductCodes);
+        missingProductCodes = productCodes.filter((code) => !foundProductCodes.includes(code));
+      }
+      if (missingProductCodes.length) {
+        throw new ApiError(400, `ProductCode không tồn tại trong kho/tổ chức: ${[...new Set(missingProductCodes)].join(", ")}`);
+      }
+
       const order = await SalesOrder.create({
         ...payload,
         OrderCode: String(payload.OrderCode).toUpperCase(),
         CustomerCode: String(payload.CustomerCode).toUpperCase(),
         OrderDate: new Date(payload.OrderDate),
         OrderStatus: toStatus,
+        PlanningStatus: payload.PlanningStatus,
+        ApprovalStatus: payload.ApprovalStatus,
+        FulfillmentStatus: payload.FulfillmentStatus,
+        Source: "IMPORT",
         TotalPrice: totalPrice,
+        TotalServicePrice: payload.TotalServicePrice,
+        NumberCollected: payload.NumberCollected,
         StatusHistory: [
           {
             FromStatus: null,
@@ -284,11 +492,13 @@ export async function uploadOrders(req, res) {
             Note: "Order imported"
           }
         ],
-        PlanningHistory: []
+        PlanningHistory: payload.PlanningStatus !== PlanningStatus.PENDING
+          ? [{ FromStatus: null, ToStatus: payload.PlanningStatus, ChangedBy: req.user?._id ?? null, Note: "Planning status imported" }]
+          : []
       });
       created.push(toOrderDTO(order));
     } catch (err) {
-      errors.push({ row: i + 1, message: err.message });
+      errors.push({ orderCode: payload.OrderCode, rows: payload.sourceRows, message: err.message });
     }
   }
 

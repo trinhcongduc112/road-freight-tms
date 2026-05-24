@@ -1,0 +1,103 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Auto-deploy strategy:
+#   - Backend → Render Web Service (free tier) via deploy hook URL
+#   - Frontend → Vercel/Netlify (auto-detect git push)
+#   - Optimizer → Render Web Service
+#
+# Cấu hình trong GitHub Settings → Secrets:
+#   RENDER_BACKEND_HOOK     — Render deploy hook URL cho backend service
+#   RENDER_OPTIMIZER_HOOK   — Render deploy hook URL cho optimizer service
+#   VERCEL_TOKEN            — Vercel CLI token (nếu deploy frontend qua Vercel)
+#
+# Nếu chưa có Render/Vercel: workflow sẽ skip với cảnh báo,
+# không fail build.
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+
+      - name: Install + test backend
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+      - name: Install + build frontend-web
+        run: |
+          cd frontend-web
+          npm ci
+          npm run build
+        env:
+          VITE_API_URL: /api
+
+      - id: check
+        run: echo "ok=true" >> $GITHUB_OUTPUT
+
+  deploy-backend:
+    needs: build-and-test
+    if: needs.build-and-test.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy (backend)
+        run: |
+          if [ -z "${{ secrets.RENDER_BACKEND_HOOK }}" ]; then
+            echo "::warning::RENDER_BACKEND_HOOK chưa cấu hình — skip deploy backend"
+            exit 0
+          fi
+          curl -fsSL -X POST "${{ secrets.RENDER_BACKEND_HOOK }}"
+          echo "✓ Backend deploy hook triggered"
+
+  deploy-optimizer:
+    needs: build-and-test
+    if: needs.build-and-test.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy (optimizer)
+        run: |
+          if [ -z "${{ secrets.RENDER_OPTIMIZER_HOOK }}" ]; then
+            echo "::warning::RENDER_OPTIMIZER_HOOK chưa cấu hình — skip deploy optimizer"
+            exit 0
+          fi
+          curl -fsSL -X POST "${{ secrets.RENDER_OPTIMIZER_HOOK }}"
+          echo "✓ Optimizer deploy hook triggered"
+
+  deploy-frontend:
+    needs: build-and-test
+    if: needs.build-and-test.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build frontend
+        run: |
+          cd frontend-web
+          npm ci
+          npm run build
+        env:
+          VITE_API_URL: ${{ secrets.PROD_API_URL || '/api' }}
+      - name: Deploy to Vercel
+        if: env.VERCEL_TOKEN != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npm i -g vercel
+          cd frontend-web
+          vercel --prod --token "$VERCEL_TOKEN" --yes
+      - name: No Vercel configured
+        if: env.VERCEL_TOKEN == ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: echo "::warning::VERCEL_TOKEN chưa cấu hình — skip deploy frontend"
