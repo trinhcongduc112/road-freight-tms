@@ -49,8 +49,10 @@ async function bootstrap() {
   // Initialize Socket.IO with the same CORS configuration as Express
   initSocket(server, { origin: env.frontendUrl, credentials: true });
 
-  server.listen(env.port, () => {
-    logger.info(`Server listening on http://localhost:${env.port}`);
+  server.listen(env.port, env.host, () => {
+    // Log đúng host đang bind — tránh confuse khi đọc log production
+    const displayHost = env.host === "0.0.0.0" ? "localhost" : env.host;
+    logger.info(`Server listening on http://${displayHost}:${env.port} (bound to ${env.host}, env=${env.nodeEnv})`);
   });
 
   /* Background job: seed traffic factor defaults + recompute hằng ngày từ Trip history. */
