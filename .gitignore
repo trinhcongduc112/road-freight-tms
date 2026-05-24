@@ -28,3 +28,6 @@ _legacy/
 # Test coverage outputs
 coverage.xml
 .coverage
+
+.test-venv/
+.venv/
