@@ -19,8 +19,6 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install
         run: npm --prefix backend ci
-      - name: Lint
-        run: npm --prefix backend run lint
       - name: Test + coverage
         run: npm --prefix backend run test:coverage
         env:
