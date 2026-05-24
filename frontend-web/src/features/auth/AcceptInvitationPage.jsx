@@ -3,11 +3,13 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { authApi } from "../../api/auth";
 import { useAuthStore } from "../../store/authStore";
+import { useLanguage } from "../../i18n.jsx";
 import AuthShell from "./AuthShell";
 
 export default function AcceptInvitationPage() {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
@@ -16,11 +18,10 @@ export default function AcceptInvitationPage() {
 
   if (!token) {
     return (
-      <AuthShell title="Link không hợp lệ" subtitle="Link lời mời không tìm thấy token">
+      <AuthShell title={t("auth.common.invalidLink")} subtitle={t("auth.invite.noTokenSub")}>
         <Result
           status="error"
-          subTitle="Vui lòng liên hệ quản trị viên."
-          extra={<Link to="/login"><Button className="lp-submit">Về đăng nhập</Button></Link>}
+          extra={<Link to="/login"><Button className="lp-submit">{t("auth.invite.backLogin")}</Button></Link>}
         />
       </AuthShell>
     );
@@ -35,7 +36,7 @@ export default function AcceptInvitationPage() {
       const meRes = await authApi.me();
       const role = meRes?.data?.role ?? meRes?.role ?? null;
       setSession({ token: jwt, refreshToken, user, role });
-      message.success(`Chào mừng, ${user.UserName}! Tài khoản đã kích hoạt.`);
+      message.success(t("auth.invite.welcomeName", { name: user.UserName }));
       navigate("/", { replace: true });
     } catch (err) {
       message.error(err.message);
@@ -45,34 +46,31 @@ export default function AcceptInvitationPage() {
   };
 
   return (
-    <AuthShell
-      title="Kích hoạt tài khoản"
-      subtitle="Bạn được mời tham gia Road Freight TMS. Đặt mật khẩu để bắt đầu."
-    >
+    <AuthShell title={t("auth.invite.title")} subtitle={t("auth.invite.subtitle")}>
       <Form form={form} layout="vertical" onFinish={onSubmit} requiredMark={false} size="large">
-        <Form.Item name="fullName" label="Họ và tên (tùy chọn)">
-          <Input className="lp-inp" placeholder="Nguyễn Văn A" />
+        <Form.Item name="fullName" label={t("auth.invite.fullName")}>
+          <Input className="lp-inp" />
         </Form.Item>
-        <Form.Item name="phone" label="Số điện thoại (tùy chọn)">
-          <Input className="lp-inp" placeholder="0901234567" />
+        <Form.Item name="phone" label={t("auth.invite.phone")}>
+          <Input className="lp-inp" />
         </Form.Item>
         <Form.Item
           name="password"
-          label="Mật khẩu mới"
-          rules={[{ required: true, min: 6, message: "Tối thiểu 6 ký tự" }]}
+          label={t("auth.invite.password")}
+          rules={[{ required: true, min: 6, message: t("auth.reset.minLength") }]}
         >
-          <Input.Password className="lp-inp" placeholder="Tối thiểu 6 ký tự" autoFocus />
+          <Input.Password className="lp-inp" autoFocus />
         </Form.Item>
         <Form.Item
           name="confirm"
-          label="Xác nhận mật khẩu"
+          label={t("auth.invite.confirm")}
           dependencies={["password"]}
           rules={[
-            { required: true, message: "Bắt buộc" },
+            { required: true, message: t("auth.common.required") },
             ({ getFieldValue }) => ({
               validator(_, value) {
                 if (!value || getFieldValue("password") === value) return Promise.resolve();
-                return Promise.reject(new Error("Mật khẩu không khớp"));
+                return Promise.reject(new Error(t("auth.reset.notMatch")));
               }
             })
           ]}
@@ -81,7 +79,7 @@ export default function AcceptInvitationPage() {
         </Form.Item>
         <Form.Item style={{ marginBottom: 0 }}>
           <Button type="primary" htmlType="submit" block loading={loading} className="lp-submit">
-            Kích hoạt tài khoản
+            {t("auth.invite.submit")}
           </Button>
         </Form.Item>
       </Form>

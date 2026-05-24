@@ -3,11 +3,13 @@ import { Alert, App, Button, Form, Input, Result } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { authApi } from "../../api/auth";
+import { useLanguage } from "../../i18n.jsx";
 import AuthShell from "./AuthShell";
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const { message } = App.useApp();
+  const { t } = useLanguage();
   const token = searchParams.get("token");
 
   const [state, setState] = useState("idle"); // idle | loading | ok | error
@@ -25,7 +27,7 @@ export default function VerifyEmailPage() {
   }, [token]);
 
   const onResend = async () => {
-    if (!resendEmail) return message.warning("Nhập email của bạn");
+    if (!resendEmail) return message.warning(t("auth.common.emailInvalid"));
     try {
       setResendLoading(true);
       await authApi.resendVerification(resendEmail);
@@ -39,10 +41,10 @@ export default function VerifyEmailPage() {
 
   if (!token) {
     return (
-      <AuthShell title="Thiếu token" subtitle="URL xác thực không hợp lệ">
-        <Alert type="warning" message="Không có token xác thực trong URL." showIcon />
+      <AuthShell title={t("auth.verify.noTokenTitle")} subtitle={t("auth.verify.noTokenSub")}>
+        <Alert type="warning" message={t("auth.verify.noTokenWarn")} showIcon />
         <p className="lp-register">
-          <Link to="/login" className="lp-lnk">← Về đăng nhập</Link>
+          <Link to="/login" className="lp-lnk">{t("auth.common.backToLogin")}</Link>
         </p>
       </AuthShell>
     );
@@ -50,7 +52,7 @@ export default function VerifyEmailPage() {
 
   if (state === "loading") {
     return (
-      <AuthShell title="Đang xác thực email" subtitle="Vui lòng đợi trong giây lát">
+      <AuthShell title={t("auth.verify.titleLoading")} subtitle={t("auth.verify.subLoading")}>
         <div style={{ textAlign: "center", padding: "32px 0" }}>
           <LoadingOutlined style={{ fontSize: 48, color: "#1677ff" }} />
         </div>
@@ -60,12 +62,11 @@ export default function VerifyEmailPage() {
 
   if (state === "ok") {
     return (
-      <AuthShell title="Email đã được xác thực!" subtitle="Tài khoản của bạn đã được kích hoạt">
+      <AuthShell title={t("auth.verify.titleOk")} subtitle={t("auth.verify.subOk")}>
         <Result
           status="success"
           icon={<CheckCircleOutlined />}
-          subTitle="Bạn có thể đăng nhập ngay."
-          extra={<Link to="/login"><Button type="primary" className="lp-submit">Đăng nhập ngay</Button></Link>}
+          extra={<Link to="/login"><Button type="primary" className="lp-submit">{t("auth.verify.loginNow")}</Button></Link>}
         />
       </AuthShell>
     );
@@ -73,18 +74,18 @@ export default function VerifyEmailPage() {
 
   if (state === "error") {
     return (
-      <AuthShell title="Xác thực thất bại" subtitle={errorMsg || "Token không hợp lệ hoặc đã hết hạn"}>
+      <AuthShell title={t("auth.verify.titleFail")} subtitle={errorMsg || t("auth.verify.subFail")}>
         <Result
           status="error"
           icon={<CloseCircleOutlined />}
-          subTitle={resendDone ? null : "Bạn có thể gửi lại email xác thực bên dưới."}
+          subTitle={resendDone ? null : t("auth.verify.canResend")}
         />
 
         {resendDone ? (
-          <Alert type="success" message="Đã gửi lại email xác thực — kiểm tra hộp thư của bạn." showIcon />
+          <Alert type="success" message={t("auth.verify.resendDone")} showIcon />
         ) : (
           <Form layout="vertical" onFinish={onResend} size="large">
-            <Form.Item label="Email đã đăng ký">
+            <Form.Item label={t("auth.verify.resendLabel")}>
               <Input
                 className="lp-inp"
                 placeholder="email@company.vn"
@@ -98,13 +99,13 @@ export default function VerifyEmailPage() {
               loading={resendLoading} onClick={onResend}
               className="lp-submit"
             >
-              Gửi lại email xác thực
+              {t("auth.verify.resendSubmit")}
             </Button>
           </Form>
         )}
 
         <p className="lp-register">
-          <Link to="/login" className="lp-lnk">← Về đăng nhập</Link>
+          <Link to="/login" className="lp-lnk">{t("auth.common.backToLogin")}</Link>
         </p>
       </AuthShell>
     );

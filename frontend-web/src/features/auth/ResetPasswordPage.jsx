@@ -2,11 +2,13 @@ import { App, Button, Form, Input, Result } from "antd";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { authApi } from "../../api/auth";
+import { useLanguage } from "../../i18n.jsx";
 import AuthShell from "./AuthShell";
 
 export default function ResetPasswordPage() {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
   const [loading, setLoading] = useState(false);
@@ -14,10 +16,10 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <AuthShell title="Link không hợp lệ" subtitle="Không tìm thấy token trong URL">
+      <AuthShell title={t("auth.common.invalidLink")} subtitle={t("auth.reset.noToken")}>
         <Result
           status="error"
-          extra={<Link to="/forgot-password"><Button>Yêu cầu link mới</Button></Link>}
+          extra={<Link to="/forgot-password"><Button>{t("auth.reset.requestNew")}</Button></Link>}
         />
       </AuthShell>
     );
@@ -25,10 +27,10 @@ export default function ResetPasswordPage() {
 
   if (done) {
     return (
-      <AuthShell title="Đặt lại mật khẩu thành công!" subtitle="Bạn có thể đăng nhập với mật khẩu mới">
+      <AuthShell title={t("auth.reset.doneTitle")} subtitle={t("auth.reset.doneSub")}>
         <Result
           status="success"
-          extra={<Link to="/login"><Button type="primary" className="lp-submit">Đăng nhập</Button></Link>}
+          extra={<Link to="/login"><Button type="primary" className="lp-submit">{t("auth.reset.doneLogin")}</Button></Link>}
         />
       </AuthShell>
     );
@@ -47,25 +49,25 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <AuthShell title="Đặt lại mật khẩu" subtitle="Nhập mật khẩu mới cho tài khoản của bạn">
+    <AuthShell title={t("auth.reset.title")} subtitle={t("auth.reset.subtitle")}>
       <Form form={form} layout="vertical" onFinish={onSubmit} requiredMark={false} size="large">
         <Form.Item
           name="password"
-          label="Mật khẩu mới"
-          rules={[{ required: true, min: 6, message: "Tối thiểu 6 ký tự" }]}
+          label={t("auth.reset.newPassword")}
+          rules={[{ required: true, min: 6, message: t("auth.reset.minLength") }]}
         >
-          <Input.Password className="lp-inp" placeholder="Tối thiểu 6 ký tự" autoFocus />
+          <Input.Password className="lp-inp" placeholder={t("auth.reset.minLength")} autoFocus />
         </Form.Item>
         <Form.Item
           name="confirm"
-          label="Xác nhận mật khẩu"
+          label={t("auth.reset.confirm")}
           dependencies={["password"]}
           rules={[
-            { required: true, message: "Bắt buộc" },
+            { required: true, message: t("auth.common.required") },
             ({ getFieldValue }) => ({
               validator(_, value) {
                 if (!value || getFieldValue("password") === value) return Promise.resolve();
-                return Promise.reject(new Error("Mật khẩu không khớp"));
+                return Promise.reject(new Error(t("auth.reset.notMatch")));
               }
             })
           ]}
@@ -74,13 +76,13 @@ export default function ResetPasswordPage() {
         </Form.Item>
         <Form.Item style={{ marginBottom: 0 }}>
           <Button type="primary" htmlType="submit" block loading={loading} className="lp-submit">
-            Xác nhận đặt lại
+            {t("auth.reset.submit")}
           </Button>
         </Form.Item>
       </Form>
 
       <p className="lp-register">
-        <Link to="/login" className="lp-lnk">← Về đăng nhập</Link>
+        <Link to="/login" className="lp-lnk">{t("auth.common.backToLogin")}</Link>
       </p>
     </AuthShell>
   );
