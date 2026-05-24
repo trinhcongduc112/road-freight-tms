@@ -304,19 +304,18 @@ export async function listOrders(req, res) {
       filter.OrderDate.$lte = to;
     }
   }
-  if (req.query.product) {
-    const keyword = String(req.query.product).trim();
-    if (keyword) {
-      const productFilter = {
-        ...(filter.OrganizationID ? { OrganizationID: filter.OrganizationID } : {}),
-        $or: [
-          { ProductCode: { $regex: keyword, $options: "i" } },
-          { XName: { $regex: keyword, $options: "i" } }
-        ]
-      };
-      const productCodes = await Product.distinct("ProductCode", productFilter);
-      filter["Items.ProductCode"] = { $in: productCodes.length ? productCodes : [keyword.toUpperCase()] };
-    }
+  const keyword = String(req.query.keyword ?? req.query.product ?? "").trim();
+  if (keyword) {
+    const rx = { $regex: keyword, $options: "i" };
+    const productCodes = await Product.distinct("ProductCode", {
+      ...(filter.OrganizationID ? { OrganizationID: filter.OrganizationID } : {}),
+      $or: [{ ProductCode: rx }, { XName: rx }]
+    });
+    filter.$or = [
+      { OrderCode: rx },
+      { CustomerCode: rx },
+      { "Items.ProductCode": { $in: productCodes.length ? productCodes : [keyword.toUpperCase()] } }
+    ];
   }
 
   const page = Math.max(1, parseInt(req.query.page) || 1);

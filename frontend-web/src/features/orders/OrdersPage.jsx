@@ -124,7 +124,7 @@ export default function OrdersPage() {
 
   const [statusFilter, setStatusFilter] = useState(undefined);
   const [approvalFilter, setApprovalFilter] = useState(initialApproval);
-  const [productFilter, setProductFilter] = useState(initialCustomerKw);
+  const [keyword, setKeyword] = useState(initialCustomerKw);
   const [dateRange, setDateRange] = useState(initialDateRange);
 
   // Dọn URL sau khi đã consume — user đổi filter sau đó không bị stuck deep-link
@@ -155,12 +155,12 @@ export default function OrdersPage() {
   const [statusForm] = Form.useForm();
 
   const ordersQ = useQuery({
-    queryKey: ["orders", statusFilter, approvalFilter, productFilter, dateRange?.[0]?.format("YYYY-MM-DD"), dateRange?.[1]?.format("YYYY-MM-DD"), page, pageSize],
+    queryKey: ["orders", statusFilter, approvalFilter, keyword, dateRange?.[0]?.format("YYYY-MM-DD"), dateRange?.[1]?.format("YYYY-MM-DD"), page, pageSize],
     queryFn: () => {
       const params = { page, limit: pageSize };
       if (statusFilter) params.status = statusFilter;
       if (approvalFilter) params.approvalStatus = approvalFilter;
-      if (productFilter.trim()) params.product = productFilter.trim();
+      if (keyword.trim()) params.keyword = keyword.trim();
       if (dateRange?.[0]) params.dateFrom = dateRange[0].format("YYYY-MM-DD");
       if (dateRange?.[1]) params.dateTo = dateRange[1].format("YYYY-MM-DD");
       return orderApi.list(params);
@@ -196,7 +196,8 @@ export default function OrdersPage() {
           const product = productByCode[it.ProductCode];
           return (
             <div key={`${order._id}-${it.ProductCode}`} style={{ lineHeight: 1.25 }}>
-              <Text style={{ fontSize: 12 }}>{product?.XName ?? it.ProductCode}</Text>
+              <Text code style={{ fontSize: 11 }}>{it.ProductCode}</Text>
+              {product?.XName && <Text style={{ fontSize: 12 }}> {product.XName}</Text>}
               <Text type="secondary" style={{ fontSize: 11 }}> · {it.NumberOfCases ?? 0} {t("orders.unit.case")}</Text>
             </div>
           );
@@ -499,13 +500,13 @@ export default function OrdersPage() {
 	            allowClear
 	            placeholder={t("orders.filter.searchProduct")}
 	            style={{ width: 260 }}
-	            value={productFilter}
+	            value={keyword}
 	            onChange={(e) => {
-	              setProductFilter(e.target.value);
+	              setKeyword(e.target.value);
 	              setPage(1);
 	            }}
 	            onSearch={(value) => {
-	              setProductFilter(value);
+	              setKeyword(value);
 	              setPage(1);
 	            }}
 	          />
