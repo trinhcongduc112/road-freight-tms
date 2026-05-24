@@ -231,8 +231,21 @@ function recomputeRouteTimings(route, vehicle, depotLatLng, departMinutes, traff
 }
 
 async function recomputeEstimatedCost(route) {
-  if (route.IsOutsourced && route.ServiceID) {
-    const svc = await Service.findById(route.ServiceID).lean();
+  const veh = await Vehicle.findById(route.VehicleID).lean();
+
+  // Xác định ServiceID dùng để tính chi phí:
+  //  1. ƯU TIÊN ServiceID set trên route (nếu user đã chọn)
+  //  2. FALLBACK ServiceID của vehicle nếu vehicle là 3PL (xe thuê ngoài luôn
+  //     phải tính qua Service — không có FixedCost/CostPerKm nội bộ)
+  const effectiveServiceID = route.ServiceID
+    || (veh?.EmploymentType === "OUTSOURCED" ? veh.ServiceID : null);
+
+  // Tính qua Service nếu: route đánh dấu 3PL HOẶC vehicle là 3PL (dù route bị set sai)
+  const useService = (route.IsOutsourced || veh?.EmploymentType === "OUTSOURCED")
+    && effectiveServiceID;
+
+  if (useService) {
+    const svc = await Service.findById(effectiveServiceID).lean();
     const km  = route.TotalDistance ?? 0;
     const kg  = route.TotalWeight ?? 0;
     const cbm = route.TotalVolume ?? 0;
@@ -242,7 +255,7 @@ async function recomputeEstimatedCost(route) {
     route.EstimatedCost = Math.round(charged * (1 + (svc?.FuelSurchargePercent ?? 0) / 100));
     return;
   }
-  const veh = await Vehicle.findById(route.VehicleID).lean();
+
   route.EstimatedCost = Math.round((veh?.FixedCost ?? 0) + (veh?.CostPerKm ?? 0) * (route.TotalDistance ?? 0));
 }
 
@@ -1268,19 +1281,9 @@ export async function assignRoute(req, res) {
     route.ServiceCode = service.ServiceCode ?? "";
   }
 
-  /* Compute estimated cost */
-  if (route.IsOutsourced && route.ServiceID) {
-    const svc = await Service.findById(route.ServiceID).lean();
-    const km  = route.TotalDistance ?? 0;
-    const kg  = route.TotalWeight ?? 0;
-    const cbm = route.TotalVolume ?? 0;
-    const base = (svc.FlatRate ?? 0) + (svc.PricePerKm ?? 0) * km
-               + (svc.PricePerKg ?? 0) * kg + (svc.PricePerCBM ?? 0) * cbm;
-    const charged = Math.max(base, svc.MinCharge ?? 0);
-    route.EstimatedCost = Math.round(charged * (1 + (svc.FuelSurchargePercent ?? 0) / 100));
-  } else if (route.VehicleID) {
-    const veh = await Vehicle.findById(route.VehicleID).lean();
-    route.EstimatedCost = Math.round((veh?.FixedCost ?? 0) + (veh?.CostPerKm ?? 0) * (route.TotalDistance ?? 0));
+  /* Compute estimated cost — dùng chung helper, auto-fallback Service nếu xe là 3PL */
+  if (route.VehicleID) {
+    await recomputeEstimatedCost(route);
   }
 
   /* If shift changed, recompute arrival times so they match new depart time */
