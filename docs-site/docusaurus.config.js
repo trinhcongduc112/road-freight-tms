@@ -9,9 +9,12 @@ const config = {
   tagline: "Hệ thống quản lý vận tải đường bộ đa tổ chức",
   favicon: "img/favicon.ico",
 
-  // GitHub Pages URL: https://trinhcongduc112.github.io/road-freight-tms/
-  url: "https://trinhcongduc112.github.io",
-  baseUrl: "/road-freight-tms/",
+  // Hai môi trường deploy:
+  //   - GitHub Pages (default): https://trinhcongduc112.github.io/road-freight-tms/
+  //   - Self-hosted EC2 / domain: set env DOCS_URL + DOCS_BASE_URL khi build
+  // VD build cho EC2:  DOCS_URL=http://47.129.225.75:8081 DOCS_BASE_URL=/ npm run build
+  url: process.env.DOCS_URL || "https://trinhcongduc112.github.io",
+  baseUrl: process.env.DOCS_BASE_URL || "/road-freight-tms/",
 
   organizationName: "trinhcongduc112",
   projectName: "road-freight-tms",

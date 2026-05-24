@@ -31,5 +31,7 @@ const driverSchema = new mongoose.Schema(
 );
 
 driverSchema.index({ OrganizationID: 1, DriverCode: 1 }, { unique: true });
+// Filter list theo loại 3PL/IN_HOUSE + Active — query phổ biến nhất trên trang Drivers
+driverSchema.index({ OrganizationID: 1, EmploymentType: 1, Status: 1 });
 
 export const Driver = mongoose.model("Driver", driverSchema);
