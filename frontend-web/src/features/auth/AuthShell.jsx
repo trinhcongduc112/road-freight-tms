@@ -1,16 +1,23 @@
 import { TruckFilled } from "@ant-design/icons";
+import { Dropdown } from "antd";
+import { languages, useLanguage } from "../../i18n.jsx";
 
 /**
  * Wrapper chung cho các trang Auth (Register, ForgotPassword, ResetPassword,
  * VerifyEmail, AcceptInvitation) — đồng nhất design với LoginPage.
  *
  * Dùng lại bộ CSS .lp-* trong src/styles/global.css.
- *
- *   <AuthShell title="Quên mật khẩu" subtitle="...">
- *     <Form>...</Form>
- *   </AuthShell>
+ * Có sẵn nút chuyển ngôn ngữ EN/VI ở footer.
  */
 export default function AuthShell({ title, subtitle, children, footer }) {
+  const { language, setLanguage } = useLanguage();
+  const languageMenuItems = languages.map((item) => ({
+    key: item.code,
+    label: item.label,
+    onClick: () => setLanguage(item.code)
+  }));
+  const currentLanguage = languages.find((item) => item.code === language) ?? languages[0];
+
   return (
     <div className="lp-shell">
       <div className="lp-overlay" />
@@ -34,7 +41,14 @@ export default function AuthShell({ title, subtitle, children, footer }) {
         </div>
       </main>
 
-      {footer && <footer className="lp-footer">{footer}</footer>}
+      <footer className="lp-footer">
+        <Dropdown menu={{ items: languageMenuItems, selectedKeys: [language] }} placement="top" trigger={["click"]}>
+          <button className="lp-language-toggle" type="button" aria-label="Language">
+            {currentLanguage.shortLabel}
+          </button>
+        </Dropdown>
+        {footer}
+      </footer>
     </div>
   );
 }
