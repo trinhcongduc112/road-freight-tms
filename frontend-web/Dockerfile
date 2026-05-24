@@ -1,5 +1,12 @@
 FROM node:20-alpine AS build
 WORKDIR /app
+
+# Build arg để Vite biết URL backend khi build prod.
+# Default "/api" → frontend gọi same-origin → nginx container proxy → backend.
+# Override từ compose: build args: VITE_API_URL=...
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY package*.json ./
 RUN npm install
 COPY . .
