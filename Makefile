@@ -9,7 +9,7 @@ ANDROID_AVD := Pixel_6
 .PHONY: help start stop mongo backend web dev seed logs check \
         install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop \
         docs docs-install docs-build docs-local docs-deploy docs-stop api-docs api-docs-sync \
-        build-mobile-android build-mobile-ios \
+        build-mobile-android build-mobile-ios build-apk-cloud download-apk release-apk \
         test test-backend test-web test-optimizer test-coverage test-report \
         test-e2e test-e2e-ui test-e2e-headed test-e2e-report \
         init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status
@@ -40,7 +40,10 @@ help:
 	@echo "  make mobile-ios       — Expo + iOS simulator (macOS)"
 	@echo "  make mobile-stop      — dừng Expo dev server"
 	@echo "  ── Build Mobile (APK/IPA file gửi giảng viên) ──────────────────"
-	@echo "  make build-mobile-android — build APK local → frontend-app/road-freight-driver.apk"
+	@echo "  make release-apk          — ★ build cloud + tải APK về máy (1 lệnh, ~15 phút)"
+	@echo "  make build-apk-cloud      — chỉ build trên cloud Expo, không tải về"
+	@echo "  make download-apk         — tải APK từ build cloud gần nhất (sau build-apk-cloud)"
+	@echo "  make build-mobile-android — build APK local (cần Android SDK trên máy — không khuyến nghị)"
 	@echo "  make build-mobile-ios     — build IPA local (macOS + Xcode)"
 	@echo "  ── Tài liệu User Docs (Docusaurus) ─────────────────────────────"
 	@echo "  make docs-local       — build + serve production tại http://localhost:3000  ★ recommended"
@@ -132,7 +135,9 @@ start-prod:
 	@echo "  ✔ Production stack đã start"
 	@echo "  ✔ Backend   — http://127.0.0.1:5000/api  (loopback only)"
 	@echo "  ✔ Optimizer — http://127.0.0.1:8000      (loopback only)"
-	@echo "  ✔ Web       — http://127.0.0.1:8080      (loopback only)"
+	@echo "  ✔ Web       — http://<EC2-IP>:8080       (public)"
+	@echo "  ✔ Docs      — http://<EC2-IP>:8081       (public)"
+	@echo "  ✔ Swagger   — http://<EC2-IP>:8080/api-docs"
 	@echo ""
 	@echo "  Xem log:  make logs env=prod   |  Dừng: make stop-prod"
 
@@ -340,6 +345,43 @@ build-mobile-android:
 	@echo "  ⏱  Lần đầu ~5-15 phút (download Gradle), lần sau nhanh hơn"
 	@echo ""
 	$(NVM) && cd frontend-app && npx eas-cli@latest build --platform android --profile preview --local --non-interactive --output ./road-freight-driver.apk
+
+# Build APK trên cloud Expo (KHÔNG cần Android SDK trên máy) — ~10-15 phút.
+# Sau khi build xong, file APK nằm trên server Expo → dùng `make download-apk` để tải về.
+# Khuyến nghị dùng `make release-apk` (combo build + download tự động).
+build-apk-cloud:
+	@echo ""
+	@echo "  ☁  Build APK trên cloud Expo (free tier — 30 build/tháng)"
+	@echo "  ⏱  Thường 10-15 phút. Không cần Android SDK trên máy."
+	@echo "  📡 EXPO_PUBLIC_API_URL từ eas.json: http://47.129.225.75:8080/api"
+	@echo ""
+	$(NVM) && cd frontend-app && npx eas-cli@latest build --platform android --profile preview --non-interactive
+
+# ⭐ ALL-IN-ONE: build cloud + download APK về frontend-app/road-freight-driver.apk
+# Dùng lệnh này khi muốn ra file APK gửi khách bằng 1 lệnh duy nhất.
+release-apk: build-apk-cloud download-apk
+
+# Tải file APK từ build cloud Expo gần nhất về máy → frontend-app/road-freight-driver.apk.
+# Dùng khi đã build bằng `eas-cli build --platform android` (không có --local) → server EAS giữ artifact,
+# lệnh này lấy URL artifact mới nhất rồi curl về để gửi khách / upload Drive.
+download-apk:
+	@command -v jq >/dev/null 2>&1 || { echo "  ❌ Cần cài jq:  sudo apt install -y jq"; exit 1; }
+	@echo ""
+	@echo "  🔍 Tìm build APK mới nhất trên Expo cloud..."
+	@cd frontend-app && BUILD_JSON=$$($(NVM) && npx eas-cli@latest build:list --platform android --status finished --limit 1 --json --non-interactive 2>/dev/null) && \
+		URL=$$(echo "$$BUILD_JSON" | jq -r '.[0].artifacts.buildUrl') && \
+		ID=$$(echo "$$BUILD_JSON" | jq -r '.[0].id') && \
+		if [ -z "$$URL" ] || [ "$$URL" = "null" ]; then \
+			echo "  ❌ Không tìm thấy build APK đã finished. Chạy lại:"; \
+			echo "     cd frontend-app && npx eas-cli build --platform android --profile preview"; \
+			exit 1; \
+		fi && \
+		echo "  ✔ Build ID: $$ID" && \
+		echo "  ⬇  Tải về: frontend-app/road-freight-driver.apk" && \
+		curl -L --progress-bar -o road-freight-driver.apk "$$URL" && \
+		SIZE=$$(du -h road-freight-driver.apk | cut -f1) && \
+		echo "" && \
+		echo "  ✅ Xong! File:  $$(pwd)/road-freight-driver.apk  ($$SIZE)"
 
 build-mobile-ios:
 	@if [ "$$(uname)" != "Darwin" ]; then \

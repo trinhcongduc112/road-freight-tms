@@ -1,0 +1,10 @@
+node_modules
+build
+.docusaurus
+.cache-loader
+.env
+.env.local
+.git
+.vscode
+.idea
+*.log

@@ -147,5 +147,8 @@ const salesOrderSchema = new mongoose.Schema(
 salesOrderSchema.index({ OrganizationID: 1, OrderCode: 1 }, { unique: true });
 salesOrderSchema.index({ OrganizationID: 1, OrderDate: -1 });
 salesOrderSchema.index({ OrganizationID: 1, PlanningStatus: 1, OrderStatus: 1 });
+// Search all-in-one trên trang Orders: lọc OR theo CustomerCode hoặc Items.ProductCode
+salesOrderSchema.index({ OrganizationID: 1, CustomerCode: 1 });
+salesOrderSchema.index({ OrganizationID: 1, "Items.ProductCode": 1 });
 
 export const SalesOrder = mongoose.model("SalesOrder", salesOrderSchema);

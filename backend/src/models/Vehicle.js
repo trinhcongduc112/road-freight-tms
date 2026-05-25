@@ -43,5 +43,7 @@ const vehicleSchema = new mongoose.Schema(
 );
 
 vehicleSchema.index({ OrganizationID: 1, VehicleCode: 1 }, { unique: true });
+// Filter list theo loại 3PL/IN_HOUSE + Active — query phổ biến nhất trên trang Vehicles
+vehicleSchema.index({ OrganizationID: 1, EmploymentType: 1, Status: 1 });
 
 export const Vehicle = mongoose.model("Vehicle", vehicleSchema);

@@ -37,3 +37,10 @@ e2e/playwright-report/
 e2e/test-results/
 playwright-report/
 test-results/
+
+# Mobile build artifacts — APK / AAB / IPA tải về từ EAS, không commit binary (~70MB)
+frontend-app/*.apk
+frontend-app/*.aab
+frontend-app/*.ipa
+# Icon preview mockup — generate lại được, không cần commit
+frontend-app/assets/_preview_*.png

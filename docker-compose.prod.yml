@@ -63,6 +63,20 @@ services:
       # Nginx container đã proxy /api/* + /socket.io/* → backend (port 5000 không cần expose)
       - "0.0.0.0:8080:80"
 
+  docs:
+    build:
+      context: ./docs-site
+      args:
+        # Self-host root → baseUrl="/" (override GitHub Pages default trong docusaurus.config.js)
+        DOCS_URL: ${DOCS_URL:-http://localhost:8081}
+        DOCS_BASE_URL: ${DOCS_BASE_URL:-/}
+    image: road-freight-tms-docs:prod
+    container_name: tms-docs
+    restart: unless-stopped
+    ports:
+      # User docs ở port riêng → không xung đột route React Router của web app
+      - "0.0.0.0:8081:80"
+
 volumes:
   mongo-data:
     name: tms-mongo-data

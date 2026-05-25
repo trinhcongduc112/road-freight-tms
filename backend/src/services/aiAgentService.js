@@ -597,10 +597,31 @@ function parseCommandFallback(rawCommand) {
   return null;
 }
 
+// Friendly label cho từng tool — dùng để hiển thị progress khi stream.
+// Khi user gõ "tải báo cáo", thay vì spinner trống, hiện "Đang chuẩn bị tải báo cáo..."
+const TOOL_LABELS = {
+  navigate: "Đang điều hướng",
+  downloadReport: "Đang chuẩn bị tải báo cáo",
+  openOrders: "Đang mở trang đơn hàng",
+  openMasterData: "Đang mở dữ liệu chính",
+  openUsers: "Đang mở quản lý người dùng",
+  openMonitoring: "Đang mở giám sát",
+  openPlanning: "Đang mở lập kế hoạch",
+  createRoutePlan: "Đang tạo lộ trình tối ưu",
+  openPayroll: "Đang mở bảng lương",
+  openMaintenance: "Đang mở bảo dưỡng",
+  openAuditLogs: "Đang mở nhật ký hệ thống",
+  searchTrips: "Đang tra cứu chuyến xe",
+  searchOrders: "Đang tra cứu đơn hàng"
+};
+
 /**
  * Public entry — gọi Gemini với agent tools, trả lại { message, actions[] }.
+ * @param {function} [onProgress]  Callback nhận event progress: { stage, ...meta }.
+ *   stage: "start" | "thinking" | "tool_call" | "tool_done" | "fallback"
+ *   Dùng cho streaming endpoint hiển thị tiến trình realtime cho user.
  */
-export async function runAgent({ command, history = [], orgId = null, userId = null }) {
+export async function runAgent({ command, history = [], orgId = null, userId = null, onProgress = () => {} }) {
   const client = getClient();
   if (!client) {
     return { ok: false, message: "AI Agent chưa được cấu hình (thiếu GEMINI_API_KEY).", actions: [] };
@@ -629,6 +650,7 @@ export async function runAgent({ command, history = [], orgId = null, userId = n
 
     const today = new Date().toISOString().slice(0, 10);
     const chat = model.startChat({ history: geminiHistory });
+    onProgress({ stage: "thinking", label: "Đang phân tích yêu cầu" });
     let result = await chat.sendMessage(`[Ngữ cảnh: hôm nay là ${today}]\n\n${command}`);
     const actions = [];
     const ctx = { orgId, userId };
@@ -641,6 +663,8 @@ export async function runAgent({ command, history = [], orgId = null, userId = n
 
       const dataResponses = [];
       for (const call of calls) {
+        const label = TOOL_LABELS[call.name] || `Đang thực thi ${call.name}`;
+        onProgress({ stage: "tool_call", tool: call.name, label });
         if (DATA_TOOLS[call.name]) {
           // Data tool: execute backend, feed response về Gemini
           try {
@@ -656,9 +680,11 @@ export async function runAgent({ command, history = [], orgId = null, userId = n
           // Vẫn phải gửi response rỗng cho Gemini biết function đã chạy
           dataResponses.push({ functionResponse: { name: call.name, response: { done: true } } });
         }
+        onProgress({ stage: "tool_done", tool: call.name });
       }
 
       // Gửi tất cả responses về Gemini, nhận round tiếp theo
+      onProgress({ stage: "thinking", label: "Đang tổng hợp kết quả" });
       result = await chat.sendMessage(dataResponses);
     }
 
@@ -682,6 +708,7 @@ export async function runAgent({ command, history = [], orgId = null, userId = n
   } catch (err) {
     console.warn("[ai-agent] Gemini call failed:", err.message);
     // Fallback rule-based — khi Gemini lỗi (429, network, key sai) vẫn cố parse lệnh user
+    onProgress({ stage: "fallback", label: "Gemini lỗi — chuyển sang parser nội bộ" });
     const fallback = parseCommandFallback(command);
     if (fallback) {
       return { ok: true, ...fallback, fallback: true };

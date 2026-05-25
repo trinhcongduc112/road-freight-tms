@@ -24,6 +24,7 @@ export default function AiAgentPanel({ open, onClose }) {
   const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [progressLabel, setProgressLabel] = useState("");
   const [messages, setMessages] = useState(() => [
     { role: "agent", body: t("agent.welcome") }
   ]);
@@ -38,12 +39,15 @@ export default function AiAgentPanel({ open, onClose }) {
     if (!command || loading) return;
     setInput("");
     setLoading(true);
+    setProgressLabel(t("agent.working"));
     setMessages((prev) => [...prev, { role: "user", body: command }]);
 
     try {
       const history = messages.slice(-8);
-      const res = await agentApi.execute(command, history);
-      const payload = res?.data ?? res;
+      // Stream: update label theo mỗi progress event để user thấy AI đang làm gì
+      const payload = await agentApi.executeStream(command, history, (evt) => {
+        if (evt.type === "progress" && evt.label) setProgressLabel(evt.label);
+      });
       const message = payload?.message ?? "";
       const actions = Array.isArray(payload?.actions) ? payload.actions : [];
 
@@ -62,6 +66,7 @@ export default function AiAgentPanel({ open, onClose }) {
       setMessages((prev) => [...prev, { role: "agent", body: t("agent.error.send") }]);
     } finally {
       setLoading(false);
+      setProgressLabel("");
     }
   }
 
@@ -126,7 +131,9 @@ export default function AiAgentPanel({ open, onClose }) {
         {loading && (
           <div className="support-chat-loading">
             <Spin size="small" />
-            <span style={{ marginLeft: 8, fontSize: 12, color: "#64748b" }}>{t("agent.working")}</span>
+            <span style={{ marginLeft: 8, fontSize: 12, color: "#64748b" }}>
+              {progressLabel || t("agent.working")}…
+            </span>
           </div>
         )}
         <div ref={bottomRef} />
