@@ -25,11 +25,16 @@ export async function loadBaseUrl() {
   return cached;
 }
 
-/** Lưu URL mới + cập nhật cache. Trả lỗi nếu URL không hợp lệ. */
+/** Lưu URL mới + cập nhật cache. Trả lỗi nếu URL không hợp lệ.
+ *  Auto-append `/api` nếu user nhập thiếu (vd: "https://ductms.id.vn" → "https://ductms.id.vn/api").
+ *  Backend mount router tại /api → quên suffix này sẽ trả 405/404. */
 export async function setBaseUrl(url) {
-  const trimmed = String(url ?? "").trim().replace(/\/$/, "");
+  let trimmed = String(url ?? "").trim().replace(/\/+$/, "");
   if (!/^https?:\/\/[^\s]+/.test(trimmed)) {
     throw new Error("URL phải bắt đầu bằng http:// hoặc https://");
+  }
+  if (!/\/api(\/.*)?$/.test(trimmed)) {
+    trimmed += "/api";
   }
   await SecureStore.setItemAsync(KEY, trimmed);
   cached = trimmed;
