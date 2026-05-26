@@ -27,6 +27,7 @@ import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { trackByOrderCode } from "../../api/tracking";
+import { buildTrackingNavigatePath } from "../../utils/trackingUrl";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -104,7 +105,7 @@ export default function TrackingPage() {
   const handleSearch = () => {
     const code = inputCode.trim().toUpperCase();
     if (!code) return;
-    navigate(`/track/${code}`);
+    navigate(buildTrackingNavigatePath(code));
   };
 
   const mapCenter = useMemo(() => {

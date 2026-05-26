@@ -43,6 +43,7 @@ import { organizationApi } from "../../api/organization";
 import { customerApi, productApi, productCategoryApi } from "../../api/masterData";
 import { useLanguage } from "../../i18n.jsx";
 import { Permissions, usePermissions } from "../../utils/permissions";
+import { buildShareTrackingUrl } from "../../utils/trackingUrl";
 
 const { Text } = Typography;
 
@@ -413,7 +414,7 @@ export default function OrdersPage() {
               icon={<ShareAltOutlined />}
               style={{ color: "#722ed1", borderColor: "#d3adf7" }}
               onClick={() => {
-                const url = `${window.location.origin}/track/${record.OrderCode}`;
+                const url = buildShareTrackingUrl(record.OrderCode);
                 navigator.clipboard?.writeText(url);
                 modal.success({
                   title: "Link tracking đã sao chép",

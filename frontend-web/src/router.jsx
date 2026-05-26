@@ -17,8 +17,17 @@ import ReportingPage from "./features/reporting/ReportingPage";
 import DriverAppPage from "./features/driver/DriverAppPage";
 import AppLayout from "./layouts/AppLayout";
 import RequireAuth from "./utils/RequireAuth";
+import { isTrackSubdomain } from "./utils/trackingUrl";
 
-export const router = createBrowserRouter([
+// Track subdomain (track.<domain>) = public tracking only — không có login, admin, etc.
+// / → search form; /<orderCode> → auto load đơn.
+const trackSubdomainRoutes = [
+  { path: "/", element: <TrackingPage /> },
+  { path: "/:orderCode", element: <TrackingPage /> },
+  { path: "*", element: <Navigate to="/" replace /> }
+];
+
+const mainRoutes = [
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
   { path: "/verify-email", element: <VerifyEmailPage /> },
@@ -51,4 +60,6 @@ export const router = createBrowserRouter([
     ]
   },
   { path: "*", element: <Navigate to="/" replace /> }
-]);
+];
+
+export const router = createBrowserRouter(isTrackSubdomain() ? trackSubdomainRoutes : mainRoutes);
