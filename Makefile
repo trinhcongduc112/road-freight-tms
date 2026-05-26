@@ -17,7 +17,7 @@ ANDROID_AVD := Pixel_6
         test test-backend test-web test-optimizer test-coverage test-report \
         test-e2e test-e2e-ui test-e2e-headed test-e2e-report benchmark-cache backup-mongo restore-mongo \
         deploy-prod require-deploy-config init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status \
-        nginx-prod ssl-prod update-prod update-docs exec-backend exec-mongo
+        nginx-prod ssl-prod update-prod update-docs update-web update-backend exec-backend exec-mongo
 
 help:
 	@echo ""
@@ -38,6 +38,8 @@ help:
 	@echo "  make restart-prod     — restart sau khi update biến môi trường"
 	@echo "  make build-prod       — rebuild image (sau khi git pull)"
 	@echo "  make update-docs      — rebuild + restart riêng container docs"
+	@echo "  make update-web       — rebuild + restart riêng container frontend-web"
+	@echo "  make update-backend   — rebuild + restart riêng container backend"
 	@echo "  make logs-prod        — tail log production"
 	@echo "  make prod-status      — kiểm tra container đang Up?"
 	@echo "  make seed-prod        — seed dữ liệu mẫu vào DB production"
@@ -251,11 +253,19 @@ update-prod:
 	@$(COMPOSE_PROD) up -d
 	@echo "✔ Update xong. Xem log: make logs env=prod"
 
-# Rebuild + restart riêng container docs (không động vào backend/frontend đang chạy).
-# Dùng khi chỉ sửa Docusaurus mà không muốn down toàn bộ stack.
+# Rebuild + restart riêng từng container (không động cái khác đang chạy).
+# Dùng khi chỉ sửa 1 service mà không muốn down toàn bộ stack.
 update-docs:
 	@$(COMPOSE_PROD) up -d --no-deps --build docs
 	@echo "✔ Docs container đã rebuild"
+
+update-web:
+	@$(COMPOSE_PROD) up -d --no-deps --build frontend-web
+	@echo "✔ Frontend-web container đã rebuild"
+
+update-backend:
+	@$(COMPOSE_PROD) up -d --no-deps --build backend
+	@echo "✔ Backend container đã rebuild"
 
 # Cài nginx reverse proxy trên host. Đọc DOMAIN từ deploy.env (hoặc inline override).
 nginx-prod: require-deploy-config
