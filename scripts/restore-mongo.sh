@@ -2,7 +2,7 @@
 # Restore MongoDB từ file backup tạo bởi backup-mongo.sh
 #
 # Cách dùng:
-#   bash scripts/restore-mongo.sh backups/road_freight-2026-05-25_020000.tar.gz
+#   bash scripts/restore-mongo.sh backups/mongo/road_freight-2026-05-25_020000.tar.gz
 #
 # ⚠️ Lệnh này sẽ DROP database hiện tại trước khi restore. Bỏ flag --drop trong code nếu muốn merge.
 
@@ -16,7 +16,7 @@ if [ -z "$BACKUP_FILE" ] || [ ! -f "$BACKUP_FILE" ]; then
   echo "Usage: $0 <backup-file.tar.gz>"
   echo ""
   echo "Backup hiện có:"
-  ls -lhrt backups/ 2>/dev/null || echo "  (chưa có backup nào)"
+  ls -lhrt backups/mongo/ 2>/dev/null || echo "  (chưa có backup nào)"
   exit 1
 fi
 

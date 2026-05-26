@@ -482,16 +482,17 @@ backup-mongo:
 	@bash scripts/backup-mongo.sh
 
 # Backup ảnh ePOD (file tĩnh, dùng tar trực tiếp). Retention 14 ngày như MongoDB.
+# Output: backups/uploads/uploads-YYYY-MM-DD_HHMMSS.tar.gz (tách subfolder để khỏi lẫn với DB backup)
 backup-uploads:
-	@mkdir -p backups
+	@mkdir -p backups/uploads
 	@if [ ! -d backend/uploads ] || [ -z "$$(ls -A backend/uploads 2>/dev/null)" ]; then \
 		echo "  ⚠ backend/uploads/ trống — bỏ qua backup ảnh"; \
 	else \
-		OUT=backups/uploads-$$(date +%Y-%m-%d_%H%M%S).tar.gz; \
+		OUT=backups/uploads/uploads-$$(date +%Y-%m-%d_%H%M%S).tar.gz; \
 		tar -czf $$OUT -C backend uploads/ 2>/dev/null; \
 		SIZE=$$(du -h $$OUT | cut -f1); \
 		echo "  ✔ Backup ảnh ePOD: $$OUT ($$SIZE)"; \
-		DELETED=$$(find backups/ -name "uploads-*.tar.gz" -mtime +14 -delete -print 2>/dev/null | wc -l); \
+		DELETED=$$(find backups/uploads/ -name "uploads-*.tar.gz" -mtime +14 -delete -print 2>/dev/null | wc -l); \
 		echo "  ✔ Đã xoá $$DELETED bản uploads cũ > 14 ngày"; \
 	fi
 
@@ -499,12 +500,13 @@ backup-uploads:
 backup-all: backup-mongo backup-uploads
 	@echo ""
 	@echo "  ✔ Backup hoàn tất (DB + ảnh ePOD)"
-	@ls -lhrt backups/ | tail -4
+	@echo "  📁 backups/mongo/    — DB snapshots"
+	@echo "  📁 backups/uploads/  — ePOD images"
 
 restore-mongo:
 	@echo ""
 	@echo "  Usage: bash scripts/restore-mongo.sh <backup-file>"
-	@ls -lhrt backups/ 2>/dev/null || echo "  (chưa có backup nào — chạy: make backup-mongo)"
+	@ls -lhrt backups/mongo/ 2>/dev/null || echo "  (chưa có backup nào — chạy: make backup-mongo)"
 
 benchmark-cache:
 	@echo ""

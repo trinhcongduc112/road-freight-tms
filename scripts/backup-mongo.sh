@@ -16,7 +16,7 @@ set -euo pipefail
 
 DB_NAME="${DB_NAME:-road_freight}"
 CONTAINER="${MONGO_CONTAINER:-tms-mongo}"
-BACKUP_DIR="${BACKUP_DIR:-$(dirname "$0")/../backups}"
+BACKUP_DIR="${BACKUP_DIR:-$(dirname "$0")/../backups/mongo}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 TIMESTAMP=$(date +%Y-%m-%d_%H%M%S)
 OUT="${BACKUP_DIR}/${DB_NAME}-${TIMESTAMP}.tar.gz"
