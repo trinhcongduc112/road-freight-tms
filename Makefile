@@ -6,13 +6,17 @@ LOG_FE     := /tmp/tms-frontend.log
 LOG_MOBILE := /tmp/tms-mobile.log
 ANDROID_AVD := Pixel_6
 
+# Production config — đọc DOMAIN + EMAIL từ deploy.env (commit cùng repo).
+# Đổi domain? Sửa 2 dòng trong deploy.env, không cần đụng Makefile.
+-include deploy.env
+
 .PHONY: help start stop mongo backend web dev seed logs check \
         install clean db-ui db mobile mobile-android mobile-ios mobile-localhost mobile-stop \
         docs docs-install docs-build docs-local docs-deploy docs-stop api-docs api-docs-sync \
         build-mobile-android build-mobile-ios build-apk-cloud download-apk release-apk \
         test test-backend test-web test-optimizer test-coverage test-report \
         test-e2e test-e2e-ui test-e2e-headed test-e2e-report benchmark-cache backup-mongo restore-mongo \
-        init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status \
+        deploy-prod require-deploy-config init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status \
         nginx-prod ssl-prod update-prod update-docs exec-backend exec-mongo
 
 help:
@@ -26,18 +30,19 @@ help:
 	@echo "  make check env=dev    — kiểm tra biến môi trường dev"
 	@echo "  make check env=prod   — kiểm tra biến môi trường production (ẩn secrets)"
 	@echo "  ── PRODUCTION (Docker Compose trên server EC2 / VPS) ──────────"
-	@echo "  make init-prod        — ★ chạy LẦN ĐẦU: tạo .env.production + sinh JWT_SECRET"
+	@echo "  make deploy-prod      — ★★ DEPLOY 1 LỆNH: init + start + nginx + SSL (lần đầu trên server mới)"
+	@echo "  make update-prod      — ★ update sau lần deploy đầu: git pull + rebuild + restart"
+	@echo "  make init-prod        — chỉ tạo .env.production + sinh secrets (deploy-prod gọi tự động)"
 	@echo "  make start-prod       — build + start toàn bộ stack production"
 	@echo "  make stop-prod        — dừng production stack"
 	@echo "  make restart-prod     — restart sau khi update biến môi trường"
 	@echo "  make build-prod       — rebuild image (sau khi git pull)"
-	@echo "  make update-prod      — ★ git pull + rebuild + restart (deploy 1 lệnh)"
 	@echo "  make update-docs      — rebuild + restart riêng container docs"
 	@echo "  make logs-prod        — tail log production"
 	@echo "  make prod-status      — kiểm tra container đang Up?"
 	@echo "  make seed-prod        — seed dữ liệu mẫu vào DB production"
-	@echo "  make nginx-prod       — copy nginx config + reload (cần DOMAIN=ductms.id.vn)"
-	@echo "  make ssl-prod         — cài Let's Encrypt cho 5 subdomain (cần DOMAIN=… EMAIL=…)"
+	@echo "  make nginx-prod       — copy nginx config + reload (đọc DOMAIN từ deploy.env)"
+	@echo "  make ssl-prod         — cài Let's Encrypt 5 subdomain (đọc DOMAIN + EMAIL từ deploy.env)"
 	@echo "  make exec-backend     — vào shell backend container debug"
 	@echo "  make exec-mongo       — mongosh vào DB production"
 	@echo "  ── Mobile App (Tài xế) ─────────────────────────────────────────"
@@ -112,33 +117,91 @@ stop:
 # ─────────────────────────────────────────────────────────────────
 COMPOSE_PROD := docker compose -f docker-compose.prod.yml
 
-# Setup lần đầu: copy template + auto-sinh JWT_SECRET + auto-detect EC2 IP cho FRONTEND_URL
-init-prod:
+# Guard: bảo vệ trường hợp deploy.env bị xóa hoặc rỗng.
+# Bình thường deploy.env có sẵn trong repo → guard này không kích hoạt.
+require-deploy-config:
+	@if [ -z "$(DOMAIN)" ] || [ -z "$(EMAIL)" ]; then \
+		echo ""; \
+		echo "  ✗ deploy.env thiếu DOMAIN hoặc EMAIL."; \
+		echo "  Sửa file deploy.env (gồm 2 dòng) rồi chạy lại."; \
+		echo "  Hoặc truyền inline: make deploy-prod DOMAIN=... EMAIL=..."; \
+		echo ""; \
+		exit 1; \
+	fi
+
+# ★★ Deploy 1 lệnh duy nhất trên server mới:
+#    git clone → cd TMS → make deploy-prod
+# Tự đọc DOMAIN + EMAIL từ deploy.env (đã commit cùng repo).
+# Bao gồm: tạo .env (auto secrets) → build + start container → cài nginx → cài SSL.
+# Không seed DB (an toàn — chạy `make seed-prod` riêng nếu muốn dữ liệu mẫu).
+# Idempotent: chạy lại nhiều lần OK; init-prod skip nếu đã có .env, certbot renew nếu cert sắp hết hạn.
+deploy-prod: require-deploy-config
+	@echo "════════════════════════════════════════════════════════"
+	@echo "  ▶  DEPLOY PRODUCTION  →  https://$(DOMAIN)"
+	@echo "════════════════════════════════════════════════════════"
+	@echo ""
+	@echo "  [1/4] Tạo .env.production (auto secrets, không cần điền tay)"
+	@$(MAKE) --no-print-directory init-prod
+	@echo ""
+	@echo "  [2/4] Build + start Docker stack (mongo + redis + optimizer + backend + web + docs)"
+	@$(MAKE) --no-print-directory start-prod
+	@echo ""
+	@echo "  [3/4] Cài Nginx reverse proxy cho 5 subdomain"
+	@$(MAKE) --no-print-directory nginx-prod
+	@echo ""
+	@echo "  [4/4] Cài SSL Let's Encrypt (HTTPS) cho 5 subdomain"
+	@$(MAKE) --no-print-directory ssl-prod
+	@echo ""
+	@echo "════════════════════════════════════════════════════════"
+	@echo "  ✔  DEPLOY XONG"
+	@echo "════════════════════════════════════════════════════════"
+	@echo "  ✔ Web      → https://$(DOMAIN)"
+	@echo "  ✔ Track    → https://track.$(DOMAIN)"
+	@echo "  ✔ Route    → https://route.$(DOMAIN)"
+	@echo "  ✔ Docs     → https://docs.$(DOMAIN)"
+	@echo "  ✔ API      → https://$(DOMAIN)/api"
+	@echo ""
+	@echo "  Tiếp theo:"
+	@echo "    make seed-prod        — seed dữ liệu mẫu (chỉ chạy LẦN ĐẦU, KHÔNG chạy lại nếu đã có data thật)"
+	@echo "    make logs env=prod    — xem log realtime"
+	@echo "    make update-prod      — sau này muốn update code từ git"
+	@echo ""
+
+# Setup lần đầu: copy template + auto sinh JWT/REFRESH secret + set FRONTEND_URL/CORS từ DOMAIN.
+# Không yêu cầu điền tay gì — SMTP/Gemini để rỗng, backend graceful skip 2 feature đó.
+# Idempotent: chạy lại sẽ skip nếu file đã tồn tại.
+init-prod: require-deploy-config
 	@if [ -f backend/.env.production ]; then \
 		echo "✔ backend/.env.production đã tồn tại — bỏ qua. Muốn tạo lại? Xoá tay rồi chạy lại."; \
 	else \
 		cp backend/.env.production.example backend/.env.production; \
 		JWT=$$(openssl rand -hex 32); \
-		IP=$$(curl -s --max-time 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $$1}'); \
+		REFRESH=$$(openssl rand -hex 32); \
 		sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$$JWT|" backend/.env.production; \
-		sed -i "s|^FRONTEND_URL=.*|FRONTEND_URL=http://$$IP:8080|" backend/.env.production; \
-		echo "✔ Tạo backend/.env.production từ template"; \
-		echo "✔ Sinh JWT_SECRET ngẫu nhiên 256-bit"; \
-		echo "✔ Set FRONTEND_URL=http://$$IP:8080 (auto-detect)"; \
+		if grep -q "^REFRESH_JWT_SECRET" backend/.env.production; then \
+			sed -i "s|^REFRESH_JWT_SECRET=.*|REFRESH_JWT_SECRET=$$REFRESH|" backend/.env.production; \
+		else \
+			echo "REFRESH_JWT_SECRET=$$REFRESH" >> backend/.env.production; \
+		fi; \
+		sed -i "s|^FRONTEND_URL=.*|FRONTEND_URL=https://$(DOMAIN)|" backend/.env.production; \
+		sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=https://$(DOMAIN),https://www.$(DOMAIN),https://route.$(DOMAIN),https://track.$(DOMAIN),https://docs.$(DOMAIN)|" backend/.env.production; \
+		echo "✔ Tạo backend/.env.production"; \
+		echo "✔ JWT_SECRET + REFRESH_JWT_SECRET ngẫu nhiên 256-bit"; \
+		echo "✔ FRONTEND_URL=https://$(DOMAIN)"; \
+		echo "✔ CORS_ORIGINS=5 subdomain HTTPS"; \
 		echo ""; \
-		echo "  Còn lại 2 field BẮT BUỘC điền tay (Gmail SMTP):"; \
-		echo "  - SMTP_USER     (email Gmail hệ thống — vd: company-noreply@gmail.com)"; \
-		echo "  - SMTP_PASS     (App Password 16 ký tự — lấy tại myaccount.google.com/apppasswords)"; \
-		echo ""; \
-		echo "  Sửa: nano backend/.env.production"; \
-		echo "  Khi xong: make start-prod"; \
+		echo "  Optional (thêm sau nếu muốn — backend đã skip an toàn nếu rỗng):"; \
+		echo "  - SMTP_USER/SMTP_PASS  → bật gửi mail xác thực + quên mật khẩu"; \
+		echo "  - GEMINI_API_KEY       → bật AI chat assistant"; \
+		echo "  - SENTRY_DSN           → bật error tracking"; \
+		echo "  Sau khi sửa: make restart-prod"; \
 	fi
 
 start-prod:
 	@if [ ! -f backend/.env.production ]; then \
 		echo "✗ Thiếu file backend/.env.production"; \
-		echo "  Chạy: make init-prod  (auto tạo + sinh JWT_SECRET)"; \
-		echo "  Sau đó: nano backend/.env.production để điền SMTP_USER + SMTP_PASS + FRONTEND_URL"; \
+		echo "  Chạy: make init-prod   (auto tạo, không cần điền tay)"; \
+		echo "  Hoặc:  make deploy-prod (init + start + nginx + SSL — 1 lệnh)"; \
 		exit 1; \
 	fi
 	@$(COMPOSE_PROD) up -d --build
@@ -146,12 +209,13 @@ start-prod:
 	@echo "  ✔ Production stack đã start"
 	@echo "  ✔ Backend   — http://127.0.0.1:5000/api  (loopback only)"
 	@echo "  ✔ Optimizer — http://127.0.0.1:8000      (loopback only)"
-	@echo "  ✔ Web       — http://<EC2-IP>:8080       (qua Nginx → HTTPS sau)"
-	@echo "  ✔ Docs      — http://<EC2-IP>:8081       (qua Nginx → HTTPS sau)"
+	@echo "  ✔ Web       — port 8080 (qua Nginx → https://$(DOMAIN))"
+	@echo "  ✔ Docs      — port 8081 (qua Nginx → https://docs.$(DOMAIN))"
 	@echo ""
-	@echo "  Bước kế tiếp (chỉ chạy lần đầu, có domain):"
-	@echo "    make nginx-prod DOMAIN=ductms.id.vn"
-	@echo "    make ssl-prod   DOMAIN=ductms.id.vn EMAIL=your@gmail.com"
+	@echo "  Lần đầu, sau lệnh này còn cần:"
+	@echo "    make nginx-prod   (cài reverse proxy, default DOMAIN=$(DOMAIN))"
+	@echo "    make ssl-prod     (cài SSL, default EMAIL=$(EMAIL))"
+	@echo "  Hoặc gọn 1 lệnh:   make deploy-prod"
 	@echo ""
 	@echo "  Xem log:  make logs env=prod   |  Dừng: make stop-prod"
 
@@ -193,13 +257,8 @@ update-docs:
 	@$(COMPOSE_PROD) up -d --no-deps --build docs
 	@echo "✔ Docs container đã rebuild"
 
-# Cài nginx reverse proxy trên host. Yêu cầu DOMAIN.
-# Vd: make nginx-prod DOMAIN=ductms.id.vn
-nginx-prod:
-	@if [ -z "$(DOMAIN)" ]; then \
-		echo "✗ Thiếu DOMAIN. Vd: make nginx-prod DOMAIN=ductms.id.vn"; \
-		exit 1; \
-	fi
+# Cài nginx reverse proxy trên host. Đọc DOMAIN từ deploy.env (hoặc inline override).
+nginx-prod: require-deploy-config
 	@if [ ! -d /etc/nginx/sites-available ]; then \
 		echo "✗ Nginx chưa cài. Chạy: sudo apt install -y nginx"; \
 		exit 1; \
@@ -212,14 +271,8 @@ nginx-prod:
 	@echo "  Test: curl -I http://$(DOMAIN)"
 	@echo "  Tiếp theo: make ssl-prod DOMAIN=$(DOMAIN) EMAIL=your-email@gmail.com"
 
-# Cài SSL Let's Encrypt cho 5 subdomain. Yêu cầu DOMAIN + EMAIL.
-# Vd: make ssl-prod DOMAIN=ductms.id.vn EMAIL=ductuyetvoi@gmail.com
-ssl-prod:
-	@if [ -z "$(DOMAIN)" ] || [ -z "$(EMAIL)" ]; then \
-		echo "✗ Thiếu DOMAIN hoặc EMAIL."; \
-		echo "  Vd: make ssl-prod DOMAIN=ductms.id.vn EMAIL=ductuyetvoi@gmail.com"; \
-		exit 1; \
-	fi
+# Cài SSL Let's Encrypt cho 5 subdomain. Đọc DOMAIN + EMAIL từ deploy.env (hoặc inline override).
+ssl-prod: require-deploy-config
 	@command -v certbot >/dev/null 2>&1 || { \
 		echo "▶ Cài certbot ..."; \
 		sudo snap install --classic certbot; \
@@ -280,7 +333,8 @@ api-docs-sync:
 	@echo "OK — $$(wc -c < docs-site/static/openapi.json) bytes"
 
 mongo:
-	docker start road-freight-mongo
+	@docker start road-freight-mongo 2>/dev/null || \
+	docker run -d --name road-freight-mongo -p 27017:27017 mongo:7
 
 backend:
 	$(NVM) && cd backend && npm run dev
@@ -342,12 +396,6 @@ install:
 	$(NVM) && cd frontend-web && npm install
 	$(NVM) && cd frontend-app && npm install
 	$(NVM) && cd docs-site && npm install
-
-update-backend:
-	docker compose -f docker-compose.prod.yml up -d --no-deps --build tms-backend
-
-update-web:
-	docker compose -f docker-compose.prod.yml up -d --no-deps --build tms-web
 
 # ── Mobile App ──────────────────────────────────────────────────────────────
 
