@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import {
   Card,
   Input,
@@ -118,8 +119,22 @@ export default function TrackingPage() {
     return [21.0285, 105.8542];
   }, [data]);
 
+  const pageTitle = data?.order?.OrderCode
+    ? `Theo dõi đơn ${data.order.OrderCode} — Road Freight TMS`
+    : "Theo dõi đơn hàng — Road Freight TMS";
+  const pageDesc = data?.order?.OrderCode
+    ? `Trạng thái vận chuyển đơn ${data.order.OrderCode} theo thời gian thực — vị trí xe, ETA, ảnh giao hàng.`
+    : "Tra cứu trạng thái đơn hàng vận tải theo thời gian thực. Nhập mã đơn để xem vị trí xe, ETA, ảnh ePOD.";
+
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f0f4ff 0%, #e6f7ff 100%)", padding: "24px 16px" }}>
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDesc} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDesc} />
+        <link rel="canonical" href={`https://track.ductms.id.vn${codeFromUrl ? `/${codeFromUrl}` : ""}`} />
+      </Helmet>
       <div style={{ maxWidth: 920, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
