@@ -1,3 +1,7 @@
+// Sentry phải init TRƯỚC mọi import khác để hook được error xảy ra trong module loading
+import { initSentry, sentryErrorHandler } from "./config/sentry.js";
+initSentry();
+
 import "express-async-errors";
 import cors from "cors";
 import express from "express";
@@ -10,6 +14,7 @@ import { swaggerSpec } from "./config/swagger.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { perfMonitor } from "./middlewares/perfMonitor.js";
 import { auditLogger } from "./middlewares/audit.js";
+import { globalRateLimiter } from "./middlewares/rateLimit.js";
 import { apiRouter } from "./routes/index.js";
 import { logger } from "./utils/logger.js";
 import { initSocket } from "./socket.js";
@@ -23,7 +28,21 @@ async function bootstrap() {
   app.set("trust proxy", 1);
 
   app.use(helmet());
-  app.use(cors({ origin: env.frontendUrl, credentials: true }));
+  /* CORS đa origin:
+     - PROD: strict whitelist từ CORS_ORIGINS (CSV của các subdomain).
+     - DEV: ngoài whitelist, tự động cho phép localhost / 127.0.0.1 / LAN IPs để
+       không phải config gì khi test web/mobile trên cùng máy.
+     - Request không có Origin (mobile native, curl, server-to-server) luôn pass. */
+  const isDev = env.nodeEnv !== "production";
+  const LAN_IP_RE = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
+  const corsOrigin = (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (env.corsOrigins.includes("*")) return callback(null, true);
+    if (env.corsOrigins.includes(origin)) return callback(null, true);
+    if (isDev && LAN_IP_RE.test(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked: ${origin}`));
+  };
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(express.json({ limit: "5mb" }));
   app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
 
@@ -40,14 +59,17 @@ async function bootstrap() {
   );
   app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
 
-  app.use("/api", perfMonitor(), auditLogger(), apiRouter);
+  app.use("/api", globalRateLimiter, perfMonitor(), auditLogger(), apiRouter);
 
+  // Sentry error handler PHẢI đặt trước errorHandler chính
+  app.use(sentryErrorHandler());
   app.use(errorHandler);
 
   const server = http.createServer(app);
   
   // Initialize Socket.IO with the same CORS configuration as Express
-  initSocket(server, { origin: env.frontendUrl, credentials: true });
+  /* Socket.IO dùng cùng policy: strict prod, lenient dev. */
+  initSocket(server, { origin: corsOrigin, credentials: true });
 
   server.listen(env.port, env.host, () => {
     // Log đúng host đang bind — tránh confuse khi đọc log production

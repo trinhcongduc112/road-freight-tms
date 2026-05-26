@@ -11,8 +11,9 @@ ANDROID_AVD := Pixel_6
         docs docs-install docs-build docs-local docs-deploy docs-stop api-docs api-docs-sync \
         build-mobile-android build-mobile-ios build-apk-cloud download-apk release-apk \
         test test-backend test-web test-optimizer test-coverage test-report \
-        test-e2e test-e2e-ui test-e2e-headed test-e2e-report \
-        init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status
+        test-e2e test-e2e-ui test-e2e-headed test-e2e-report benchmark-cache backup-mongo restore-mongo \
+        init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status \
+        nginx-prod ssl-prod update-prod update-docs exec-backend exec-mongo
 
 help:
 	@echo ""
@@ -30,15 +31,25 @@ help:
 	@echo "  make stop-prod        — dừng production stack"
 	@echo "  make restart-prod     — restart sau khi update biến môi trường"
 	@echo "  make build-prod       — rebuild image (sau khi git pull)"
+	@echo "  make update-prod      — ★ git pull + rebuild + restart (deploy 1 lệnh)"
+	@echo "  make update-docs      — rebuild + restart riêng container docs"
 	@echo "  make logs-prod        — tail log production"
 	@echo "  make prod-status      — kiểm tra container đang Up?"
 	@echo "  make seed-prod        — seed dữ liệu mẫu vào DB production"
+	@echo "  make nginx-prod       — copy nginx config + reload (cần DOMAIN=ductms.id.vn)"
+	@echo "  make ssl-prod         — cài Let's Encrypt cho 5 subdomain (cần DOMAIN=… EMAIL=…)"
+	@echo "  make exec-backend     — vào shell backend container debug"
+	@echo "  make exec-mongo       — mongosh vào DB production"
 	@echo "  ── Mobile App (Tài xế) ─────────────────────────────────────────"
 	@echo "  make mobile           — Expo QR (--lan) cho điện thoại thật cùng WiFi"
 	@echo "  make mobile-localhost — Expo cho VM/emulator (--localhost)"
 	@echo "  make mobile-android   — Expo + Android emulator"
 	@echo "  make mobile-ios       — Expo + iOS simulator (macOS)"
 	@echo "  make mobile-stop      — dừng Expo dev server"
+	@echo "  ── Performance & Backup ────────────────────────────────────────"
+	@echo "  make benchmark-cache  — đo RPS trước/sau Redis cache → benchmark-result.md"
+	@echo "  make backup-mongo     — backup MongoDB → backups/*.tar.gz (chạy cron hàng ngày)"
+	@echo "  make restore-mongo    — restore từ backup (bash scripts/restore-mongo.sh <file>)"
 	@echo "  ── Build Mobile (APK/IPA file gửi giảng viên) ──────────────────"
 	@echo "  make release-apk          — ★ build cloud + tải APK về máy (1 lệnh, ~15 phút)"
 	@echo "  make build-apk-cloud      — chỉ build trên cloud Expo, không tải về"
@@ -135,9 +146,12 @@ start-prod:
 	@echo "  ✔ Production stack đã start"
 	@echo "  ✔ Backend   — http://127.0.0.1:5000/api  (loopback only)"
 	@echo "  ✔ Optimizer — http://127.0.0.1:8000      (loopback only)"
-	@echo "  ✔ Web       — http://<EC2-IP>:8080       (public)"
-	@echo "  ✔ Docs      — http://<EC2-IP>:8081       (public)"
-	@echo "  ✔ Swagger   — http://<EC2-IP>:8080/api-docs"
+	@echo "  ✔ Web       — http://<EC2-IP>:8080       (qua Nginx → HTTPS sau)"
+	@echo "  ✔ Docs      — http://<EC2-IP>:8081       (qua Nginx → HTTPS sau)"
+	@echo ""
+	@echo "  Bước kế tiếp (chỉ chạy lần đầu, có domain):"
+	@echo "    make nginx-prod DOMAIN=ductms.id.vn"
+	@echo "    make ssl-prod   DOMAIN=ductms.id.vn EMAIL=your@gmail.com"
 	@echo ""
 	@echo "  Xem log:  make logs env=prod   |  Dừng: make stop-prod"
 
@@ -162,6 +176,68 @@ prod-status:
 seed-prod:
 	@$(COMPOSE_PROD) exec backend node src/seed/seed.js
 	@echo "✔ Đã seed dữ liệu mẫu vào production DB"
+
+# Update 1 lệnh: git pull → rebuild → restart. Dùng khi đã có code mới trên main.
+update-prod:
+	@echo "▶ Đang pull code mới ..."
+	@git pull
+	@echo "▶ Rebuild image ..."
+	@$(COMPOSE_PROD) build
+	@echo "▶ Restart container đã đổi ..."
+	@$(COMPOSE_PROD) up -d
+	@echo "✔ Update xong. Xem log: make logs env=prod"
+
+# Rebuild + restart riêng container docs (không động vào backend/frontend đang chạy).
+# Dùng khi chỉ sửa Docusaurus mà không muốn down toàn bộ stack.
+update-docs:
+	@$(COMPOSE_PROD) up -d --no-deps --build docs
+	@echo "✔ Docs container đã rebuild"
+
+# Cài nginx reverse proxy trên host. Yêu cầu DOMAIN.
+# Vd: make nginx-prod DOMAIN=ductms.id.vn
+nginx-prod:
+	@if [ -z "$(DOMAIN)" ]; then \
+		echo "✗ Thiếu DOMAIN. Vd: make nginx-prod DOMAIN=ductms.id.vn"; \
+		exit 1; \
+	fi
+	@if [ ! -d /etc/nginx/sites-available ]; then \
+		echo "✗ Nginx chưa cài. Chạy: sudo apt install -y nginx"; \
+		exit 1; \
+	fi
+	@sed 's|__DOMAIN__|$(DOMAIN)|g' scripts/nginx/tms.conf.template | sudo tee /etc/nginx/sites-available/tms > /dev/null
+	@sudo ln -sf /etc/nginx/sites-available/tms /etc/nginx/sites-enabled/tms
+	@sudo rm -f /etc/nginx/sites-enabled/default
+	@sudo nginx -t && sudo systemctl reload nginx
+	@echo "✔ Nginx config OK + reload xong"
+	@echo "  Test: curl -I http://$(DOMAIN)"
+	@echo "  Tiếp theo: make ssl-prod DOMAIN=$(DOMAIN) EMAIL=your-email@gmail.com"
+
+# Cài SSL Let's Encrypt cho 5 subdomain. Yêu cầu DOMAIN + EMAIL.
+# Vd: make ssl-prod DOMAIN=ductms.id.vn EMAIL=ductuyetvoi@gmail.com
+ssl-prod:
+	@if [ -z "$(DOMAIN)" ] || [ -z "$(EMAIL)" ]; then \
+		echo "✗ Thiếu DOMAIN hoặc EMAIL."; \
+		echo "  Vd: make ssl-prod DOMAIN=ductms.id.vn EMAIL=ductuyetvoi@gmail.com"; \
+		exit 1; \
+	fi
+	@command -v certbot >/dev/null 2>&1 || { \
+		echo "▶ Cài certbot ..."; \
+		sudo snap install --classic certbot; \
+		sudo ln -sf /snap/bin/certbot /usr/bin/certbot; \
+	}
+	@sudo certbot --nginx \
+		-d $(DOMAIN) -d www.$(DOMAIN) -d route.$(DOMAIN) -d track.$(DOMAIN) -d docs.$(DOMAIN) \
+		--agree-tos -m $(EMAIL) --non-interactive --redirect
+	@echo "✔ SSL OK. Test: https://$(DOMAIN)"
+	@echo "  Auto-renew đã cài sẵn (certbot.timer)"
+
+# Debug nhanh: exec vào backend container
+exec-backend:
+	@$(COMPOSE_PROD) exec backend sh
+
+# Mở mongosh vào DB production
+exec-mongo:
+	@$(COMPOSE_PROD) exec mongo mongosh road_freight
 
 docs:
 	@echo "Đang khởi động User Docs tại http://localhost:3000 ..."
@@ -337,6 +413,27 @@ screenshot-mobile:
 #
 # Yêu cầu Android: JDK 17, Android SDK đã cài
 # Yêu cầu iOS:     macOS + Xcode + cocoapods (Linux không build được iOS)
+
+backup-mongo:
+	@echo ""
+	@echo "  💾 Backup MongoDB → backups/road_freight-YYYY-MM-DD.tar.gz"
+	@echo "  Yêu cầu: container 'tms-mongo' (prod) đang chạy"
+	@echo ""
+	@bash scripts/backup-mongo.sh
+
+restore-mongo:
+	@echo ""
+	@echo "  Usage: bash scripts/restore-mongo.sh <backup-file>"
+	@ls -lhrt backups/ 2>/dev/null || echo "  (chưa có backup nào — chạy: make backup-mongo)"
+
+benchmark-cache:
+	@echo ""
+	@echo "  ⏱  Benchmark cache layer — đo throughput trước/sau Redis cache"
+	@echo "  Yêu cầu: backend + Redis đang chạy (make start), seed data đã có"
+	@echo ""
+	@cd backend && node ../scripts/benchmark-cache.js
+	@echo ""
+	@echo "  ✔ Kết quả lưu tại  benchmark-result.md  (paste vào thesis)"
 
 build-mobile-android:
 	@echo ""

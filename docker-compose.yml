@@ -10,6 +10,15 @@ services:
     environment:
       MONGO_INITDB_DATABASE: road_freight
 
+  redis:
+    image: redis:7-alpine
+    container_name: road-freight-redis
+    restart: unless-stopped
+    # Bỏ persistence dev — cache rỗng sau restart không vấn đề
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+
   backend:
     build:
       context: ./backend
@@ -18,12 +27,14 @@ services:
     depends_on:
       - mongo
       - optimizer
+      - redis
     ports:
       - "5000:5000"
     environment:
       NODE_ENV: development
       PORT: 5000
       MONGODB_URI: mongodb://mongo:27017/road_freight
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: change-me-in-production
       JWT_EXPIRES_IN: 7d
       FRONTEND_URL: http://47.129.225.75:8080

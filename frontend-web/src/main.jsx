@@ -1,3 +1,6 @@
+// Init Sentry trước mọi import khác để hook lỗi lúc module load
+import "./sentry.js";
+
 import { ConfigProvider, App as AntApp } from "antd";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
