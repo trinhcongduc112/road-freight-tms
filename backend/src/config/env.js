@@ -23,11 +23,18 @@ export const env = {
   optimizerServiceUrl: process.env.OPTIMIZER_SERVICE_URL ?? "http://localhost:8000",
   optimizerTimeoutMs: Number(process.env.OPTIMIZER_TIMEOUT_MS ?? 60000),
   mongoUri: required("MONGODB_URI", "mongodb://localhost:27017/road_freight"),
+  // Redis cache + distributed rate-limit. Để rỗng → fallback chạy không cache (vẫn work, throughput thấp hơn).
+  redisUrl: process.env.REDIS_URL ?? "",
   jwtSecret: required("JWT_SECRET", "dev-secret-change-me"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",       // dev: 7d | production: set "15m" qua env
   refreshJwtSecret: required("REFRESH_JWT_SECRET", "dev-refresh-secret-change-me"),
   refreshJwtExpiresIn: process.env.REFRESH_JWT_EXPIRES_IN ?? "30d",
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
+  /* CORS allowed origins — CSV. Hỗ trợ nhiều domain (production có nhiều subdomain
+     trỏ về cùng frontend). Nếu để rỗng, fallback dùng FRONTEND_URL.
+     Vd: "https://ductms.id.vn,https://www.ductms.id.vn,https://track.ductms.id.vn" */
+  corsOrigins: (process.env.CORS_ORIGINS ?? process.env.FRONTEND_URL ?? "http://localhost:5173")
+    .split(",").map((s) => s.trim()).filter(Boolean),
   uploadDir: process.env.UPLOAD_DIR ?? "uploads",
 
   smtpHost: process.env.SMTP_HOST ?? "",

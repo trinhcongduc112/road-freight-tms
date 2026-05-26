@@ -4,13 +4,15 @@ import { attachOrgScope } from "../middlewares/dac.js";
 import { requirePermission } from "../middlewares/rbac.js";
 import { Modules, Actions, p } from "../config/permissions.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { cacheMiddleware, invalidateAfterWrite } from "../utils/cache.js";
 import * as ctrl from "../controllers/userController.js";
 
 export const userRouter = Router();
 
 userRouter.use(authenticate, attachOrgScope);
+userRouter.use(invalidateAfterWrite("users"));
 
-userRouter.get("/", asyncHandler(ctrl.listUsers));
+userRouter.get("/", cacheMiddleware(60), asyncHandler(ctrl.listUsers));
 
 userRouter.post(
   "/",

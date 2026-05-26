@@ -1,6 +1,30 @@
 import rateLimit from "express-rate-limit";
+import RedisStore from "rate-limit-redis";
+import { getRedis } from "../utils/cache.js";
 
 const isDev = process.env.NODE_ENV !== "production";
+
+// Dùng Redis làm store khi có sẵn → rate-limit shared giữa nhiều backend instance (khi scale ngang).
+// Khi không có Redis → fallback in-memory (đủ cho 1 instance).
+function makeStore() {
+  const redis = getRedis();
+  if (!redis) return undefined; // fallback in-memory store
+  return new RedisStore({
+    sendCommand: (...args) => redis.call(...args),
+    prefix: "rl:"
+  });
+}
+
+// Toàn cục: chặn flood/scraping từ 1 IP. Đặt rộng để không cản user thường.
+// Dev: cao để khỏi cản test. Prod: 200 req/phút/IP đủ cho 1 user thao tác nhanh.
+export const globalRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: isDev ? 5000 : 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore(),
+  message: { success: false, error: "Quá nhiều yêu cầu. Vui lòng đợi 1 phút." }
+});
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

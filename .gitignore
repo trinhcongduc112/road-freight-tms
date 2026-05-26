@@ -44,3 +44,10 @@ frontend-app/*.aab
 frontend-app/*.ipa
 # Icon preview mockup — generate lại được, không cần commit
 frontend-app/assets/_preview_*.png
+
+# MongoDB backups — KHÔNG commit, lưu local + S3 trên server
+backups/
+
+# Sentry source maps upload artifacts
+.sentryclirc
+.sentry-build-plugin

@@ -30,6 +30,17 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
+  # Redis cache: tăng throughput 4-5× cho endpoint đọc nhiều + share state cho rate-limit khi scale ngang
+  redis:
+    image: redis:7-alpine
+    container_name: tms-redis
+    restart: unless-stopped
+    # Không persistence: cache mất khi restart không nghiêm trọng (sẽ tự rebuild từ DB)
+    # 256MB max + LRU eviction → dùng RAM có kiểm soát, không bao giờ OOM
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    expose:
+      - "6379"
+
   backend:
     build:
       context: ./backend
@@ -39,6 +50,7 @@ services:
     depends_on:
       - mongo
       - optimizer
+      - redis
     env_file:
       - ./backend/.env.production
     ports:
