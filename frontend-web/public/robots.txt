@@ -1,0 +1,27 @@
+# Robots policy cho Road Freight TMS (ductms.id.vn)
+# - Cho phép Google + Bing crawl các trang public
+# - Chặn crawl các trang sau login (admin, planning, orders, ...)
+#   vì bot không có credentials, crawl chỉ tốn budget mà không có nội dung
+
+User-agent: *
+Allow: /
+Allow: /track
+Allow: /track/
+
+# Chặn các trang chỉ accessible sau login — bot không crawl được, đỡ tốn crawl budget
+Disallow: /admin
+Disallow: /orders
+Disallow: /planning
+Disallow: /monitoring
+Disallow: /reports
+Disallow: /master-data
+Disallow: /driver
+
+# Block các trang reset/verify chứa token trong URL (privacy)
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /accept-invitation
+Disallow: /support/reply
+
+# Sitemap chính
+Sitemap: https://ductms.id.vn/sitemap.xml
