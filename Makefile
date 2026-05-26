@@ -508,7 +508,7 @@ build-apk-cloud:
 	@echo ""
 	@echo "  ☁  Build APK trên cloud Expo (free tier — 30 build/tháng)"
 	@echo "  ⏱  Thường 10-15 phút. Không cần Android SDK trên máy."
-	@echo "  📡 EXPO_PUBLIC_API_URL từ eas.json: http://47.129.225.75:8080/api"
+	@echo "  📡 EXPO_PUBLIC_API_URL từ eas.json: https://ductms.id.vn/api"
 	@echo ""
 	$(NVM) && cd frontend-app && npx eas-cli@latest build --platform android --profile preview --non-interactive
 
