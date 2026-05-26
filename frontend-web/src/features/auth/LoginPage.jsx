@@ -7,6 +7,7 @@ import {
 import { App, Button, Checkbox, Dropdown, Form, Input, AutoComplete } from "antd"; // Đã thêm AutoComplete
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { authApi } from "../../api/auth";
 import { languages, useLanguage } from "../../i18n.jsx";
 import { useAuthStore } from "../../store/authStore";
@@ -96,8 +97,31 @@ export default function LoginPage() {
 
   return (
     <div className="lp-shell">
+      <Helmet>
+        <title>Road Freight TMS — Quản lý vận tải đường bộ | ductms</title>
+        <meta name="description" content="Road Freight TMS (ductms) — Hệ thống quản lý vận tải đường bộ. Lập kế hoạch tối ưu lộ trình bằng HGS-CVRP, theo dõi xe realtime, ETA tự cập nhật, AI Assistant tích hợp." />
+        <meta property="og:title" content="Road Freight TMS — Quản lý vận tải đường bộ" />
+        <meta property="og:description" content="Hệ thống quản lý vận tải tối ưu lộ trình + theo dõi xe realtime + ETA tự cập nhật." />
+      </Helmet>
+
       {/* Cinematic overlay */}
       <div className="lp-overlay" />
+
+      {/* SEO-friendly content cho Google crawler — ẩn visual nhưng bot đọc được.
+          Khi Google index trang login, thay vì hiển thị "Đăng nhập. Email. Mật khẩu..."
+          nó sẽ ưu tiên dùng đoạn mô tả sản phẩm bên dưới. */}
+      <div style={{ position: "absolute", left: "-9999px", top: 0 }} aria-hidden="false">
+        <h1>Road Freight TMS — Hệ thống quản lý vận tải đường bộ</h1>
+        <p>
+          ductms.id.vn là hệ thống quản lý và lập kế hoạch vận tải đường bộ dành cho doanh nghiệp logistics tại Việt Nam.
+          Tính năng chính: tối ưu lộ trình bằng thuật toán HGS-CVRP (Vidal 2022), theo dõi xe tải realtime qua GPS,
+          ETA tự động cập nhật khi có sự cố, báo cáo sự cố từ tài xế qua mobile app, AI Assistant tích hợp Gemini
+          hỗ trợ ra quyết định, dashboard giám sát đa tổ chức, phân quyền RBAC linh hoạt.
+        </p>
+        <p>
+          Truy cập <a href="https://docs.ductms.id.vn">tài liệu kỹ thuật</a> hoặc <a href="https://track.ductms.id.vn">trang tra cứu đơn hàng</a> để biết thêm chi tiết.
+        </p>
+      </div>
 
       {/* Brand — top left */}
       <header className="lp-header">
