@@ -15,7 +15,7 @@ ANDROID_AVD := Pixel_6
         docs docs-install docs-build docs-local docs-deploy docs-stop api-docs api-docs-sync \
         build-mobile-android build-mobile-ios build-apk-cloud download-apk release-apk \
         test test-backend test-web test-optimizer test-coverage test-report \
-        test-e2e test-e2e-ui test-e2e-headed test-e2e-report benchmark-cache backup-mongo restore-mongo \
+        test-e2e test-e2e-ui test-e2e-headed test-e2e-report benchmark-cache backup-mongo backup-uploads backup-all restore-mongo \
         deploy-prod require-deploy-config init-prod start-prod stop-prod restart-prod logs-prod build-prod seed-prod prod-status \
         nginx-prod ssl-prod update-prod update-docs update-web update-backend exec-backend exec-mongo
 
@@ -55,7 +55,9 @@ help:
 	@echo "  make mobile-stop      — dừng Expo dev server"
 	@echo "  ── Performance & Backup ────────────────────────────────────────"
 	@echo "  make benchmark-cache  — đo RPS trước/sau Redis cache → benchmark-result.md"
-	@echo "  make backup-mongo     — backup MongoDB → backups/*.tar.gz (chạy cron hàng ngày)"
+	@echo "  make backup-mongo     — backup MongoDB → backups/road_freight-*.tar.gz"
+	@echo "  make backup-uploads   — backup ảnh ePOD → backups/uploads-*.tar.gz"
+	@echo "  make backup-all       — ★ backup DB + ảnh (dùng cho cron hằng đêm)"
 	@echo "  make restore-mongo    — restore từ backup (bash scripts/restore-mongo.sh <file>)"
 	@echo "  ── Build Mobile (APK/IPA file gửi giảng viên) ──────────────────"
 	@echo "  make release-apk          — ★ build cloud + tải APK về máy (1 lệnh, ~15 phút)"
@@ -478,6 +480,26 @@ backup-mongo:
 	@echo "  Yêu cầu: container 'tms-mongo' (prod) đang chạy"
 	@echo ""
 	@bash scripts/backup-mongo.sh
+
+# Backup ảnh ePOD (file tĩnh, dùng tar trực tiếp). Retention 14 ngày như MongoDB.
+backup-uploads:
+	@mkdir -p backups
+	@if [ ! -d backend/uploads ] || [ -z "$$(ls -A backend/uploads 2>/dev/null)" ]; then \
+		echo "  ⚠ backend/uploads/ trống — bỏ qua backup ảnh"; \
+	else \
+		OUT=backups/uploads-$$(date +%Y-%m-%d_%H%M%S).tar.gz; \
+		tar -czf $$OUT -C backend uploads/ 2>/dev/null; \
+		SIZE=$$(du -h $$OUT | cut -f1); \
+		echo "  ✔ Backup ảnh ePOD: $$OUT ($$SIZE)"; \
+		DELETED=$$(find backups/ -name "uploads-*.tar.gz" -mtime +14 -delete -print 2>/dev/null | wc -l); \
+		echo "  ✔ Đã xoá $$DELETED bản uploads cũ > 14 ngày"; \
+	fi
+
+# Backup all-in-one: DB + ảnh ePOD. Dùng cho cron hằng đêm.
+backup-all: backup-mongo backup-uploads
+	@echo ""
+	@echo "  ✔ Backup hoàn tất (DB + ảnh ePOD)"
+	@ls -lhrt backups/ | tail -4
 
 restore-mongo:
 	@echo ""
