@@ -152,8 +152,10 @@ export default function LoginScreen() {
 
             <Text style={styles.modalHint}>
               Ví dụ:{"\n"}
+              • https://ductms.id.vn/api  (production){"\n"}
               • http://192.168.1.50:5000/api  (dev LAN){"\n"}
-              • https://tms-api.example.com/api  (production)
+              {"\n"}
+              💡 Nếu quên đuôi /api, app tự thêm vào.
             </Text>
 
             <View style={styles.modalActions}>

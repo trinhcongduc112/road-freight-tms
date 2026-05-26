@@ -13,7 +13,7 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://47.129.225.75:8080/api"
+        "EXPO_PUBLIC_API_URL": "https://ductms.id.vn/api"
       }
     },
     "production": {
@@ -21,7 +21,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://47.129.225.75:8080/api"
+        "EXPO_PUBLIC_API_URL": "https://ductms.id.vn/api"
       }
     }
   }

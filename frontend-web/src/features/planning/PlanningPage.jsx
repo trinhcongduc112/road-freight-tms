@@ -1100,6 +1100,8 @@ export default function PlanningPage() {
                                 <Select
                                   size="small" style={{ flex: 1, minWidth: 0 }}
                                   showSearch optionFilterProp="label" allowClear placeholder="Chọn tài xế"
+                                  popupMatchSelectWidth={false}
+                                  styles={{ popup: { root: { minWidth: 320 } } }}
                                   value={driver?._id}
                                   onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { driverId: v ?? null } })}
                                   options={drivers.map((d) => ({
@@ -1112,6 +1114,8 @@ export default function PlanningPage() {
                                 <Select
                                   size="small" style={{ width: "100%" }}
                                   showSearch optionFilterProp="label" allowClear placeholder="Chọn hãng 3PL (tính chi phí)"
+                                  popupMatchSelectWidth={false}
+                                  styles={{ popup: { root: { minWidth: 320 } } }}
                                   value={services.find((s) => s._id === (r.ServiceID?._id ?? r.ServiceID))?._id}
                                   onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { serviceId: v ?? null } })}
                                   options={services.filter((s) => s.Status === "Active").map((s) => ({ value: s._id, label: `${s.Carrier} (${s.ServiceCode})` }))}
@@ -1483,6 +1487,8 @@ export default function PlanningPage() {
                               optionFilterProp="label"
                               allowClear
                               placeholder="Chọn tài xế"
+                              popupMatchSelectWidth={false}
+                              styles={{ popup: { root: { minWidth: 320 } } }}
                               value={driver?._id}
                               onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { driverId: v ?? null } })}
                               options={drivers.map((d) => ({
@@ -1499,6 +1505,8 @@ export default function PlanningPage() {
                               optionFilterProp="label"
                               allowClear
                               placeholder="Chọn hãng 3PL (tính chi phí)"
+                              popupMatchSelectWidth={false}
+                              styles={{ popup: { root: { minWidth: 320 } } }}
                               value={service?._id}
                               onChange={(v) => assignRouteM.mutate({ routeId: r._id, payload: { serviceId: v ?? null } })}
                               options={services.filter((s) => s.Status === "Active").map((s) => ({ value: s._id, label: `${s.Carrier} (${s.ServiceCode})` }))}
