@@ -122,6 +122,13 @@ export async function seedDemo(req, res) {
   /* Idempotent: clear any leftover DEMO data trước */
   await clearDemoFromOrg(orgId);
 
+  /* Suffix theo orgId để tránh duplicate khi nhiều org cùng load demo.
+     User.UserName, User.Email và Organization.XCode là global unique → cần suffix
+     để org A và org B không đụng nhau. Master data (Product/Customer/Driver...) đã
+     scope theo OrganizationID nên không cần. */
+  const orgSuffix = String(orgId).slice(-6);             // vd: "a3b9c2"
+  const orgSuffixUpper = orgSuffix.toUpperCase();        // vd: "A3B9C2" — cho XCode
+
   /* ── Tạo đúng cây mẫu: Tổ chức -> Chi nhánh -> Kho ──
      Toạ độ chỉ thuộc về Kho (DEPOT), không phải Manufacturer/Branch. */
   const DEPOT_LAT = 21.0388;   // Đốc Ngữ, Ba Đình, Hà Nội
@@ -131,7 +138,7 @@ export async function seedDemo(req, res) {
   }
 
   const branchOrg = await Organization.create({
-    XCode: `${DEMO_PREFIX}CN-HN`,
+    XCode: `${DEMO_PREFIX}CN-HN-${orgSuffixUpper}`,
     XName: "Demo · Chi nhánh Hà Nội",
     OrgType: "BRANCH",
     Parent: orgId,
@@ -141,7 +148,7 @@ export async function seedDemo(req, res) {
   });
 
   const depotOrg = await Organization.create({
-    XCode: `${DEMO_PREFIX}KHO-DN`,
+    XCode: `${DEMO_PREFIX}KHO-DN-${orgSuffixUpper}`,
     XName: "Demo · Kho Đốc Ngữ",
     OrgType: "DEPOT",
     Parent: branchOrg._id,
@@ -206,9 +213,9 @@ export async function seedDemo(req, res) {
   ] = await User.insertMany([
     {
       XCode: `${DEMO_PREFIX}USR-PLN-01`,
-      UserName: "demo.planner",
+      UserName: `demo.planner.${orgSuffix}`,
       FullName: "Demo Planner - Nguyễn Minh Anh",
-      Email: "demo.planner@road-freight.io",
+      Email: `demo.planner.${orgSuffix}@road-freight.io`,
       Phone: "0988 200 101",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -220,9 +227,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-DSP-01`,
-      UserName: "demo.dispatcher",
+      UserName: `demo.dispatcher.${orgSuffix}`,
       FullName: "Demo Dispatcher - Trần Quang Huy",
-      Email: "demo.dispatcher@road-freight.io",
+      Email: `demo.dispatcher.${orgSuffix}@road-freight.io`,
       Phone: "0988 200 102",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -234,9 +241,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-ACC-01`,
-      UserName: "demo.accountant",
+      UserName: `demo.accountant.${orgSuffix}`,
       FullName: "Demo Accountant - Phạm Thu Hà",
-      Email: "demo.accountant@road-freight.io",
+      Email: `demo.accountant.${orgSuffix}@road-freight.io`,
       Phone: "0988 200 201",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -248,9 +255,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-DRV-01`,
-      UserName: "demo.driver01",
+      UserName: `demo.driver01.${orgSuffix}`,
       FullName: "Demo Driver - Lê Văn Nam",
-      Email: "demo.driver01@road-freight.io",
+      Email: `demo.driver01.${orgSuffix}@road-freight.io`,
       Phone: "0988 300 001",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -263,9 +270,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-DRV-02`,
-      UserName: "demo.driver02",
+      UserName: `demo.driver02.${orgSuffix}`,
       FullName: "Demo Driver - Nguyễn Văn Phúc",
-      Email: "demo.driver02@road-freight.io",
+      Email: `demo.driver02.${orgSuffix}@road-freight.io`,
       Phone: "0988 300 002",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -278,9 +285,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-DRV-03`,
-      UserName: "demo.driver03",
+      UserName: `demo.driver03.${orgSuffix}`,
       FullName: "Demo Driver - Đỗ Đức Long",
-      Email: "demo.driver03@road-freight.io",
+      Email: `demo.driver03.${orgSuffix}@road-freight.io`,
       Phone: "0988 300 003",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -295,9 +302,9 @@ export async function seedDemo(req, res) {
        Khác tài xế nội bộ: không tính lương (loại trừ ở payroll), không quản lịch bảo dưỡng xe của họ. */
     {
       XCode: `${DEMO_PREFIX}USR-DRV-3PL-01`,
-      UserName: "demo.driver3pl01",
+      UserName: `demo.driver3pl01.${orgSuffix}`,
       FullName: "Demo Driver 3PL - Trần Văn Tâm (GHN)",
-      Email: "demo.driver3pl01@road-freight.io",
+      Email: `demo.driver3pl01.${orgSuffix}@road-freight.io`,
       Phone: "0977 300 011",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -310,9 +317,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-DRV-3PL-02`,
-      UserName: "demo.driver3pl02",
+      UserName: `demo.driver3pl02.${orgSuffix}`,
       FullName: "Demo Driver 3PL - Vũ Quốc Hùng (GHE)",
-      Email: "demo.driver3pl02@road-freight.io",
+      Email: `demo.driver3pl02.${orgSuffix}@road-freight.io`,
       Phone: "0977 300 012",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -325,9 +332,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-DRV-3PL-03`,
-      UserName: "demo.driver3pl03",
+      UserName: `demo.driver3pl03.${orgSuffix}`,
       FullName: "Demo Driver 3PL - Phạm Minh Đức (GHN)",
-      Email: "demo.driver3pl03@road-freight.io",
+      Email: `demo.driver3pl03.${orgSuffix}@road-freight.io`,
       Phone: "0977 300 013",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -340,9 +347,9 @@ export async function seedDemo(req, res) {
     },
     {
       XCode: `${DEMO_PREFIX}USR-DRV-3PL-04`,
-      UserName: "demo.driver3pl04",
+      UserName: `demo.driver3pl04.${orgSuffix}`,
       FullName: "Demo Driver 3PL - Hoàng Văn Sáng (GHE)",
-      Email: "demo.driver3pl04@road-freight.io",
+      Email: `demo.driver3pl04.${orgSuffix}@road-freight.io`,
       Phone: "0977 300 014",
       PasswordHash: demoPasswordHash,
       OrganizationIDs: [dataOrgId],
@@ -396,13 +403,13 @@ export async function seedDemo(req, res) {
 
   /* ── Drivers (3 nội bộ + 4 thuê ngoài 3PL) ── */
   await Driver.insertMany([
-    { DriverCode: `${DEMO_PREFIX}TX-001`, XName: "Demo · Lê Văn Nam",       OrganizationID: dataOrgId, Phone: "0988 300 001", Email: "demo.driver01@road-freight.io", LicenseNumber: "030C-DEMO001",  LicenseType: "C",  LicenseExpiry: new Date("2028-09-30"), LinkedUserID: driverUser01._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-002`, XName: "Demo · Nguyễn Văn Phúc",  OrganizationID: dataOrgId, Phone: "0988 300 002", Email: "demo.driver02@road-freight.io", LicenseNumber: "030C-DEMO002",  LicenseType: "C",  LicenseExpiry: new Date("2028-11-15"), LinkedUserID: driverUser02._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-003`, XName: "Demo · Đỗ Đức Long",      OrganizationID: dataOrgId, Phone: "0988 300 003", Email: "demo.driver03@road-freight.io", LicenseNumber: "030B2-DEMO003", LicenseType: "B2", LicenseExpiry: new Date("2027-12-20"), LinkedUserID: driverUser03._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-3PL-01`, XName: "Demo · GHN — Trần Văn Tâm (3PL)",     OrganizationID: dataOrgId, Phone: "0977 300 011", Email: "demo.driver3pl01@road-freight.io", LicenseNumber: "030C-3PL001",  LicenseType: "C",  LicenseExpiry: new Date("2029-03-31"), LinkedUserID: driver3plUser01._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-3PL-02`, XName: "Demo · GHE — Vũ Quốc Hùng (3PL)",     OrganizationID: dataOrgId, Phone: "0977 300 012", Email: "demo.driver3pl02@road-freight.io", LicenseNumber: "030B2-3PL002", LicenseType: "B2", LicenseExpiry: new Date("2028-06-20"), LinkedUserID: driver3plUser02._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-3PL-03`, XName: "Demo · GHN — Phạm Minh Đức (3PL)",    OrganizationID: dataOrgId, Phone: "0977 300 013", Email: "demo.driver3pl03@road-freight.io", LicenseNumber: "030C-3PL003",  LicenseType: "C",  LicenseExpiry: new Date("2029-08-15"), LinkedUserID: driver3plUser03._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
-    { DriverCode: `${DEMO_PREFIX}TX-3PL-04`, XName: "Demo · GHE — Hoàng Văn Sáng (3PL)",   OrganizationID: dataOrgId, Phone: "0977 300 014", Email: "demo.driver3pl04@road-freight.io", LicenseNumber: "030B2-3PL004", LicenseType: "B2", LicenseExpiry: new Date("2028-12-10"), LinkedUserID: driver3plUser04._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" }
+    { DriverCode: `${DEMO_PREFIX}TX-001`, XName: "Demo · Lê Văn Nam",       OrganizationID: dataOrgId, Phone: "0988 300 001", Email: `demo.driver01.${orgSuffix}@road-freight.io`, LicenseNumber: "030C-DEMO001",  LicenseType: "C",  LicenseExpiry: new Date("2028-09-30"), LinkedUserID: driverUser01._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-002`, XName: "Demo · Nguyễn Văn Phúc",  OrganizationID: dataOrgId, Phone: "0988 300 002", Email: `demo.driver02.${orgSuffix}@road-freight.io`, LicenseNumber: "030C-DEMO002",  LicenseType: "C",  LicenseExpiry: new Date("2028-11-15"), LinkedUserID: driverUser02._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-003`, XName: "Demo · Đỗ Đức Long",      OrganizationID: dataOrgId, Phone: "0988 300 003", Email: `demo.driver03.${orgSuffix}@road-freight.io`, LicenseNumber: "030B2-DEMO003", LicenseType: "B2", LicenseExpiry: new Date("2027-12-20"), LinkedUserID: driverUser03._id, EmploymentType: "IN_HOUSE",   ServiceID: null,       Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-01`, XName: "Demo · GHN — Trần Văn Tâm (3PL)",     OrganizationID: dataOrgId, Phone: "0977 300 011", Email: `demo.driver3pl01.${orgSuffix}@road-freight.io`, LicenseNumber: "030C-3PL001",  LicenseType: "C",  LicenseExpiry: new Date("2029-03-31"), LinkedUserID: driver3plUser01._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-02`, XName: "Demo · GHE — Vũ Quốc Hùng (3PL)",     OrganizationID: dataOrgId, Phone: "0977 300 012", Email: `demo.driver3pl02.${orgSuffix}@road-freight.io`, LicenseNumber: "030B2-3PL002", LicenseType: "B2", LicenseExpiry: new Date("2028-06-20"), LinkedUserID: driver3plUser02._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-03`, XName: "Demo · GHN — Phạm Minh Đức (3PL)",    OrganizationID: dataOrgId, Phone: "0977 300 013", Email: `demo.driver3pl03.${orgSuffix}@road-freight.io`, LicenseNumber: "030C-3PL003",  LicenseType: "C",  LicenseExpiry: new Date("2029-08-15"), LinkedUserID: driver3plUser03._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHN._id, Status: "Active" },
+    { DriverCode: `${DEMO_PREFIX}TX-3PL-04`, XName: "Demo · GHE — Hoàng Văn Sáng (3PL)",   OrganizationID: dataOrgId, Phone: "0977 300 014", Email: `demo.driver3pl04.${orgSuffix}@road-freight.io`, LicenseNumber: "030B2-3PL004", LicenseType: "B2", LicenseExpiry: new Date("2028-12-10"), LinkedUserID: driver3plUser04._id, EmploymentType: "OUTSOURCED", ServiceID: svcGHE._id, Status: "Active" }
   ]);
 
   /* ── Customers (12 điểm Hà Nội · Bắc Ninh · Hưng Yên với tọa độ thật) ── */
