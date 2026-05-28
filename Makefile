@@ -228,8 +228,10 @@ stop-prod:
 	@echo "✔ Đã dừng production stack"
 
 restart-prod:
-	@$(COMPOSE_PROD) restart
-	@echo "✔ Đã restart production stack"
+	@# Dùng "up -d" thay vì "restart" để Docker đọc LẠI env_file.
+	@# "restart" không reload env → đổi .env.production xong restart vẫn dùng env cũ.
+	@$(COMPOSE_PROD) up -d
+	@echo "✔ Đã restart production stack (env mới đã được load)"
 
 logs-prod:
 	@$(COMPOSE_PROD) logs -f --tail=200
