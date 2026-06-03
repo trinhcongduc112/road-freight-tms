@@ -40,7 +40,7 @@ Tổng thời gian setup: ~30 phút. Tất cả free, không cần thẻ tín d�
 
 Trigger 1 lỗi để test:
 ```bash
-curl http://47.129.225.75:8080/api/intentional-error-for-sentry-test
+curl https://ductms.id.vn/api/intentional-error-for-sentry-test
 ```
 → Vào Sentry dashboard sau ~30 giây thấy event mới.
 
@@ -60,7 +60,7 @@ Public-facing endpoint `/health` được monitor mỗi 5 phút. Khi server down
 2. **Add New Monitor**:
    - Type: **HTTP(s)**
    - Friendly name: `Road Freight TMS — Backend`
-   - URL: `http://47.129.225.75:8080/health`
+   - URL: `https://ductms.id.vn/health`
    - Monitoring interval: 5 phút
 3. **My Settings** → Alert Contacts → thêm email/SMS/Telegram bot
 4. Quay lại monitor → tick alert contacts
@@ -77,7 +77,7 @@ docker compose -f docker-compose.prod.yml start backend
 
 ### Bonus: monitor thêm Docs container
 
-Thêm monitor thứ 2: `http://47.129.225.75:8081/` — đảm bảo user docs cũng được biết khi down.
+Thêm monitor thứ 2: `https://docs.ductms.id.vn/` — đảm bảo user docs cũng được biết khi down.
 
 ---
 

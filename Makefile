@@ -95,12 +95,13 @@ help:
 	@echo "  make docs-deploy      — deploy docs lên GitHub Pages (sau khi mở Student Pack)"
 	@echo ""
 
-start: mongo
+start: mongo redis
 	@$(NVM) && cd backend && npm run dev > $(LOG_BE) 2>&1 & \
 	$(NVM) && cd frontend-web && node_modules/.bin/vite --host 0.0.0.0 > $(LOG_FE) 2>&1 & \
 	sleep 5 && \
 	echo "" && \
 	echo "  ✔ MongoDB   — Docker container" && \
+	echo "  ✔ Redis     — Docker container (cache + rate-limit)" && \
 	echo "  ✔ Backend   — http://localhost:5000/api" && \
 	echo "  ✔ Frontend  — http://localhost:5173" && \
 	echo "  ✔ API Docs  — http://localhost:5000/api-docs" && \
@@ -350,13 +351,18 @@ mongo:
 	@docker start road-freight-mongo 2>/dev/null || \
 	docker run -d --name road-freight-mongo -p 27017:27017 mongo:7
 
+redis:
+	@docker start road-freight-redis 2>/dev/null || \
+	docker run -d --name road-freight-redis -p 6379:6379 redis:7-alpine \
+		redis-server --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
+
 backend:
 	$(NVM) && cd backend && npm run dev
 
 web:
 	$(NVM) && cd frontend-web && node_modules/.bin/vite --host 0.0.0.0
 
-dev: mongo
+dev: mongo redis
 	@$(NVM) && cd backend && npm run dev > $(LOG_BE) 2>&1 & \
 	$(NVM) && cd frontend-web && node_modules/.bin/vite --host 0.0.0.0 > $(LOG_FE) 2>&1 & \
 	echo "" && \

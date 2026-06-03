@@ -79,7 +79,7 @@ TMS/
 ## Yêu cầu môi trường
 
 - **Node.js 20** (bắt buộc).
-- **MongoDB 7** + **Redis 7** (qua Docker).
+- **Docker + Docker Compose** (cho MongoDB 7 + Redis 7 — tự khởi qua `make start`).
 - **Python 3.11+** (cho `optimizer-service`).
 - **Android emulator hoặc Expo Go** (cho app tài xế).
 - (Khuyến nghị) `nvm` để switch giữa Node 20 và các version khác.
@@ -116,7 +116,7 @@ Truy cập:
 
 ```bash
 git clone <repo-url> road-freight-tms && cd road-freight-tms
-sudo apt install -y docker.io docker-compose-plugin nginx make openssl
+sudo apt install -y docker.io docker-compose-plugin nginx make openssl jq
 
 make deploy-prod      # 1 lệnh: init + start + nginx + SSL
 make seed-prod        # seed data mẫu (chạy 1 lần)
@@ -179,7 +179,7 @@ tar -xzf backups/uploads/uploads-2026-05-27_000000.tar.gz -C backend/
 | Lệnh | Mục đích |
 |---|---|
 | `make install` | Cài npm deps cho backend, frontend-web, frontend-app, docs-site |
-| `make start` | Chạy mongo + redis + backend + frontend-web (kèm tail log) |
+| `make start` | Chạy mongo + redis (Docker) + backend + frontend-web (host, kèm tail log) |
 | `make dev` | Chạy nền, không tail log |
 | `make stop` | Dừng backend + frontend |
 | `make seed` | Seed dữ liệu mẫu |

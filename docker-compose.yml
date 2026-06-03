@@ -37,7 +37,7 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: change-me-in-production
       JWT_EXPIRES_IN: 7d
-      FRONTEND_URL: http://47.129.225.75:8080
+      FRONTEND_URL: http://localhost:5173
       UPLOAD_DIR: uploads
       OPTIMIZER_SERVICE_URL: http://optimizer:8000
       OPTIMIZER_TIMEOUT_MS: 60000
