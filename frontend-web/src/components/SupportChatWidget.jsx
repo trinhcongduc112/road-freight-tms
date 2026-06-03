@@ -43,22 +43,39 @@ export default function SupportChatWidget({ open, onClose }) {
   }, [user]);
 
   const messages = session?.messages?.length ? session.messages : [WELCOME];
+  // Phân biệt 2 trạng thái khi handledBy=human:
+  // - lastMsg là human  → consultant đã trả lời (xanh, không còn "đợi")
+  // - lastMsg là user   → user vừa hỏi, consultant chưa rep (vàng, "đợi")
+  const lastMsg = session?.messages?.[session.messages.length - 1];
+  const humanReplied = lastMsg?.sender === "human";
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
-  useEffect(() => {
-    if (!open) return;
-    supportApi.chatSession()
-      .then((res) => setSession(normalizeSession(res?.data ?? res)))
-      .catch(() => setSession(null));
-  }, [open]);
-
+  // Fetch session: lúc mở panel, lúc socket reconnect, và lúc tab focus lại.
+  // Socket.IO không guarantee delivery — nếu emit rơi vào lúc kết nối đứt đoạn,
+  // message sẽ mất. 3 trigger này đảm bảo UI luôn sync với DB.
   useEffect(() => {
     if (!open) return undefined;
+
+    const fetchSession = () => {
+      supportApi.chatSession()
+        .then((res) => setSession(normalizeSession(res?.data ?? res)))
+        .catch(() => setSession(null));
+    };
+
+    fetchSession();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchSession();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     const socket = getSocket();
-    if (!socket) return undefined;
+    if (!socket) {
+      return () => document.removeEventListener("visibilitychange", onVisible);
+    }
 
     const onChatMessage = ({ sessionId, message }) => {
       setSession((current) => {
@@ -74,8 +91,14 @@ export default function SupportChatWidget({ open, onClose }) {
     };
 
     socket.on("chat_message", onChatMessage);
+    // Khi socket reconnect (sau ngắt mạng / sleep máy), refetch để bắt mọi
+    // message đã rơi trong lúc disconnect.
+    socket.on("connect", fetchSession);
+
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       socket.off("chat_message", onChatMessage);
+      socket.off("connect", fetchSession);
     };
   }, [open]);
 
@@ -169,8 +192,21 @@ export default function SupportChatWidget({ open, onClose }) {
       </div>
 
       {session?.handledBy === "human" && (
-        <div className="support-status-banner" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderTop: "1px solid #fde68a", background: "#fffbeb" }}>
-          <span style={{ fontSize: 13, color: "#78350f" }}>{t("support.waitingHuman")}</span>
+        <div
+          className="support-status-banner"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            padding: "8px 12px",
+            borderTop: `1px solid ${humanReplied ? "#bbf7d0" : "#fde68a"}`,
+            background: humanReplied ? "#f0fdf4" : "#fffbeb"
+          }}
+        >
+          <span style={{ fontSize: 13, color: humanReplied ? "#166534" : "#78350f" }}>
+            {humanReplied ? t("support.humanReplied") : t("support.waitingHuman")}
+          </span>
           <Button size="small" onClick={resumeBot} loading={loading}>
             {t("support.resumeBot")}
           </Button>
