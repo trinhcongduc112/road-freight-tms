@@ -46,6 +46,8 @@ export const env = {
   supportEmail: process.env.SUPPORT_EMAIL ?? process.env.SMTP_USER ?? "support@road-freight.io",
 
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  // gemini-2.5-flash: function calling tốt hơn nhiều so với gemini-2.5-flash-lite,
+  // vẫn nằm trong free tier. Tránh dùng `-lite` cho AI Agent vì nó hay skip tool call.
   geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash"
 };
 

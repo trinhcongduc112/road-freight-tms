@@ -11,7 +11,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Button, Card, Col, DatePicker, Progress, Row, Segmented, Skeleton, Statistic, Table, Tabs, Tag, Typography } from "antd";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Bar,
@@ -124,7 +124,6 @@ export default function ReportingPage() {
 
   const [periodType, setPeriodType] = useState(initial.period);
   const [dateRange, setDateRange] = useState(initial.range);
-  const autoExportPending = useRef(searchParams.get("autoExport") === "1");
 
   const { data, isLoading } = useQuery({
     queryKey: ["report-summary", periodType, dateRange[0]?.toISOString(), dateRange[1]?.toISOString()],
@@ -236,23 +235,44 @@ export default function ReportingPage() {
     XLSX.writeFile(workbook, `bao_cao_${periodType}_${dateRange[0].format("YYYYMMDD")}_${dateRange[1].format("YYYYMMDD")}.xlsx`);
   };
 
-  // Auto-export khi AI Agent navigate với ?autoExport=1.
-  // Đợi data load xong (d != null) rồi fire 1 lần, sau đó dọn URL.
+  // Sync periodType/dateRange từ URL khi AI Agent navigate vào /reports với
+  // ?period=... — useState initial value chỉ chạy 1 lần lúc mount, nên nếu
+  // ReportingPage đã mounted sẵn, state phải được cập nhật qua effect này.
   useEffect(() => {
-    if (autoExportPending.current && d) {
-      autoExportPending.current = false;
-      exportReport();
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("autoExport");
-        next.delete("period");
-        next.delete("dateFrom");
-        next.delete("dateTo");
-        return next;
-      }, { replace: true });
+    const VALID = ["week", "month", "quarter", "custom"];
+    const qp = searchParams.get("period");
+    if (!qp || !VALID.includes(qp)) return;
+    if (qp === "custom") {
+      const a = dayjs(searchParams.get("dateFrom"));
+      const b = dayjs(searchParams.get("dateTo"));
+      if (a.isValid() && b.isValid()) {
+        setPeriodType("custom");
+        setDateRange([a.startOf("day"), b.endOf("day")]);
+      }
+      return;
     }
+    setPeriodType(qp);
+    setDateRange(periodRange(qp));
+  }, [searchParams]);
+
+  // Auto-export khi AI Agent navigate với ?autoExport=1.
+  // Đọc trực tiếp searchParams (không cache vào ref) để hoạt động kể cả khi
+  // user đã ở sẵn trang /reports — vì useRef initial chỉ chạy 1 lần lúc mount.
+  // Sau khi fire, setSearchParams xoá autoExport → effect re-run nhưng điều
+  // kiện đã false nên không double-fire.
+  useEffect(() => {
+    if (searchParams.get("autoExport") !== "1" || !d) return;
+    exportReport();
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("autoExport");
+      next.delete("period");
+      next.delete("dateFrom");
+      next.delete("dateTo");
+      return next;
+    }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d]);
+  }, [d, searchParams]);
 
   const selectPeriod = (value) => {
     setPeriodType(value);
