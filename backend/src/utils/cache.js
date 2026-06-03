@@ -22,17 +22,21 @@ export function getRedis() {
   if (!env.redisUrl) return null;
   if (redis) return redis;
   redis = new Redis(env.redisUrl, {
-    // Kết nối lazy, không retry vô hạn (tránh log spam khi Redis sập)
-    lazyConnect: true,
-    maxRetriesPerRequest: 2,
-    enableOfflineQueue: false
+    // Connect ngay (không lazy). Cho phép offline queue để rate-limit-redis
+    // có thể loadIncrementScript trong constructor mà không cần đợi ready.
+    maxRetriesPerRequest: 2
   });
+  let warned = false;
   redis.on("error", (err) => {
-    // Không log mỗi lần — chỉ log lần đầu mỗi loại error (ioredis tự retry)
-    if (err.code !== "ECONNREFUSED") logger.warn(`[redis] ${err.message}`);
+    // Chỉ log 1 lần để tránh spam khi Redis xuống
+    if (!warned) {
+      logger.warn(`[redis] ${err.message} — chạy không cache cho đến khi Redis sẵn sàng`);
+      warned = true;
+    }
   });
-  redis.connect().catch((err) => {
-    logger.warn(`[redis] Cannot connect to ${env.redisUrl}: ${err.message} — chạy không cache`);
+  redis.on("ready", () => {
+    logger.info(`[redis] Connected to ${env.redisUrl}`);
+    warned = false;
   });
   return redis;
 }

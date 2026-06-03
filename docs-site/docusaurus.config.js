@@ -12,7 +12,7 @@ const config = {
   // Hai môi trường deploy:
   //   - GitHub Pages (default): https://trinhcongduc112.github.io/road-freight-tms/
   //   - Self-hosted EC2 / domain: set env DOCS_URL + DOCS_BASE_URL khi build
-  // VD build cho EC2:  DOCS_URL=http://47.129.225.75:8081 DOCS_BASE_URL=/ npm run build
+  // VD build cho prod domain:  DOCS_URL=https://docs.ductms.id.vn DOCS_BASE_URL=/ npm run build
   url: process.env.DOCS_URL || "https://trinhcongduc112.github.io",
   baseUrl: process.env.DOCS_BASE_URL || "/road-freight-tms/",
 
