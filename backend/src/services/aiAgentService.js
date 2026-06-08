@@ -70,10 +70,17 @@ VÍ DỤ INTENT → TOOL (học theo các pattern này):
 - "danh sách tài xế" / "tìm tài xế Nam" → openUsers()
 - "danh sách xe" / "xem xe tải" → openMasterData(tab="vehicles")
 - "tải báo cáo tháng" → downloadReport(period="month")
+- "tải báo cáo tuần trước" → downloadReport(period="custom", dateFrom=monday_of_last_week, dateTo=sunday_of_last_week)
 - "đơn chờ duyệt hôm nay" → openOrders(approvalStatus="PENDING", dateFrom=today, dateTo=today)
+- "đơn chưa lên kế hoạch" / "đơn unplanned" → openOrders(approvalStatus="APPROVED")
 - "lập kế hoạch ngày mai" → createRoutePlan(date=tomorrow)
 - "xem kế hoạch ngày 14" → openPlanning(date="...-14")
 - "giám sát hành trình" / "xe đang ở đâu" → openMonitoring()
+- "danh sách 3PL" / "nhà vận chuyển thuê ngoài" → openMasterData(tab="services")
+- "nhóm khách hàng" / "phân nhóm KH" → openMasterData(tab="customer-groups")
+- "sự cố hôm nay" / "có tai nạn nào không" → openMonitoring() (tab sự cố)
+- "tạo đơn mới" / "thêm đơn hàng" → openOrders() (UI có nút + Tạo đơn ở góc phải)
+- "ai vừa sửa đơn X" → openAuditLogs() (filter theo Resource=orders)
 
 NGUYÊN TẮC:
 - Phân tích lệnh user, chọn đúng 1 hoặc nhiều tool và gọi ngay.
@@ -445,8 +452,35 @@ export function extractDate(cmd) {
 
   if (/hom\s*nay|ngay\s*nay|today/.test(cmd)) return fmt(now);
   if (/hom\s*qua|yesterday/.test(cmd)) return fmt(addDays(-1));
+  if (/hom\s*kia/.test(cmd)) return fmt(addDays(-2));
   if (/ngay\s*mai|tomorrow/.test(cmd)) return fmt(addDays(1));
   if (/ngay\s*kia|day\s*after\s*tomorrow/.test(cmd)) return fmt(addDays(2));
+
+  // "tuần này / tuần sau / tuần trước" → lấy thứ 2 của tuần tương ứng
+  if (/tuan\s*nay|this\s*week/.test(cmd)) {
+    const dow = now.getUTCDay() || 7; // CN=7 thay vì 0
+    return fmt(addDays(1 - dow));
+  }
+  if (/tuan\s*(truoc|qua|vua\s*roi)|last\s*week/.test(cmd)) {
+    const dow = now.getUTCDay() || 7;
+    return fmt(addDays(-6 - dow));
+  }
+  if (/tuan\s*(sau|toi)|next\s*week/.test(cmd)) {
+    const dow = now.getUTCDay() || 7;
+    return fmt(addDays(8 - dow));
+  }
+  // "tháng này / tháng trước / tháng sau" → ngày 1 của tháng tương ứng
+  if (/thang\s*nay|this\s*month/.test(cmd)) {
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  }
+  if (/thang\s*(truoc|qua|vua\s*roi)|last\s*month/.test(cmd)) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    return fmt(d);
+  }
+  if (/thang\s*(sau|toi)|next\s*month/.test(cmd)) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    return fmt(d);
+  }
 
   // "14/5/2026", "14/5/26", "14/05", "14-5-2026"
   const slash = cmd.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
@@ -522,6 +556,14 @@ function parseCommandFallback(rawCommand) {
     };
   }
 
+  // 1b) Sự cố / incident → Giám sát (tab sự cố)
+  if (/su\s*co|incident|tai\s*nan|hong\s*xe|ket\s*xe|deviation|lech\s*tuyen/.test(cmd)) {
+    return {
+      message: "Đã mở Giám sát để xem sự cố.",
+      actions: [{ type: "navigate", path: "/monitoring?tab=incidents", label: "Sự cố" }]
+    };
+  }
+
   // 2) Mở trang Báo cáo (không tải)
   if (/(mo|vao|xem).*bao\s*cao/.test(cmd)) {
     return { message: "Đã mở trang Báo cáo.", actions: [{ type: "navigate", path: "/reports", label: "Báo cáo" }] };
@@ -547,6 +589,11 @@ function parseCommandFallback(rawCommand) {
     const params = new URLSearchParams();
     if (/cho\s*duyet|pending|chua\s*duyet/.test(cmd)) params.set("approvalStatus", "PENDING");
     else if (/da\s*duyet|approved/.test(cmd)) params.set("approvalStatus", "APPROVED");
+    else if (/tu\s*choi|rejected|khong\s*duyet/.test(cmd)) params.set("approvalStatus", "REJECTED");
+    // "đơn chưa lên kế hoạch / chưa vào kế hoạch" → APPROVED nhưng chưa planning
+    if (/chua\s*(len|vao)\s*ke\s*hoach|chua\s*planning|unplanned/.test(cmd)) {
+      params.set("approvalStatus", "APPROVED");
+    }
     const ord = extractDate(cmd);
     if (ord) {
       params.set("dateFrom", ord);
@@ -582,6 +629,15 @@ function parseCommandFallback(rawCommand) {
   }
   if (/\bxe\b|phuong\s*tien|vehicle/.test(cmd)) {
     return { message: "Đã mở Master Data — Phương tiện.", actions: [{ type: "navigate", path: "/master-data?tab=vehicles", label: "Phương tiện" }] };
+  }
+  if (/3pl|thue\s*ngoai|nha\s*van\s*chuyen|carrier|dich\s*vu\s*3pl|doi\s*tac\s*van\s*chuyen/.test(cmd)) {
+    return { message: "Đã mở Master Data — Dịch vụ 3PL.", actions: [{ type: "navigate", path: "/master-data?tab=services", label: "Dịch vụ 3PL" }] };
+  }
+  if (/nhom\s*kh|nhom\s*khach|customer\s*group/.test(cmd)) {
+    return { message: "Đã mở Master Data — Nhóm khách hàng.", actions: [{ type: "navigate", path: "/master-data?tab=customer-groups", label: "Nhóm KH" }] };
+  }
+  if (/nhom\s*sp|danh\s*muc\s*sp|product\s*categ/.test(cmd)) {
+    return { message: "Đã mở Master Data — Danh mục sản phẩm.", actions: [{ type: "navigate", path: "/master-data?tab=product-categories", label: "Nhóm SP" }] };
   }
 
   // 7) Quản trị / User

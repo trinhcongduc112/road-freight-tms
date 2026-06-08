@@ -342,6 +342,77 @@ export const SUPPORT_KNOWLEDGE = [
     answer: "AI chỉ trả lời được các câu hỏi **liên quan đến hệ thống Road Freight TMS**. Để có câu trả lời tốt:\n\n• Hỏi cụ thể về chức năng: *\"Làm sao tạo đơn hàng?\"*, *\"Cách lập kế hoạch tuyến?\"*, *\"Xem báo cáo tháng ở đâu?\"*\n• Mô tả vấn đề: *\"Tôi không thấy menu Master Data\"*, *\"Đăng nhập bị lỗi 401\"*.\n• Hỏi về quy trình: *\"Workflow chuyến đi cho tài xế?\"*, *\"Phân quyền cho kế toán\"*.\n\n**Câu hỏi AI KHÔNG trả lời:**\n• Đánh giá/chấm điểm chính bản thân AI hoặc đồ án.\n• Câu hỏi đời sống, đố vui, ngoài phạm vi vận tải.\n• Yêu cầu thay đổi data lớn (dùng AI Agent thay vì Hỏi đáp).\n\nNếu AI không trả lời được, bấm **Gặp tư vấn viên** để trò chuyện trực tiếp với con người."
   },
   {
+    title: "Tạo đơn hàng thủ công (không cần Excel)",
+    keywords: [
+      "tạo đơn", "tao don", "thêm đơn", "them don", "đơn mới", "don moi",
+      "create order", "new order", "nhập đơn tay", "nhap don tay",
+      "tạo đơn hàng", "tao don hang", "thêm đơn hàng", "them don hang", "add order"
+    ],
+    answer: "Tạo đơn hàng thủ công khi chỉ có 1-vài đơn (không cần Excel):\n1. Vào **Đơn hàng** ở sidebar.\n2. Bấm nút **+ Tạo đơn** (góc phải trên).\n3. Chọn **Khách hàng** (gõ mã hoặc tên để search).\n4. Chọn **Ngày đặt** (mặc định hôm nay).\n5. Thêm **Sản phẩm**: bấm + → chọn mã SP → nhập số lượng.\n6. (Tuỳ chọn) Nhập **Phí dịch vụ** (`ServicePrice`) nếu thu phí vận chuyển riêng.\n7. Bấm **Lưu** — đơn vào trạng thái `ApprovalStatus=PENDING`.\n8. Admin/Planner vào duyệt → đơn mới có thể đưa vào tối ưu lộ trình.\n\nLưu ý: Khách hàng cần có **Latitude/Longitude** (Master Data > Khách hàng) thì mới được tối ưu được."
+  },
+  {
+    title: "Sửa hoặc xoá đơn hàng đã duyệt",
+    keywords: [
+      "sửa đơn", "sua don", "edit order", "xoá đơn", "xoa don", "delete order",
+      "đơn đã duyệt", "don da duyet", "huỷ đơn", "huy don", "cancel order",
+      "đơn đã lên kế hoạch", "don da len ke hoach"
+    ],
+    answer: "Quy tắc sửa/xoá đơn theo trạng thái:\n\n• **PENDING** (chưa duyệt) — sửa/xoá tự do tại **Đơn hàng** → cột Hành động (icon ✏️ / 🗑️).\n• **APPROVED + PlanningStatus=PENDING** (đã duyệt, chưa lên kế hoạch) — vẫn sửa được sản phẩm/khách. Xoá cần xác nhận vì ảnh hưởng báo cáo.\n• **PLANNED/LOCKED** (đã vào tuyến) — KHÔNG sửa trực tiếp. Phải vào **Lập kế hoạch** → mở khoá tuyến → bỏ đơn khỏi tuyến → quay lại Đơn hàng → sửa.\n• **DELIVERED/CANCELLED** — KHÔNG sửa. Chỉ xem để đối soát.\n\nLog mọi thao tác sửa/xoá vào **Quản trị > Nhật ký hệ thống** để truy ngược."
+  },
+  {
+    title: "Phân biệt trạng thái tuyến PLANNED / LOCKED / FINALIZED",
+    keywords: [
+      "planned", "locked", "finalized", "trạng thái tuyến", "trang thai tuyen",
+      "khác nhau", "khac nhau", "state route", "phân biệt", "phan biet",
+      "lock vs finalize", "tuyến đã khoá", "tuyen da khoa"
+    ],
+    answer: "3 trạng thái tuyến giao trong vòng đời:\n\n• **PLANNED** — Vừa tạo từ tối ưu hoặc thủ công. **Vẫn có thể tối ưu lại** (đơn có thể bị re-shuffle sang tuyến khác). Sửa tự do.\n\n• **LOCKED** — Planner đã **khoá** tuyến (bấm Khoá). Tối ưu lại sẽ KHÔNG đụng tới tuyến này. Vẫn sửa được sau khi mở khoá. Dùng khi đã chốt phương án giao với tài xế.\n\n• **FINALIZED** — Đã chuyển thành **Trip** thực tế và đẩy ra Giám sát. **KHÔNG sửa, KHÔNG tối ưu lại**. Chỉ xem để đối soát.\n\nFlow chuẩn: PLANNED → khoá → LOCKED → finalize (tạo Trip) → FINALIZED → tài xế nhận chuyến qua app."
+  },
+  {
+    title: "Thuật toán HGS-CVRP giải thích đơn giản",
+    keywords: [
+      "hgs", "hgs-cvrp", "thuật toán tối ưu", "thuat toan toi uu",
+      "tối ưu chạy thế nào", "toi uu chay the nao", "algorithm", "vrp",
+      "tối ưu tuyến thế nào", "toi uu tuyen the nao", "ga", "genetic"
+    ],
+    answer: "**HGS-CVRP** (Hybrid Genetic Search for CVRP) — thuật toán di truyền lai cho bài toán định tuyến phương tiện có tải trọng. Cách hoạt động đơn giản:\n\n1. **Tạo quần thể** giải pháp ban đầu (mỗi giải pháp = 1 cách gom đơn vào tuyến).\n2. **Lai ghép** (crossover): chọn 2 giải pháp cha mẹ → trộn các tuyến con để sinh giải pháp mới.\n3. **Đột biến + local search** (2-opt, swap, relocate): tinh chỉnh giải pháp con để giảm tổng quãng đường / chi phí.\n4. Lặp đến khi đạt số vòng hoặc thời gian giới hạn → trả về giải pháp tốt nhất.\n\n**Vì sao chọn HGS:** State-of-the-art cho CVRP, kết quả gần optimal (gap ~1-2% so với benchmark CVRPLIB). Vẫn dùng **LNS-SA** và **NN+2opt** làm baseline để benchmark trên dashboard.\n\n**Ràng buộc tôn trọng:** tải trọng + thể tích xe, khung giờ giao khách, tương thích hàng (vd đông lạnh), hệ số tắc đường 4 lớp."
+  },
+  {
+    title: "Hệ số tắc đường 4 lớp",
+    keywords: [
+      "tắc đường", "tac duong", "traffic", "hệ số tắc", "he so tac",
+      "thời gian thực", "thoi gian thuc", "tốc độ", "toc do",
+      "crowdsource", "khung giờ tắc", "khung gio tac"
+    ],
+    answer: "Hệ thống dùng **hệ số tắc đường empirical 4 lớp** để ước lượng thời gian di chuyển thực tế (không chỉ khoảng cách):\n\n1. **Lớp giờ** — Theo giờ trong ngày (rush hour 7-9h và 17-19h hệ số cao, 22h-5h thấp).\n2. **Lớp thứ** — Theo thứ trong tuần (T2-T6 cao hơn T7-CN).\n3. **Lớp vùng** — Theo khu vực (nội thành cao hơn ngoại thành/cao tốc).\n4. **Lớp crowdsource** — Cập nhật từ thực tế lịch sử Trip: nếu chạy chậm hơn dự kiến nhiều lần → nâng hệ số vùng/giờ đó.\n\n**Cấu hình:** Mỗi org có bảng riêng. Backend tự cập nhật lớp 4 hàng ngày qua background job từ Trip history. Lớp 1-3 chỉnh thủ công nếu cần (chưa có UI, sửa trong code/db tạm)."
+  },
+  {
+    title: "Đăng ký tổ chức mới và signup",
+    keywords: [
+      "đăng ký", "dang ky", "signup", "sign up", "tạo tài khoản", "tao tai khoan",
+      "đăng ký tổ chức", "dang ky to chuc", "tạo tổ chức mới", "tao to chuc moi",
+      "self-signup", "user mới", "user moi"
+    ],
+    answer: "TMS hỗ trợ **self-signup** (tự đăng ký) để user mới tạo tổ chức của riêng họ:\n1. Vào trang `/signup` (nút **Đăng ký** ở góc phải trang login).\n2. Nhập: Email, Mật khẩu, Tên tổ chức.\n3. Bấm **Đăng ký** — hệ thống tự tạo:\n   - 1 User với role **Organization Admin**.\n   - 1 Organization mới (multi-tenant data riêng).\n   - Email verify (nếu bật `EMAIL_VERIFY_REQUIRED`).\n4. Vào Dashboard, bấm **Tải dữ liệu mẫu** để có data demo nhanh.\n5. Sau đó **Mời thêm user** (Quản trị > Người dùng > Mời) — đồng nghiệp dùng chung tổ chức.\n\nKhác với **Mời user** (Admin tạo cho người khác), signup là **user tự tạo**."
+  },
+  {
+    title: "Đổi ngôn ngữ Tiếng Việt / English",
+    keywords: [
+      "đổi ngôn ngữ", "doi ngon ngu", "language", "tiếng anh", "tieng anh",
+      "i18n", "switch language", "english", "vietnamese", "chuyển ngôn ngữ", "chuyen ngon ngu"
+    ],
+    answer: "Đổi ngôn ngữ giao diện (Việt ↔ English):\n1. Bấm nút **🌐 English / Tiếng Việt** ở **góc dưới bên trái** sidebar.\n2. UI đổi ngay lập tức (không cần refresh).\n3. Tuỳ chọn lưu local — lần đăng nhập sau tự nhớ.\n\nHệ thống dùng i18n keys (xem [i18n.jsx](frontend-web/src/i18n.jsx)). Hiện hỗ trợ **VI** (default) và **EN**. App mobile tài xế cũng có nút đổi tương tự trong Settings."
+  },
+  {
+    title: "Reset hoặc nạp lại dữ liệu demo",
+    keywords: [
+      "reset demo", "xoá demo", "xoa demo", "nạp lại demo", "nap lai demo",
+      "demo data", "demo bị lỗi", "demo bi loi", "load demo nhiều lần", "load demo nhieu lan",
+      "demo trùng", "demo trung", "duplicate demo"
+    ],
+    answer: "**Nạp demo:** Dashboard → nút **Tải dữ liệu mẫu**. Tạo: khách hàng DEMO-KH-XX, sản phẩm DEMO-P-XX, xe DEMO-XE-XX, dịch vụ 3PL, 50+ đơn hàng PENDING.\n\n**Xoá demo:** Dashboard → nút **Xoá demo**. Chỉ xoá data có prefix `DEMO-*`, **không đụng** data thật bạn nhập.\n\n**Nạp nhiều lần:** Hệ thống upsert theo Mã (CustomerCode, ProductCode...) nên KHÔNG bị trùng KH/SP/XE. Riêng **đơn hàng** mỗi lần tạo mới (OrderCode có timestamp) — nạp lại sẽ thêm đợt đơn mới, không xoá đợt cũ.\n\n**Muốn reset sạch:** Bấm Xoá demo trước → Tải lại → ra 1 bộ demo mới hoàn toàn."
+  },
+  {
     title: "Thông báo trên app tài xế",
     keywords: [
       "thông báo app", "thong bao app", "notification", "icon chuông", "icon chuong",

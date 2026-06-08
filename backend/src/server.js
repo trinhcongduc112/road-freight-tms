@@ -25,7 +25,11 @@ async function bootstrap() {
   await connectDatabase();
 
   const app = express();
-  app.set("trust proxy", 1);
+  // Trust proxy: whitelist các dải IP nội bộ (loopback + LAN + docker bridge).
+  // "uniquelocal" cover 10.0.0.0/8 + 172.16.0.0/12 + 192.168.0.0/16 — đúng dải
+  // docker-compose hay nginx host dùng. Khi đó req.ip lấy đúng IP user thật từ
+  // X-Forwarded-For (nginx đã set), thay vì trả về 172.18.0.1 (docker gateway).
+  app.set("trust proxy", ["loopback", "linklocal", "uniquelocal"]);
 
   app.use(helmet());
   /* CORS đa origin:
