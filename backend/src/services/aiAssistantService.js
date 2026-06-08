@@ -108,14 +108,14 @@ function scoreOf(q, item) {
 }
 
 const INTENT_KEYWORDS = {
-  orders: ["đơn hàng", "đơn", "order", "sales order", "chưa duyệt", "chưa giao", "chưa vào kế hoạch"],
-  vehicles: ["xe", "phương tiện", "vehicle", "trọng tải", "thể tích", "tải trọng"],
-  drivers: ["tài xế", "driver", "tai xe", "tài"],
-  routes: ["lộ trình", "tuyến", "route", "delivery route", "kế hoạch", "plan"],
-  trips: ["chuyến", "trip", "đang chạy", "in_progress", "ongoing"],
-  incidents: ["sự cố", "incident", "tai nạn", "hỏng xe", "kẹt đường", "deviation"],
-  customers: ["khách hàng", "customer", "khách"],
-  products: ["sản phẩm", "product", "mặt hàng"]
+  orders: ["đơn hàng", "đơn", "order", "sales order", "chưa duyệt", "chưa giao", "chưa vào kế hoạch", "pending", "approved", "delivered"],
+  vehicles: ["xe", "phương tiện", "vehicle", "trọng tải", "thể tích", "tải trọng", "fleet", "đầu kéo"],
+  drivers: ["tài xế", "driver", "tai xe", "tài", "bác tài", "lái xe"],
+  routes: ["lộ trình", "tuyến", "route", "delivery route", "kế hoạch", "plan", "planning"],
+  trips: ["chuyến", "trip", "đang chạy", "in_progress", "ongoing", "in progress", "hoàn thành chuyến"],
+  incidents: ["sự cố", "incident", "tai nạn", "hỏng xe", "kẹt đường", "deviation", "lệch tuyến", "hư xe", "tai nan"],
+  customers: ["khách hàng", "customer", "khách", "client"],
+  products: ["sản phẩm", "product", "mặt hàng", "hàng hoá", "hang hoa"]
 };
 
 function detectIntents(question) {
@@ -216,9 +216,10 @@ function buildHistory(messages = []) {
     }));
 }
 
-// Threshold cao hơn để tránh false-positive khi câu hỏi không liên quan
-// (vd "AI tự đánh giá mấy điểm" có thể match nhầm các keyword "import", "tự"...)
-const KNOWLEDGE_MIN_SCORE = 5;
+// Threshold để cân bằng giữa recall và false-positive.
+// 4: bắt được câu hỏi 2-keyword (vd "tạo đơn" + "hàng" = 4+) mà vẫn loại noise
+// (câu kiểu "AI tự đánh giá mấy điểm" thường chỉ match 1 keyword đơn → score < 4).
+const KNOWLEDGE_MIN_SCORE = 4;
 
 const OUT_OF_SCOPE_MESSAGE =
   "Mình chỉ trả lời được các câu hỏi liên quan đến hệ thống quản lý vận tải Road Freight TMS " +
