@@ -10,6 +10,7 @@ import { Driver } from "../models/Driver.js";
 import { RoleGroup, RoleGroupKind } from "../models/RoleGroup.js";
 import { User, UserStatus, FunctionRole } from "../models/User.js";
 import { ApiError } from "../utils/apiError.js";
+import { flushOrgCache } from "../utils/cache.js";
 import {
   DELIVERER_TEMPLATE_PERMISSIONS,
   PLANNER_DISPATCHER_TEMPLATE_PERMISSIONS,
@@ -86,8 +87,11 @@ async function clearDemoFromOrg(orgId) {
     ProductCategory.deleteMany({ ...filter, CategoryCode: re }),
     Vehicle.deleteMany({ ...filter, VehicleCode: re }),
     Service.deleteMany({ ...filter, ServiceCode: re }),
-    RoleGroup.deleteMany({ XCode: re }),
+    // BẮT BUỘC scope theo org — nếu không, clear của org A sẽ xoá demo của TẤT CẢ org.
+    // RoleGroup có OrganizationID (singular). User có OrganizationIDs (mảng, $in match phần tử bất kỳ).
+    RoleGroup.deleteMany({ ...filter, XCode: re }),
     User.deleteMany({
+      OrganizationIDs: { $in: orgIds },
       $or: [
         { XCode: re },
         { UserName: demoUserRe },
@@ -498,6 +502,9 @@ export async function seedDemo(req, res) {
 
   await SalesOrder.insertMany(orders);
 
+  // Flush cache org để user không thấy data rỗng cũ sau khi seed
+  await flushOrgCache(orgId);
+
   res.status(201).json({
     success: true,
     message: `Đã thêm dữ liệu mẫu vào tổ chức '${org.XName}'`,
@@ -515,6 +522,8 @@ export async function clearDemo(req, res) {
   assertDemoAccess(req);
   const orgId = getUserOrgId(req);
   const counts = await clearDemoFromOrg(orgId);
+  // Flush cache để user không thấy data cũ sau khi xoá
+  await flushOrgCache(orgId);
   res.json({ success: true, message: "Đã xóa toàn bộ dữ liệu demo khỏi tổ chức của bạn", data: { counts } });
 }
 

@@ -121,6 +121,35 @@ export async function invalidateCache(orgId, resource) {
 }
 
 /**
+ * Flush MỌI cache key của 1 org. Dùng sau bulk operation (seed demo, clear demo,
+ * import Excel hàng loạt) — chứ không phải fire từng `invalidateCache(orgId, resource)`.
+ *
+ * @param {string} orgId
+ */
+export async function flushOrgCache(orgId) {
+  const client = getRedis();
+  if (!client || client.status !== "ready") return;
+  const pattern = `v1:${orgId}:*`;
+  try {
+    const stream = client.scanStream({ match: pattern, count: 200 });
+    const pipeline = client.pipeline();
+    let count = 0;
+    for await (const keys of stream) {
+      if (keys.length) {
+        keys.forEach((k) => pipeline.del(k));
+        count += keys.length;
+      }
+    }
+    if (count > 0) {
+      await pipeline.exec();
+      logger.info(`[cache] flushed ${count} keys for org ${orgId}`);
+    }
+  } catch (err) {
+    logger.warn(`[cache] flushOrgCache failed: ${err.message}`);
+  }
+}
+
+/**
  * Express middleware: invalidate cache của resource hiện tại sau write request.
  * Dùng cho POST/PUT/PATCH/DELETE — đặt SAU controller (express trigger middleware sau res.end).
  *
