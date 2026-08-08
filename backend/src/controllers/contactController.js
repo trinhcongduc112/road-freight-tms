@@ -1,6 +1,8 @@
 import { env } from "../config/env.js";
 import { ApiError } from "../utils/apiError.js";
 import { sendEmail } from "../services/emailService.js";
+import { isDisposableEmail } from "../utils/disposableDomains.js";
+import { checkDomainRateLimit } from "../utils/domainRateLimit.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -42,6 +44,21 @@ export async function submitContact(req, res) {
   if (!fullName) throw new ApiError(400, "Vui lòng nhập họ tên");
   if (!isValidEmail(email)) throw new ApiError(400, "Email không hợp lệ");
   if (!messageBody || messageBody.length < 5) throw new ApiError(400, "Vui lòng nhập lời nhắn");
+
+  // Chặn disposable email (email tạm)
+  if (isDisposableEmail(email)) {
+    throw new ApiError(400, "Email không hợp lệ");
+  }
+
+  // Rate limit theo domain
+  const domain = email.split("@")[1]?.toLowerCase();
+  const domainCheck = await checkDomainRateLimit(domain);
+  if (!domainCheck.allowed) {
+    throw new ApiError(
+      429,
+      `Quá nhiều liên hệ từ domain này. Vui lòng thử lại sau ${Math.ceil(domainCheck.resetIn / 60)} phút.`
+    );
+  }
 
   const submittedAt = new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
   const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
