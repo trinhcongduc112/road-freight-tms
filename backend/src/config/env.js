@@ -8,17 +8,6 @@ function required(key, fallback) {
   return value;
 }
 
-function requiredSecret(key, fallback) {
-  const value = required(key, fallback);
-  if (process.env.NODE_ENV === "production") {
-    if (!process.env[key]) throw new Error(`Missing required production secret: ${key}`);
-    if (String(value).includes("dev-") || String(value).length < 32) {
-      throw new Error(`Weak production secret: ${key}`);
-    }
-  }
-  return value;
-}
-
 function bool(key, fallback = false) {
   const v = process.env[key];
   if (v === undefined || v === null || v === "") return fallback;
@@ -36,9 +25,9 @@ export const env = {
   mongoUri: required("MONGODB_URI", "mongodb://localhost:27017/road_freight"),
   // Redis cache + distributed rate-limit. Để rỗng → fallback chạy không cache (vẫn work, throughput thấp hơn).
   redisUrl: process.env.REDIS_URL ?? "",
-  jwtSecret: requiredSecret("JWT_SECRET", "dev-secret-change-me"),
+  jwtSecret: required("JWT_SECRET", "dev-secret-change-me"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",       // dev: 7d | production: set "15m" qua env
-  refreshJwtSecret: requiredSecret("REFRESH_JWT_SECRET", "dev-refresh-secret-change-me"),
+  refreshJwtSecret: required("REFRESH_JWT_SECRET", "dev-refresh-secret-change-me"),
   refreshJwtExpiresIn: process.env.REFRESH_JWT_EXPIRES_IN ?? "30d",
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
   /* CORS allowed origins — CSV. Hỗ trợ nhiều domain (production có nhiều subdomain

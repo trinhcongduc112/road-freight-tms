@@ -55,8 +55,7 @@ export default function RegisterPage() {
         Email: values.Email,
         FullName: values.FullName,
         Phone: values.Phone,
-        Password: values.Password,
-        hp: values.hp
+        Password: values.Password
       });
       if (res?.devVerifyLink) setDevLink(res.devVerifyLink);
       setDone(values.Email);
@@ -100,9 +99,6 @@ export default function RegisterPage() {
   return (
     <AuthShell title={t("auth.register.title")} subtitle={t("auth.register.subtitle")}>
       <Form form={form} layout="vertical" onFinish={onSubmit} requiredMark={false} size="large">
-        <Form.Item name="hp" style={{ display: "none" }}>
-          <Input tabIndex={-1} autoComplete="off" />
-        </Form.Item>
         <Form.Item
           name="Email"
           label={t("auth.common.email")}
