@@ -31,7 +31,6 @@ export const authRateLimiter = rateLimit({
   max: isDev ? 200 : 20,
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore(),
   message: { success: false, error: "Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút." }
 });
 
@@ -40,7 +39,6 @@ export const strictAuthRateLimiter = rateLimit({
   max: isDev ? 100 : 5,
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore(),
   message: { success: false, error: "Quá nhiều yêu cầu nhạy cảm. Vui lòng thử lại sau 1 giờ." }
 });
 
