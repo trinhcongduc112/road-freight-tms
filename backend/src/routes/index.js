@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authenticate } from "../middlewares/auth.js";
 import { authRouter } from "./authRoutes.js";
 import { demoRouter } from "./demoRoutes.js";
 import { masterDataRouter } from "./masterDataRoutes.js";
@@ -41,8 +42,8 @@ apiRouter.use("/track", trackingRouter);
 apiRouter.use("/maintenance", maintenanceRouter);
 apiRouter.use("/payroll", payrollRouter);
 
-apiRouter.get("/system/health", asyncHandler(systemHealth));
-apiRouter.get("/system/metrics", asyncHandler(systemMetrics));
+apiRouter.get("/system/health", authenticate, asyncHandler(systemHealth));
+apiRouter.get("/system/metrics", authenticate, asyncHandler(systemMetrics));
 
 apiRouter.get("/", (_req, res) => {
   res.json({

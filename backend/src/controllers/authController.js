@@ -20,6 +20,7 @@ import {
 } from "../services/emailService.js";
 import { logger } from "../utils/logger.js";
 import { env, isProduction } from "../config/env.js";
+import { isSuspiciousSignupText, validateSignupEmail } from "../utils/emailValidation.js";
 
 function toUserDTO(user) {
   return {
@@ -66,16 +67,35 @@ async function generateOrgCode(companyName) {
  * Đơn giản như Abivin: Email + FullName + CompanyName + Phone + Password.
  * OrgCode và UserName được tự sinh — người dùng không cần biết.
  * User được tạo ở trạng thái PENDING_VERIFY → cần xác thực email mới đăng nhập được.
+ *
+ * Chống spam:
+ *   - Honeypot `hp` — bot điền field ẩn → trả 201 giả, không tạo user / không gửi mail.
+ *   - Block domain rác (example.com, test.com, disposable…) + local-part pentest/fuzz.
  */
 export async function register(req, res) {
-  const { CompanyName, Email, Password, FullName, Phone } = req.body ?? {};
+  const { CompanyName, Email, Password, FullName, Phone, hp } = req.body ?? {};
+
+  // Honeypot: bot tự điền → silent success, không tốn DB/SMTP
+  if (typeof hp === "string" && hp.trim().length > 0) {
+    logger.warn("[register] honeypot triggered", { ip: req.ip, email: Email });
+    return res.status(201).json({
+      success: true,
+      message: "Registered. Please check your email to verify your account.",
+      data: { user: null }
+    });
+  }
 
   if (!CompanyName || !Email || !Password) {
     throw new ApiError(400, "CompanyName, Email và Password là bắt buộc");
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(Email)) {
-    throw new ApiError(400, "Email không đúng định dạng");
+
+  if ([CompanyName, FullName, Phone].some(isSuspiciousSignupText)) {
+    throw new ApiError(400, "Thông tin đăng ký không hợp lệ");
   }
+
+  const emailCheck = validateSignupEmail(Email);
+  if (!emailCheck.ok) throw new ApiError(400, emailCheck.reason);
+
   if (Password.length < 8) {
     throw new ApiError(400, "Mật khẩu phải có ít nhất 8 ký tự");
   }
@@ -84,7 +104,7 @@ export async function register(req, res) {
     throw new ApiError(400, "Mật khẩu phải có chữ hoa, chữ thường, số và ký tự đặc biệt");
   }
 
-  const emailLower = Email.toLowerCase();
+  const emailLower = emailCheck.email;
   const existed = await User.findOne({ Email: emailLower });
   if (existed) throw new ApiError(409, "Email đã được đăng ký");
 
@@ -205,7 +225,13 @@ export async function resendVerification(req, res) {
   const { email } = req.body ?? {};
   if (!email) throw new ApiError(400, "Email is required");
 
-  const user = await User.findOne({ Email: email.toLowerCase() });
+  const emailCheck = validateSignupEmail(email);
+  // Domain rác / format sai: vẫn 200 generic — không gửi mail, không leak.
+  if (!emailCheck.ok) {
+    return res.json({ success: true, message: "If the email exists, a verification link has been sent." });
+  }
+
+  const user = await User.findOne({ Email: emailCheck.email });
   // Trả về 200 để không leak việc email có tồn tại hay không.
   if (!user || user.Status !== UserStatus.PENDING_VERIFY) {
     return res.json({ success: true, message: "If the email exists, a verification link has been sent." });
